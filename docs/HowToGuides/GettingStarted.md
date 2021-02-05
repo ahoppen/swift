@@ -137,6 +137,7 @@ Double-check that running `pwd` prints a path ending with `swift`.
      ```sh
      brew install cmake ninja sccache
      ```
+     ⚠️ Since version 0.13.4, `sccache` no longer caches compile commands issued by `build-script` because of [this](https://github.com/mozilla/sccache/pull/898) change and since `build-script` adds the `-arch x86_64` argument twice.
    - Via [Homebrew Bundle][]:
      ```sh
      brew bundle
