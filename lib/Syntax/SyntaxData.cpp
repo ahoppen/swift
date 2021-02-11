@@ -15,53 +15,80 @@
 using namespace swift;
 using namespace swift::syntax;
 
-SyntaxData SyntaxData::make(AbsoluteRawSyntax AbsoluteRaw,
-                            const RC<RefCountedBox<SyntaxData>> &Parent) {
-  return SyntaxData(AbsoluteRaw, Parent);
-}
+// MARK: - SyntaxDataRef
 
-SyntaxData SyntaxData::replacingSelf(const RC<RawSyntax> &NewRaw) const {
-  if (hasParent()) {
-    auto NewRoot = getParent()->replacingChild(NewRaw, getIndexInParent());
-    auto NewRootBox = RefCountedBox<SyntaxData>::make(NewRoot);
-    auto NewSelf = AbsoluteRaw.replacingSelf(
-        NewRaw, NewRoot.AbsoluteRaw.getNodeId().getRootId());
-    return SyntaxData(NewSelf, NewRootBox);
+Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
+    AbsoluteSyntaxPosition::IndexInParentType Index) const {
+  auto AbsoluteRaw = getAbsoluteRawRef().getChildRef(Index);
+  if (AbsoluteRaw) {
+    return SyntaxDataRef(*AbsoluteRaw, /*Parent=*/this);
   } else {
-    auto NewSelf = AbsoluteRawSyntax::forRoot(NewRaw);
-    return SyntaxData(NewSelf, /*Parent=*/nullptr);
+    return None;
   }
 }
 
-bool SyntaxData::isType() const { return getRaw()->isType(); }
+AbsoluteOffsetPosition
+SyntaxDataRef::getAbsolutePositionBeforeLeadingTrivia() const {
+  return AbsoluteRaw.getPosition();
+}
 
-bool SyntaxData::isStmt() const { return getRaw()->isStmt(); }
+AbsoluteOffsetPosition
+SyntaxDataRef::getAbsolutePositionAfterLeadingTrivia() const {
+  if (auto FirstToken = getAbsoluteRawRef().getFirstTokenRef()) {
+    return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
+        FirstToken->getRawRef()->getLeadingTriviaLength());
+  } else {
+    return getAbsolutePositionBeforeLeadingTrivia();
+  }
+}
 
-bool SyntaxData::isDecl() const { return getRaw()->isDecl(); }
+AbsoluteOffsetPosition
+SyntaxDataRef::getAbsoluteEndPositionBeforeTrailingTrivia() const {
+  if (auto LastToken = getAbsoluteRawRef().getLastTokenRef()) {
+    return getAbsoluteEndPositionAfterTrailingTrivia().advancedBy(
+        -LastToken->getRawRef()->getTrailingTriviaLength());
+  } else {
+    return getAbsoluteEndPositionAfterTrailingTrivia();
+  }
+}
 
-bool SyntaxData::isExpr() const { return getRaw()->isExpr(); }
+AbsoluteOffsetPosition
+SyntaxDataRef::getAbsoluteEndPositionAfterTrailingTrivia() const {
+  return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
+      getRawRef()->getTextLength());
+}
 
-bool SyntaxData::isPattern() const { return getRaw()->isPattern(); }
-
-bool SyntaxData::isUnknown() const { return getRaw()->isUnknown(); }
-
-void SyntaxData::dump(llvm::raw_ostream &OS) const {
-  getRaw()->dump(OS, 0);
+void SyntaxDataRef::dump(llvm::raw_ostream &OS) const {
+  getRawRef()->dump(OS, 0);
   OS << '\n';
 }
 
-void SyntaxData::dump() const { dump(llvm::errs()); }
+void SyntaxDataRef::dump() const { dump(llvm::errs()); }
+
+// MARK: - SyntaxData
+
+Optional<SyntaxData>
+SyntaxData::getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
+  auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
+  if (AbsoluteRaw) {
+    return SyntaxData(*AbsoluteRaw, /*Parent=*/*this);
+  } else {
+    return None;
+  }
+}
 
 Optional<SyntaxData> SyntaxData::getPreviousNode() const {
   if (size_t N = getIndexInParent()) {
     if (hasParent()) {
       for (size_t I = N - 1; ; --I) {
         if (auto C = getParent()->getChild(I)) {
-          if (C->getRaw()->isPresent() && C->getFirstToken())
+          if (C->getRaw()->isPresent() && C->getFirstToken() != None) {
             return C;
+          }
         }
-        if (I == 0)
+        if (I == 0) {
           break;
+        }
       }
     }
   }
@@ -70,11 +97,12 @@ Optional<SyntaxData> SyntaxData::getPreviousNode() const {
 
 Optional<SyntaxData> SyntaxData::getNextNode() const {
   if (hasParent()) {
-    for (size_t I = getIndexInParent() + 1, N = getParent()->getNumChildren();
-         I != N; ++I) {
+    size_t NumChildren = getParent()->getNumChildren();
+    for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
       if (auto C = getParent()->getChild(I)) {
-        if (C->getRaw()->isPresent() && C->getFirstToken())
+        if (C->getRaw()->isPresent() && C->getFirstToken() != None) {
           return C;
+        }
       }
     }
     return getParent()->getNextNode();
@@ -83,17 +111,21 @@ Optional<SyntaxData> SyntaxData::getNextNode() const {
 }
 
 Optional<SyntaxData> SyntaxData::getFirstToken() const {
-  if (getRaw()->isToken()) {
+  /// getFirstToken and getLastToken cannot be implemented on SyntaxDataRef
+  /// because we might need to traverse through multiple nodes to reach the
+  /// first token. When returning this token, the parent nodes are being
+  /// discarded and thus its parent pointer would point to invalid memory.
+  if (getRawRef()->isToken() && !getRawRef()->isMissing()) {
     return *this;
   }
 
   for (size_t I = 0, E = getNumChildren(); I < E; ++I) {
     if (auto Child = getChild(I)) {
-      if (Child->getRaw()->isMissing())
+      if (Child->getRawRef()->isMissing()) {
         continue;
-      if (Child->getRaw()->isToken()) {
-        return Child;
-      } else if (auto Token = Child->getFirstToken()) {
+      }
+
+      if (auto Token = Child->getFirstToken()) {
         return Token;
       }
     }
@@ -102,7 +134,8 @@ Optional<SyntaxData> SyntaxData::getFirstToken() const {
 }
 
 Optional<SyntaxData> SyntaxData::getLastToken() const {
-  if (getRaw()->isToken() && !getRaw()->isMissing()) {
+  // Also see comment in getFirstToken.
+  if (getRawRef()->isToken() && !getRawRef()->isMissing()) {
     return *this;
   }
 
@@ -111,12 +144,11 @@ Optional<SyntaxData> SyntaxData::getLastToken() const {
   }
   for (int I = getNumChildren() - 1; I >= 0; --I) {
     if (auto Child = getChild(I)) {
-      if (Child->getRaw()->isMissing()) {
+      if (Child->getRawRef()->isMissing()) {
         continue;
       }
-      if (Child->getRaw()->isToken()) {
-        return Child;
-      } else if (auto Token = Child->getLastToken()) {
+
+      if (auto Token = Child->getLastToken()) {
         return Token;
       }
     }
@@ -124,57 +156,14 @@ Optional<SyntaxData> SyntaxData::getLastToken() const {
   return None;
 }
 
-Optional<SyntaxData>
-SyntaxData::getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  if (!getRaw()->getChild(Index)) {
-    return None;
-  }
-  /// FIXME: Start from the back (advancedToEndOfChildren) and reverse from
-  /// there if Index is closer to the end as a performance improvement?
-  AbsoluteSyntaxPosition Position =
-      AbsoluteRaw.getInfo().getPosition().advancedToFirstChild();
-  SyntaxIdentifier NodeId =
-      AbsoluteRaw.getInfo().getNodeId().advancedToFirstChild();
-
-  for (size_t I = 0; I < Index; ++I) {
-    Position = Position.advancedBy(getRaw()->getChild(I));
-    NodeId = NodeId.advancedBy(getRaw()->getChild(I));
-  }
-  AbsoluteSyntaxInfo Info(Position, NodeId);
-
-  const RC<RefCountedBox<SyntaxData>> RefCountedParent =
-      RefCountedBox<SyntaxData>::make(*this);
-  return SyntaxData(AbsoluteRawSyntax(getRaw()->getChild(Index), Info),
-                    RefCountedParent);
-}
-
-AbsoluteOffsetPosition
-SyntaxData::getAbsolutePositionBeforeLeadingTrivia() const {
-  return AbsoluteRaw.getPosition();
-}
-
-AbsoluteOffsetPosition
-SyntaxData::getAbsolutePositionAfterLeadingTrivia() const {
-  if (auto FirstToken = getFirstToken()) {
-    return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
-        FirstToken->getRaw()->getLeadingTriviaLength());
+SyntaxData SyntaxData::replacingSelf(const RC<RawSyntax> &NewRaw) const {
+  if (hasParent()) {
+    auto NewRoot = getParent()->replacingChild(NewRaw, getIndexInParent());
+    auto NewSelf = getAbsoluteRaw().replacingSelf(
+        NewRaw, NewRoot.AbsoluteRaw.getNodeId().getRootId());
+    return SyntaxData(NewSelf, NewRoot);
   } else {
-    return getAbsolutePositionBeforeLeadingTrivia();
+    auto NewSelf = AbsoluteRawSyntax::forRoot(NewRaw);
+    return SyntaxData(NewSelf, /*Parent=*/nullptr);
   }
-}
-
-AbsoluteOffsetPosition
-SyntaxData::getAbsoluteEndPositionBeforeTrailingTrivia() const {
-  if (auto LastToken = getLastToken()) {
-    return getAbsoluteEndPositionAfterTrailingTrivia().advancedBy(
-        -LastToken->getRaw()->getTrailingTriviaLength());
-  } else {
-    return getAbsoluteEndPositionAfterTrailingTrivia();
-  }
-}
-
-AbsoluteOffsetPosition
-SyntaxData::getAbsoluteEndPositionAfterTrailingTrivia() const {
-  return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
-      getRaw()->getTextLength());
 }
