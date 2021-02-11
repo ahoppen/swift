@@ -155,6 +155,11 @@ public:
   bool isInvalid() const { return !isValid(); }
 
   bool operator==(const CharSourceRange &other) const {
+    if (!isValid() && !other.isValid()) {
+      // If both ranges are invalid, consider then equal even if their
+      // (arbitrary) ByteLengths differ.
+      return true;
+    }
     return Start == other.Start && ByteLength == other.ByteLength;
   }
   bool operator!=(const CharSourceRange &other) const {
