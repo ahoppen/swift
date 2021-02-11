@@ -17,48 +17,10 @@ using namespace swift;
 using namespace swift::syntax;
 using namespace llvm;
 
-ParsedRawSyntaxNode
-ParsedRawSyntaxNode::makeDeferred(SyntaxKind k,
-                                  MutableArrayRef<ParsedRawSyntaxNode> deferredNodes,
-                                  SyntaxParsingContext &ctx) {
-  CharSourceRange range;
-  if (deferredNodes.empty()) {
-    return ParsedRawSyntaxNode(k, range, {});
-  }
-  ParsedRawSyntaxNode *newPtr =
-    ctx.getScratchAlloc().Allocate<ParsedRawSyntaxNode>(deferredNodes.size());
-
-#ifndef NDEBUG
-  ParsedRawSyntaxRecorder::verifyElementRanges(deferredNodes);
-#endif
-  auto ptr = newPtr;
-  for (auto &node : deferredNodes) {
-    // Cached range.
-    if (!node.isNull() && !node.isMissing()) {
-      auto nodeRange = node.getDeferredRange();
-      if (nodeRange.isValid()) {
-        if (range.isInvalid())
-          range = nodeRange;
-        else
-          range.widen(nodeRange);
-      }
-    }
-
-    // uninitialized move;
-    :: new (static_cast<void *>(ptr++)) ParsedRawSyntaxNode(std::move(node));
-  }
-  return ParsedRawSyntaxNode(k, range,
-                             makeMutableArrayRef(newPtr, deferredNodes.size()));
-}
-
-ParsedRawSyntaxNode
-ParsedRawSyntaxNode::makeDeferred(Token tok, StringRef leadingTrivia,
-                                  StringRef trailingTrivia,
-                                  SyntaxParsingContext &ctx) {
-  CharSourceRange tokRange = tok.getRange();
-  return ParsedRawSyntaxNode(tok.getKind(), tokRange.getStart(),
-                             tokRange.getByteLength(), leadingTrivia,
-                             trailingTrivia);
+ParsedRawSyntaxNode ParsedRawSyntaxNode::getDeferredChild(
+    size_t ChildIndex, const SyntaxParsingContext *SyntaxContext) const {
+  assert(isDeferredLayout());
+  return SyntaxContext->getRecorder().getDeferredChild(*this, ChildIndex);
 }
 
 void ParsedRawSyntaxNode::dump() const {
@@ -87,16 +49,15 @@ void ParsedRawSyntaxNode::dump(llvm::raw_ostream &OS, unsigned Indent) const {
     case DataKind::DeferredLayout:
       dumpSyntaxKind(OS, getKind());
       OS << " [deferred]";
-      for (const auto &child : getDeferredChildren()) {
-        OS << "\n";
-        child.dump(OS, Indent + 2);
-      }
+      OS << "<layout>";
       break;
     case DataKind::DeferredToken:
       dumpSyntaxKind(OS, getKind());
       OS << " [deferred] ";
       dumpTokenKind(OS, getTokenKind());
       break;
+    case DataKind::Destroyed:
+      OS << " [destroyed] ";
   }
   OS << ')';
 }
