@@ -499,6 +499,9 @@ namespace swift {
     /// Add a character-based range to the currently-active diagnostic.
     InFlightDiagnostic &highlightChars(SourceLoc Start, SourceLoc End);
 
+    /// Add a character-based range to the currently-active diagnostic.
+    InFlightDiagnostic &highlightChars(CharSourceRange Range);
+
     static const char *fixItStringFor(const FixItID id);
 
     /// Add a token-based replacement fix-it to the currently-active
@@ -520,6 +523,16 @@ namespace swift {
                       typename detail::PassArgument<ArgTypes>::type... VArgs) {
       DiagnosticArgument DiagArgs[] = { std::move(VArgs)... };
       return fixItReplaceChars(Start, End, fixItStringFor(fixIt.ID), DiagArgs);
+    }
+
+    /// Add a character-based replacement fix-it to the currently-active
+    /// diagnostic.
+    template <typename... ArgTypes>
+    InFlightDiagnostic &
+    fixItReplaceChars(CharSourceRange Range, StructuredFixIt<ArgTypes...> fixIt,
+                      typename detail::PassArgument<ArgTypes>::type... VArgs) {
+      DiagnosticArgument DiagArgs[] = {std::move(VArgs)...};
+      return fixItReplaceChars(Range, fixItStringFor(fixIt.ID), DiagArgs);
     }
 
     /// Add an insertion fix-it to the currently-active diagnostic.
@@ -552,6 +565,13 @@ namespace swift {
       return fixItReplaceChars(Start, End, "%0", {Str});
     }
 
+    /// Add a character-based replacement fix-it to the currently-active
+    /// diagnostic.
+    InFlightDiagnostic &fixItReplaceChars(CharSourceRange Range,
+                                          StringRef Str) {
+      return fixItReplaceChars(Range, "%0", {Str});
+    }
+
     /// Add an insertion fix-it to the currently-active diagnostic.
     InFlightDiagnostic &fixItInsert(SourceLoc L, StringRef Str) {
       return fixItReplaceChars(L, L, "%0", {Str});
@@ -573,6 +593,12 @@ namespace swift {
       return fixItReplaceChars(Start, End, {});
     }
 
+    /// Add a character-based removal fix-it to the currently-active
+    /// diagnostic.
+    InFlightDiagnostic &fixItRemoveChars(CharSourceRange Range) {
+      return fixItReplaceChars(Range, {});
+    }
+
     /// Add two replacement fix-it exchanging source ranges to the
     /// currently-active diagnostic.
     InFlightDiagnostic &fixItExchange(SourceRange R1, SourceRange R2);
@@ -582,6 +608,10 @@ namespace swift {
                                      ArrayRef<DiagnosticArgument> Args);
 
     InFlightDiagnostic &fixItReplaceChars(SourceLoc Start, SourceLoc End,
+                                          StringRef FormatString,
+                                          ArrayRef<DiagnosticArgument> Args);
+
+    InFlightDiagnostic &fixItReplaceChars(CharSourceRange Range,
                                           StringRef FormatString,
                                           ArrayRef<DiagnosticArgument> Args);
 

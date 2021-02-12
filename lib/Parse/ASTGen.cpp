@@ -36,6 +36,37 @@ StringRef ASTGen::copyAndStripUnderscores(StringRef Orig) {
   return copyAndStripUnderscores(Orig, Context);
 }
 
+DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
+  TokenSyntaxRef baseName = DeclNameSyntax.getDeclBaseName();
+  DeclBaseName declBaseName;
+  switch (baseName.getTokenKind()) {
+  case tok::kw_init:
+    declBaseName = DeclBaseName::createConstructor();
+    break;
+  case tok::kw_deinit:
+    declBaseName = DeclBaseName::createDestructor();
+    break;
+  case tok::kw_subscript:
+    declBaseName = DeclBaseName::createSubscript();
+    break;
+  default:
+    declBaseName =
+        DeclBaseName(Context.getIdentifier(baseName.getIdentifierText()));
+    break;
+  }
+  if (DeclNameSyntax.getDeclNameArguments().hasValue()) {
+    SmallVector<Identifier, 2> argumentLabels;
+    auto arguments = DeclNameSyntax.getDeclNameArguments()->getArguments();
+    for (auto arg : arguments) {
+      auto argName = arg.getName().getIdentifierText();
+      argumentLabels.push_back(Context.getIdentifier(argName));
+    }
+    return DeclNameRef(DeclName(Context, declBaseName, argumentLabels));
+  } else {
+    return DeclNameRef(declBaseName);
+  }
+}
+
 //===--------------------------------------------------------------------===//
 // MARK: - Diagnostics
 

@@ -69,6 +69,9 @@ class ASTGen {
   /// generated
   SourceLoc PreviousTokLoc;
 
+  // TODO: (syntax-parse) Remove once function type parsing has been migrated.
+  /// Whether the type currently being generated is part of function type.
+  bool IsInFunctionType = false;
 public:
   ASTGen(ASTContext &Context, SourceManager &SourceMgr,
          CodeCompletionCallbacks *CodeCompletion, DiagnosticEngine &Diags,
@@ -131,11 +134,14 @@ private:
                      Diag<> MissingTypeDiag = diag::expected_type);
 
   TypeRepr *generate(const ArrayTypeSyntaxRef &Type);
+  TypeRepr *generate(const AttributedTypeSyntaxRef &Type);
   TypeRepr *generate(const CodeCompletionTypeSyntaxRef &Type);
   TypeRepr *generate(const DictionaryTypeSyntaxRef &Type);
   TypeRepr *generate(const MemberTypeIdentifierSyntaxRef &Type);
   TypeRepr *generate(const SimpleTypeIdentifierSyntaxRef &Type);
+  TypeRepr *generate(const TupleTypeSyntaxRef &Type);
   TypeRepr *generate(const UnknownTypeSyntaxRef &Type, Diag<> MissingTypeDiag);
+
 public:
   /// Add a \c TypeRepr occurring at \p Loc whose parsing hasn't been migrated
   /// to libSyntaxParsing yet. It can later be retrieved from \c ASTGen using
@@ -157,6 +163,13 @@ public:
   std::pair<SourceRange, SmallVector<TypeRepr *, 4>>
   generateGenericArgs(const GenericArgumentClauseSyntaxRef &ClauseSyntax);
 
+  /// Generate a \c TupleTypeRepr for the given tuple \p Elements and parens.
+  TupleTypeRepr *generateTuple(const TupleTypeElementListSyntaxRef &Elements,
+                               const SourceRange &RangeWithParens,
+                               bool IsInFunctionSignature);
+
+  TypeAttributes generateTypeAttributes(const AttributeListSyntaxRef &syntax);
+  
   /// Generate a \c ComponentIdentTypeRepr from a \c SimpleTypeIdentifierSyntax
   /// or \c MemberTypeIdentifierSyntax. If \c TypeSyntax is a \c
   /// MemberTypeIdentifierSyntax this will *not* walk its children. Use \c
@@ -177,6 +190,9 @@ public:
   /// so the semantic part of the value can be parsed by APInt/APFloat parsers.
   static StringRef copyAndStripUnderscores(StringRef Orig, ASTContext &Context);
 
+  DeclNameRef generateDeclNameRef(DeclNameSyntaxRef DeclName);
+
+  
   bool isInSILMode() { return Mode == LexerMode::SIL; }
 
   void setCodeCompletionCallbacks(CodeCompletionCallbacks *Callbacks) {
@@ -275,6 +291,20 @@ private:
   /// Return the \c CharSourceRange occupied by \p Node, excluding leading or
   /// trailing trivia.
   CharSourceRange getRangeWithoutTrivia(const SyntaxRef &Node);
+};
+
+class GeneratingFunctionTypeRAII {
+  ASTGen &ASTGenerator;
+  bool WasInFunctionType;
+  
+public:
+  GeneratingFunctionTypeRAII(ASTGen &ASTGenerator) : ASTGenerator(ASTGenerator), WasInFunctionType(ASTGenerator.IsInFunctionType) {
+    ASTGenerator.IsInFunctionType = true;
+  }
+  
+  ~GeneratingFunctionTypeRAII() {
+    ASTGenerator.IsInFunctionType = WasInFunctionType;
+  }
 };
 
 } // namespace swift

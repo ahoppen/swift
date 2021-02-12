@@ -63,7 +63,7 @@
                           "presence": "Present"
                         },
                         {
-                          "id": 16,
+                          "id": 17,
                           "kind": "TupleTypeElementList",
                           "layout": [
                             {
@@ -183,7 +183,7 @@
                           "presence": "Present"
                         },
                         {
-                          "id": 17,
+                          "id": 16,
                           "tokenKind": {
                             "kind": "r_paren"
                           },

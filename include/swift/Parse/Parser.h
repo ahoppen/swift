@@ -1003,6 +1003,24 @@ public:
                            bool SilenceDiag = false);
 
   //===--------------------------------------------------------------------===//
+  // MARK: - Utility functions for libSyntax
+
+  /// Parse a comma separated list of syntax elements with the TrailingComma
+  /// trait until a position is reached for which \p IsAtCloseTok returns \c
+  /// true. For each element, the \p Callback is invoked which should construct
+  /// the element of the comma-sparated list. The constructed element is then
+  /// added to \p Elements. \p AllowEmpty determines if an empty list should be
+  /// allowed and \p AllowSepAfterLast determines if trailing commas should be
+  /// allowed. The closing token of this list, e.g. the closing ')', is *not*
+  /// consumed by this function.
+  template <typename ParsedNode>
+  ParserStatus parseListSyntax(
+      SmallVectorImpl<ParsedNode> &Elements, bool AllowEmpty,
+      bool AllowSepAfterLast, llvm::function_ref<bool()> IsAtCloseTok,
+      llvm::function_ref<ParserStatus(typename ParsedNode::Builder &)>
+          Callback);
+
+  //===--------------------------------------------------------------------===//
   // Decl Parsing
 
   /// Returns true if parser is at the start of a Swift decl or decl-import.
@@ -1330,6 +1348,30 @@ public:
   //===--------------------------------------------------------------------===//
   // MARK: - Type Parsing using libSyntax
 
+  /// If \p Specifier and \p Attrs are not \c None, wrap the \p Type in an \c
+  /// AttributedTypeSyntax, applying the \p Specifier and \p Attrs. \p Type, \p
+  /// Specifier and \p Attrs are being moved to the newly created \c
+  /// AttributedTypeSyntax.
+  ParsedSyntaxResult<ParsedTypeSyntax>
+  applyAttributeToTypeSyntax(ParsedTypeSyntax &&Type,
+                             Optional<ParsedTokenSyntax> &&Specifier,
+                             Optional<ParsedAttributeListSyntax> &&Attrs);
+
+  /// Consume the current token as an argument label, treating all keywords as
+  /// identifiers.
+  /// Assumes that the current token can be an argument label.
+  ParsedTokenSyntax consumeArgumentLabelSyntax() {
+    assert(Tok.canBeArgumentLabel());
+    if (!Tok.is(tok::kw__)) {
+      Tok.setKind(tok::identifier);
+
+      if (Tok.getText()[0] == '$') {
+        diagnoseDollarIdentifier(Tok, /*diagnoseDollarPrefix=*/true);
+      }
+    }
+    return consumeTokenSyntax();
+  }
+
   ParsedSyntaxResult<ParsedTypeSyntax> parseTypeAnySyntax();
   
   ParsedSyntaxResult<ParsedTypeSyntax> parseTypeCollectionSyntax();
@@ -1353,6 +1395,8 @@ public:
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl = false);
   
+  ParsedSyntaxResult<ParsedTypeSyntax> parseTypeTupleBodySyntax();
+
   //===--------------------------------------------------------------------===//
   // Pattern Parsing
 

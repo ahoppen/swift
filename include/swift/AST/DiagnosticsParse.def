@@ -1366,6 +1366,10 @@ ERROR(attr_expected_comma,none,
 ERROR(attr_expected_string_literal,none,
 "expected string literal in '%0' attribute", (StringRef))
 
+ERROR(attr_expected_int_literal,none,
+      "expected integer literal in '%0' attribute", (StringRef))
+
+
 ERROR(attr_expected_option_such_as,none,
       "expected '%0' option such as '%1'", (StringRef, StringRef))
 
@@ -1502,6 +1506,8 @@ ERROR(convention_attribute_expected_lparen,none,
       "expected '(' after 'convention' attribute", ())
 ERROR(convention_attribute_expected_name,none,
       "expected convention name identifier in 'convention' attribute", ())
+ERROR(convention_attribute_unkown_name,none,
+      "unkonwn convention name in 'convention' attribute", ())
 ERROR(convention_attribute_expected_rparen,none,
       "expected ')' after convention name for 'convention' attribute", ())
 ERROR(convention_attribute_ctype_expected_label,none,
