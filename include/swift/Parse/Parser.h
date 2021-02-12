@@ -1394,6 +1394,10 @@ public:
     return consumeTokenSyntax();
   }
 
+  ParsedTokenSyntax consumeImplicitlyUnwrappedOptionalTokenSyntax();
+
+  ParsedTokenSyntax consumeOptionalTokenSyntax();
+
   ParsedSyntaxResult<ParsedTypeSyntax> parseTypeAnySyntax();
 
   ParsedSyntaxResult<ParsedTypeSyntax> parseTypeCollectionSyntax();
@@ -1417,6 +1421,11 @@ public:
 
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeOldStyleProtocolCompositionSyntax();
+
+  ParsedSyntaxResult<ParsedTypeSyntax>
+  parseTypeOldStyleArraySyntax(ParsedTypeSyntax, SourceLoc BaseLoc);
+  ParsedSyntaxResult<ParsedTypeSyntax> parseTypeSimpleSyntax(Diag<> MessageID);
+
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl = false);
 

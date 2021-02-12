@@ -102,7 +102,7 @@ public func requirementOnNonGenericFunction(x: Int, y: Int) {
 public func missingRequirement<X:P, Y>(x: X, y: Y) {
 }
 
-@_specialize(where) // expected-error{{expected type}}
+@_specialize(where) // expected-error{{expected type}} expected-error{{expected ':' or '==' to indicate a conformance or same-type requirement}}
 @_specialize() // expected-error{{expected a parameter label or a where clause in '_specialize' attribute}} expected-error{{expected declaration}}
 public func funcWithEmptySpecializeAttr<X: P, Y>(x: X, y: Y) {
 }
@@ -148,7 +148,7 @@ public func funcWithTwoGenericParameters<X, Y>(x: X, y: Y) {
 @_specialize(kind: partial, exported: true, where X == Int, Y == Int)
 @_specialize(kind: partial, kind: partial, where X == Int, Y == Int) // expected-error{{parameter 'kind' was already defined in '_specialize' attribute}}
 
-@_specialize(where X == Int, Y == Int, exported: true, kind: partial) // expected-error{{cannot find type 'exported' in scope}} expected-error{{cannot find type 'kind' in scope}} expected-error{{cannot find type 'partial' in scope}} expected-error{{expected type}}
+@_specialize(where X == Int, Y == Int, exported: true, kind: partial) // expected-error{{cannot find type 'exported' in scope}} expected-error{{cannot find type 'kind' in scope}} expected-error{{cannot find type 'partial' in scope}} expected-error{{expected identifier for type name}}
 // expected-error@-1 2{{Only conformances to protocol types are supported by '_specialize' attribute}}
 public func anotherFuncWithTwoGenericParameters<X: P, Y>(x: X, y: Y) {
 }
