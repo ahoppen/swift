@@ -80,6 +80,22 @@ Optional<AbsoluteRawSyntaxRef> AbsoluteRawSyntaxRef::getChildRef(
   return AbsoluteRawSyntaxRef(RawChildRef, Info);
 }
 
+AbsoluteRawSyntaxRef AbsoluteRawSyntaxRef::getPresentChildRef(
+    AbsoluteSyntaxPosition::IndexInParentType Index) const {
+  auto RawChildRef = getRawRef()->getChildRef(Index);
+
+  AbsoluteSyntaxPosition Position = getPosition().advancedToFirstChild();
+  SyntaxIdentifier NodeId = getNodeId().advancedToFirstChild();
+
+  for (size_t I = 0; I < Index; ++I) {
+    Position = Position.advancedBy(getRawRef()->getChild(I));
+    NodeId = NodeId.advancedBy(getRawRef()->getChild(I));
+  }
+
+  AbsoluteSyntaxInfo Info(Position, NodeId);
+  return AbsoluteRawSyntaxRef(RawChildRef, Info);
+}
+
 Optional<AbsoluteRawSyntaxRef> AbsoluteRawSyntaxRef::getFirstTokenRef() const {
   if (getRawRef()->isToken() && !getRawRef()->isMissing()) {
     return *this;

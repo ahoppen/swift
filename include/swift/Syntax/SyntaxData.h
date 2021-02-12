@@ -168,6 +168,18 @@ public:
   Optional<SyntaxDataRef>
   getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const;
 
+  /// Gets the child at the index specified by the provided cursor, assuming
+  /// that the child exists.
+  template <typename CursorType>
+  SyntaxDataRef getPresentChildRef(CursorType Cursor) const {
+    return getPresentChildRef(
+        (AbsoluteSyntaxPosition::IndexInParentType)cursorIndex(Cursor));
+  }
+
+  /// Gets the child at the specified \p Index, assuming that the child exists.
+  SyntaxDataRef
+  getPresentChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const;
+
   /// Returns the child index of this node in its parent, if it has a parent,
   /// otherwise 0.
   AbsoluteSyntaxPosition::IndexInParentType getIndexInParent() const {

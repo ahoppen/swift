@@ -64,7 +64,7 @@ llvm::Optional<${child.type_name}Ref> ${node.name}Ref::get${child.name}() const 
 }
 %     else:
 ${child.type_name}Ref ${node.name}Ref::get${child.name}() const {
-  return ${child.type_name}Ref(*getDataRef().getChildRef(Cursor::${child.name}));
+  return ${child.type_name}Ref(getDataRef().getPresentChildRef(Cursor::${child.name}));
 }
 %     end
 %   end

@@ -279,6 +279,9 @@ public:
   Optional<AbsoluteRawSyntaxRef>
   getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const;
 
+  AbsoluteRawSyntaxRef
+  getPresentChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const;
+
   /// Get the first non-missing token node in this tree. Return \c None if
   /// this node does not contain non-missing tokens.
   Optional<AbsoluteRawSyntaxRef> getFirstTokenRef() const;
