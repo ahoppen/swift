@@ -485,6 +485,7 @@ protocol SomeProtocolA {}
 protocol SomeProtocolB {}
 struct SomeStructC: SomeProtocolA, SomeProtocolB {}
 let someProperty: SomeProtocolA & some SomeProtocolB = SomeStructC() // expected-error {{'some' should appear at the beginning of a composition}}{{35-40=}}{{19-19=some }}
+let someProperty: some SomeProtocolA & some SomeProtocolB = SomeStructC() // expected-error {{'some' should appear at the beginning of a composition}}{{40-45=}}
 
 // An opaque result type on a protocol extension member effectively
 // contains an invariant reference to 'Self', and therefore cannot

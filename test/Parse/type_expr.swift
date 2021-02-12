@@ -342,3 +342,12 @@ func testMissingSelf() {
   // expected-note@-2 {{add arguments after the type to construct a value of the type}}
   // expected-note@-3 {{use '.self' to reference the type object}}
 }
+
+func testDollarTypes() {
+  let a: $MyType // expected-error {{cannot declare entity named '$MyType'; the '$' prefix is reserved for implicitly-synthesized declarations}} expected-error {{cannot find type '$MyType' in scope}}
+  let b: Unknown.$MyType // expected-error {{cannot declare entity named '$MyType'; the '$' prefix is reserved for implicitly-synthesized declarations}} expected-error {{cannot find type 'Unknown' in scope}} 
+  let c: $ // expected-error {{'$' is not an identifier; use backticks to escape it}} expected-error {{cannot find type '$' in scope}}
+  let d: Unknown.$ // expected-error {{'$' is not an identifier; use backticks to escape it}} expected-error {{cannot find type 'Unknown' in scope}} 
+  let e: Unknown.`$` // expected-error {{cannot find type 'Unknown' in scope}}
+  let f: `$` // expected-error {{cannot find type '$' in scope}}
+}

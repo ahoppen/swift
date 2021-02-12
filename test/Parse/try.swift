@@ -270,3 +270,5 @@ class F<T> {
 func bar(_ a: F<Dummy>, _ b: F<Dummy>) {
   _ = (try? a.wait()) === (try? b.wait())
 }
+
+let throwing: () rethrows -> Void = { } // expected-error {{only function declarations may be marked 'rethrows'; did you mean 'throws'?}} {{18-26=throws}}
