@@ -367,6 +367,7 @@ struct ErrorTypeInVarDecl7 {
 
 struct ErrorTypeInVarDecl8 {
   var v1 : protocol<FooProtocol // expected-error {{expected '>' to complete protocol-constrained type}} expected-note {{to match this opening '<'}}
+                                // expected-error@-1 {{protocol<...>' composition syntax has been removed and is not needed here}} {{12-32=FooProtocol}}
   var v2 : Int
 }
 
@@ -377,21 +378,32 @@ struct ErrorTypeInVarDecl9 {
 
 struct ErrorTypeInVarDecl10 {
   var v1 : protocol<FooProtocol // expected-error {{expected '>' to complete protocol-constrained type}} expected-note {{to match this opening '<'}}
+                                // expected-error@-1 {{protocol<...>' composition syntax has been removed and is not needed here}} {{12-32=FooProtocol}}
   var v2 : Int
 }
 
 struct ErrorTypeInVarDecl11 {
-  var v1 : protocol<FooProtocol, // expected-error {{expected type}}
+  var v1 : protocol<FooProtocol, // expected-error {{expected type}} 
+                                 // expected-error@-1 {{expected '>' to complete protocol-constrained type}}
+                                 // expected-note@-2 {{to match this opening '<'}}
+                                 // expected-error@-3 {{protocol<...>' composition syntax has been removed and is not needed here}} {{12-33=FooProtocol}}
   var v2 : Int
 }
 
 func ErrorTypeInPattern1(_: protocol<) { } // expected-error {{expected type}}
+                                           // expected-error@-1 {{expected '>' to complete protocol-constrained type}}
+                                           // expected-note@-2 {{to match this opening '<'}}
+                                           // expected-error@-3 {{'protocol<>' syntax has been removed; use 'Any' instead}} {{29-38=Any}}
 func ErrorTypeInPattern2(_: protocol<F) { } // expected-error {{expected '>' to complete protocol-constrained type}}
                                             // expected-note@-1 {{to match this opening '<'}}
                                             // expected-error@-2 {{cannot find type 'F' in scope}}
+                                            // expected-error@-3 {{protocol<...>' composition syntax has been removed and is not needed here}} {{29-39=F}}                                            
 
 func ErrorTypeInPattern3(_: protocol<F,) { } // expected-error {{expected type}}
-                                             // expected-error@-1 {{cannot find type 'F' in scope}}
+                                             // expected-error@-1 {{expected '>' to complete protocol-constrained type}}
+                                             // expected-note@-2 {{to match this opening '<'}}
+                                             // expected-error@-3 {{cannot find type 'F' in scope}}
+                                             // expected-error@-4 {{protocol<...>' composition syntax has been removed and is not needed here}} {{29-40=F}}
 
 struct ErrorTypeInVarDecl12 {
   var v1 : FooProtocol & // expected-error{{expected identifier for type name}}
