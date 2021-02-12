@@ -34,7 +34,8 @@ class TupleTypeRepr;
 class ASTGen {
   friend class GeneratingFunctionTypeRAII;
 
-  ASTContext &Context;
+public:
+  ASTContext *Context;
 
   SourceManager &SourceMgr;
 
@@ -73,7 +74,7 @@ public:
   ASTGen(ASTContext &Context, SourceManager &SourceMgr,
          CodeCompletionCallbacks *CodeCompletion, DiagnosticEngine &Diags,
          LexerMode Mode)
-      : Context(Context), SourceMgr(SourceMgr), CodeCompletion(CodeCompletion),
+      : Context(&Context), SourceMgr(SourceMgr), CodeCompletion(CodeCompletion),
         Diags(Diags), Mode(Mode) {}
 
   //===--------------------------------------------------------------------===//

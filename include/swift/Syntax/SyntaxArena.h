@@ -134,6 +134,12 @@ public:
     std::memcpy(ArenaData, Data, Length);
     Data = ArenaData;
   }
+  
+  void reset() {
+    Allocator = llvm::BumpPtrAllocator();
+    HotUseMemoryRegionStart = nullptr;
+    HotUseMemoryRegionEnd = nullptr;
+  }
 };
 
 } // namespace syntax

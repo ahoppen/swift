@@ -37,6 +37,8 @@ namespace swift {
 #undef SWIFT_TYPEID_HEADER
 }
 
+#define BOOST 2000
+
 void swift::simple_display(llvm::raw_ostream &out,
                            const FingerprintAndMembers &value) {
   if (value.fingerprint)
@@ -50,6 +52,53 @@ void swift::simple_display(llvm::raw_ostream &out,
 FingerprintAndMembers
 ParseMembersRequest::evaluate(Evaluator &evaluator,
                               IterableDeclContext *idc) const {
+  for (int i = 1; i < BOOST; i++) {
+    SourceFile *sf = idc->getAsGenericContext()->getParentSourceFile();
+    ASTContext &ctx = idc->getDecl()->getASTContext();
+    ctx.getSyntaxArena()->reset();
+    if (!sf) {
+      // If there is no parent source file, this is a deserialized or
+      // synthesized declaration context, in which case `getMembers()` has all
+      // of the members. Filter out the implicitly-generated ones.
+      SmallVector<Decl *, 4> members;
+      for (auto decl : idc->getMembers()) {
+        if (!decl->isImplicit()) {
+          members.push_back(decl);
+        }
+      }
+
+      Optional<Fingerprint> fp = None;
+      if (!idc->getDecl()->isImplicit()) {
+        fp = idc->getDecl()->getModuleContext()->loadFingerprint(idc);
+      }
+      (void)FingerprintAndMembers{fp, ctx.AllocateCopy(members)};
+      continue;
+    }
+
+    unsigned bufferID = *sf->getBufferID();
+
+    // Lexer diaganostics have been emitted during skipping, so we disable
+    // lexer's diagnostic engine here.
+    Parser parser(bufferID, *sf, /*No Lexer Diags*/ nullptr, nullptr, nullptr);
+    ASTContext *tempContext = ASTContext::get(
+        const_cast<LangOptions &>(sf->getASTContext().LangOpts),
+        const_cast<swift::TypeCheckerOptions &>(
+            sf->getASTContext().TypeCheckerOpts),
+        sf->getASTContext().SearchPathOpts,
+        sf->getASTContext().ClangImporterOpts, sf->getASTContext().SourceMgr,
+        sf->getASTContext().Diags);
+    parser.ASTGenerator.Context = tempContext;
+    // Disable libSyntax creation in the delayed parsing.
+    parser.SyntaxContext->disable();
+    auto declsAndHash = parser.parseDeclListDelayed(idc);
+    FingerprintAndMembers fingerprintAndMembers = {declsAndHash.second,
+                                                   declsAndHash.first};
+    (void)FingerprintAndMembers{
+        fingerprintAndMembers.fingerprint,
+        ctx.AllocateCopy(llvm::makeArrayRef(fingerprintAndMembers.members))};
+    delete tempContext;
+  }
+
   SourceFile *sf = idc->getAsGenericContext()->getParentSourceFile();
   ASTContext &ctx = idc->getDecl()->getASTContext();
   if (!sf) {
@@ -138,6 +187,66 @@ static void deletePersistentParserState(PersistentParserState *state) {
 
 SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
                                                          SourceFile *SF) const {
+  for (int i = 1; i < BOOST; ++i) {
+    assert(SF);
+    auto &ctx = SF->getASTContext();
+    ctx.getSyntaxArena()->reset();
+    auto bufferID = SF->getBufferID();
+
+    // If there's no buffer, there's nothing to parse.
+    if (!bufferID)
+      return {};
+
+    std::shared_ptr<SyntaxTreeCreator> sTreeCreator =
+        std::make_shared<SyntaxTreeCreator>(ctx.SourceMgr, *bufferID,
+                                            SF->SyntaxParsingCache,
+                                            ctx.getSyntaxArena());
+
+    // If we've been asked to silence warnings, do so now. This is needed for
+    // secondary files, which can be parsed multiple times.
+    auto &diags = ctx.Diags;
+    auto didSuppressWarnings = diags.getSuppressWarnings();
+    auto shouldSuppress = SF->getParsingOptions().contains(
+        SourceFile::ParsingFlags::SuppressWarnings);
+    diags.setSuppressWarnings(didSuppressWarnings || shouldSuppress);
+    SWIFT_DEFER { diags.setSuppressWarnings(didSuppressWarnings); };
+
+    // If this buffer is for code completion, hook up the state needed by its
+    // second pass.
+    PersistentParserState *state = nullptr;
+    if (ctx.SourceMgr.getCodeCompletionBufferID() == bufferID) {
+      state = new PersistentParserState();
+      SF->setDelayedParserState({state, &deletePersistentParserState});
+    }
+
+    Parser parser(*bufferID, *SF, /*SIL*/ nullptr, state, sTreeCreator);
+    auto sf = SF;
+    LangOptions LangOpts = sf->getASTContext().LangOpts;
+    swift::TypeCheckerOptions TCOpts = sf->getASTContext().TypeCheckerOpts;
+    ASTContext *tempContext = ASTContext::get(
+        LangOpts, TCOpts, sf->getASTContext().SearchPathOpts,
+        sf->getASTContext().ClangImporterOpts, sf->getASTContext().SourceMgr,
+        sf->getASTContext().Diags);
+    parser.ASTGenerator.Context = tempContext;
+    PrettyStackTraceParser StackTrace(parser);
+
+    SmallVector<Decl *, 128> decls;
+    parser.parseTopLevel(decls);
+
+    Optional<SourceFileSyntax> syntaxRoot;
+    if (SF->shouldBuildSyntaxTree()) {
+      auto rawNode = parser.finalizeSyntaxTree();
+      syntaxRoot.emplace(*sTreeCreator->realizeSyntaxRoot(rawNode, *SF));
+    }
+
+    Optional<ArrayRef<Token>> tokensRef;
+    if (auto tokens = parser.takeTokenReceiver()->finalize())
+      tokensRef = ctx.AllocateCopy(*tokens);
+
+    (void)SourceFileParsingResult{ctx.AllocateCopy(decls), tokensRef,
+                                  parser.CurrentTokenHash, syntaxRoot};
+    delete tempContext;
+  }
   assert(SF);
   auto &ctx = SF->getASTContext();
   auto bufferID = SF->getBufferID();

@@ -86,7 +86,7 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
 
 TypeRepr *ASTGen::generate(const ArrayTypeSyntaxRef &Type) {
   TypeRepr *ElementType = generate(Type.getElementType().getRef());
-  return new (Context) ArrayTypeRepr(ElementType, getASTRange(Type));
+  return new (*Context) ArrayTypeRepr(ElementType, getASTRange(Type));
 }
 
 TypeRepr *ASTGen::generate(const AttributedTypeSyntaxRef &Type) {
@@ -95,7 +95,7 @@ TypeRepr *ASTGen::generate(const AttributedTypeSyntaxRef &Type) {
   if (auto attributes = Type.getAttributes()) {
     TypeAttributes attrs = generateTypeAttributes(attributes.getRef());
     if (!attrs.empty()) {
-      typeAST = new (Context) AttributedTypeRepr(attrs, typeAST);
+      typeAST = new (*Context) AttributedTypeRepr(attrs, typeAST);
     }
   }
 
@@ -107,11 +107,11 @@ TypeRepr *ASTGen::generate(const AttributedTypeSyntaxRef &Type) {
     // reported in the parser, handle gracefully
     if (!isa<SpecifierTypeRepr>(typeAST)) {
       if (specifierText == "inout") {
-        typeAST = new (Context) InOutTypeRepr(typeAST, specifierLoc);
+        typeAST = new (*Context) InOutTypeRepr(typeAST, specifierLoc);
       } else if (specifierText == "__owned") {
-        typeAST = new (Context) OwnedTypeRepr(typeAST, specifierLoc);
+        typeAST = new (*Context) OwnedTypeRepr(typeAST, specifierLoc);
       } else if (specifierText == "__shared") {
-        typeAST = new (Context) SharedTypeRepr(typeAST, specifierLoc);
+        typeAST = new (*Context) SharedTypeRepr(typeAST, specifierLoc);
       } else {
         llvm_unreachable(
             "The libSyntax tree guarantees there are no other specifiers");
@@ -128,7 +128,7 @@ TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
     if (CodeCompletion) {
       CodeCompletion->completeTypeSimpleBeginning();
     }
-    return new (Context) ErrorTypeRepr(getASTRange(Type));
+    return new (*Context) ErrorTypeRepr(getASTRange(Type));
   }
 
   if (auto *parsedTyR = generate(base.getRef())) {
@@ -143,7 +143,7 @@ TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
     return parsedTyR;
   }
 
-  return new (Context) ErrorTypeRepr(getASTRange(Type));
+  return new (*Context) ErrorTypeRepr(getASTRange(Type));
 }
 
 TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
@@ -184,7 +184,7 @@ TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
   if (!elements->empty()) {
     firstTypeLoc = getContentStartLoc(elements->getChild(0).getRef());
   }
-  return CompositionTypeRepr::create(Context, elementTypeReprs, firstTypeLoc,
+  return CompositionTypeRepr::create(*Context, elementTypeReprs, firstTypeLoc,
                                      getASTRange(Type));
 }
 
@@ -195,7 +195,7 @@ TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
   TypeRepr *ValueType = generate(Type.getValueType().getRef());
   auto Range = getASTRange(Type);
 
-  return new (Context) DictionaryTypeRepr(KeyType, ValueType, ColonLoc, Range);
+  return new (*Context) DictionaryTypeRepr(KeyType, ValueType, ColonLoc, Range);
 }
 
 TypeRepr *ASTGen::generate(const FunctionTypeSyntaxRef &FuncSyntax) {
@@ -204,7 +204,7 @@ TypeRepr *ASTGen::generate(const FunctionTypeSyntaxRef &FuncSyntax) {
                     getASTRange(FuncSyntax), /*IsInFunctionSignature=*/true);
 
   if (!argumentTypes) {
-    return new (Context) ErrorTypeRepr(getASTRange(FuncSyntax));
+    return new (*Context) ErrorTypeRepr(getASTRange(FuncSyntax));
   }
 
   SourceLoc asyncLoc, throwsLoc;
@@ -214,25 +214,25 @@ TypeRepr *ASTGen::generate(const FunctionTypeSyntaxRef &FuncSyntax) {
   auto arrowLoc = getLoc(FuncSyntax.getArrow().getRef());
   auto returnType = generate(FuncSyntax.getReturnType().getRef());
   if (!returnType) {
-    return new (Context) ErrorTypeRepr(getASTRange(FuncSyntax));
+    return new (*Context) ErrorTypeRepr(getASTRange(FuncSyntax));
   }
 
-  return new (Context) FunctionTypeRepr(nullptr, argumentTypes, asyncLoc,
-                                        throwsLoc, arrowLoc, returnType);
+  return new (*Context) FunctionTypeRepr(nullptr, argumentTypes, asyncLoc,
+                                         throwsLoc, arrowLoc, returnType);
 }
 
 TypeRepr *
 ASTGen::generate(const ImplicitlyUnwrappedOptionalTypeSyntaxRef &Type) {
   auto baseTypeRepr = generate(Type.getWrappedType().getRef());
   auto exclamationLoc = getLoc(Type.getExclamationMark().getRef());
-  return new (Context)
+  return new (*Context)
       ImplicitlyUnwrappedOptionalTypeRepr(baseTypeRepr, exclamationLoc);
 }
 
 TypeRepr *ASTGen::generate(const MemberTypeIdentifierSyntaxRef &Type) {
   SmallVector<ComponentIdentTypeRepr *, 4> components;
   gatherTypeIdentifierComponents(Type, components);
-  return IdentTypeRepr::create(Context, components);
+  return IdentTypeRepr::create(*Context, components);
 }
 
 TypeRepr *ASTGen::generate(const MetatypeTypeSyntaxRef &Type) {
@@ -240,9 +240,9 @@ TypeRepr *ASTGen::generate(const MetatypeTypeSyntaxRef &Type) {
   auto metaLoc = getLoc(Type.getTypeOrProtocol().getRef());
   auto metaText = Type.getTypeOrProtocol()->getText();
   if (metaText == "Type") {
-    return new (Context) MetatypeTypeRepr(baseTypeRepr, metaLoc);
+    return new (*Context) MetatypeTypeRepr(baseTypeRepr, metaLoc);
   } else if (metaText == "Protocol") {
-    return new (Context) ProtocolTypeRepr(baseTypeRepr, metaLoc);
+    return new (*Context) ProtocolTypeRepr(baseTypeRepr, metaLoc);
   } else {
     llvm_unreachable("Meta part must be 'Type' or 'Protocol'");
   }
@@ -251,24 +251,24 @@ TypeRepr *ASTGen::generate(const MetatypeTypeSyntaxRef &Type) {
 TypeRepr *ASTGen::generate(const OptionalTypeSyntaxRef &Type) {
   auto baseTypeRepr = generate(Type.getWrappedType().getRef());
   auto questionLoc = getLoc(Type.getQuestionMark().getRef());
-  return new (Context) OptionalTypeRepr(baseTypeRepr, questionLoc);
+  return new (*Context) OptionalTypeRepr(baseTypeRepr, questionLoc);
 }
 
 TypeRepr *ASTGen::generate(const SimpleTypeIdentifierSyntaxRef &Type) {
   auto Name = Type.getName();
   if (Name->getTokenKind() == tok::kw_Any) {
     auto anyLoc = getLoc(Name.getRef());
-    return CompositionTypeRepr::createEmptyComposition(Context, anyLoc);
+    return CompositionTypeRepr::createEmptyComposition(*Context, anyLoc);
   }
 
   auto typeRepr = generateTypeIdentifier(Type);
-  return IdentTypeRepr::create(Context, {typeRepr});
+  return IdentTypeRepr::create(*Context, {typeRepr});
 }
 
 TypeRepr *ASTGen::generate(const SomeTypeSyntaxRef &Type) {
   auto someLoc = getLoc(Type.getSomeSpecifier().getRef());
   auto baseTypeRepr = generate(Type.getBaseType().getRef());
-  return new (Context) OpaqueReturnTypeRepr(someLoc, baseTypeRepr);
+  return new (*Context) OpaqueReturnTypeRepr(someLoc, baseTypeRepr);
 }
 
 TypeRepr *ASTGen::generate(const TupleTypeSyntaxRef &Type) {
@@ -319,7 +319,7 @@ TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
     }
   }
 
-  return new (Context) ErrorTypeRepr(getASTRange(Type));
+  return new (*Context) ErrorTypeRepr(getASTRange(Type));
 }
 
 //===--------------------------------------------------------------------===//
@@ -327,7 +327,7 @@ TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
 
 void ASTGen::addType(TypeRepr *T, const SourceLoc &Loc) {
   if (T == nullptr) {
-    T = new (Context) ErrorTypeRepr(Loc);
+    T = new (*Context) ErrorTypeRepr(Loc);
   }
   assert(!hasType(Loc));
   Types[Loc] = T;
@@ -433,7 +433,7 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
     if (IsInFunctionSignature) {
       if (auto nameToken = element.getName()) {
         if (nameToken->getText() != "_") {
-          auto nameIdentifier = Context.getIdentifier(nameToken->getText());
+          auto nameIdentifier = Context->getIdentifier(nameToken->getText());
           auto diag =
               diagnose(nameToken.getRef(), diag::function_type_argument_label,
                        nameIdentifier);
@@ -483,14 +483,14 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
       elementAST.NameLoc = getLoc(name.getRef());
       elementAST.Name = name->getText() == "_"
                             ? Identifier()
-                            : Context.getIdentifier(name->getIdentifierText());
+                            : Context->getIdentifier(name->getIdentifierText());
     }
     if (auto secondName = element.getSecondName()) {
       elementAST.SecondNameLoc = getLoc(secondName.getRef());
       elementAST.SecondName =
           secondName->getText() == "_"
               ? Identifier()
-              : Context.getIdentifier(secondName->getIdentifierText());
+              : Context->getIdentifier(secondName->getIdentifierText());
       if (elementAST.Name.empty()) {
         // If the first name is empty (i.e. was an underscore), use it as the
         // underscore location and use the second (non-underscore) name as the
@@ -525,7 +525,7 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
       if (!isa<InOutTypeRepr>(elementAST.Type)) {
         auto inOutLoc = getLoc(inOut.getRef());
         elementAST.Type =
-            new (Context) InOutTypeRepr(elementAST.Type, inOutLoc);
+            new (*Context) InOutTypeRepr(elementAST.Type, inOutLoc);
       }
     }
 
@@ -560,7 +560,7 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
     ellipsisIdx = tupleElements.size();
   }
 
-  return TupleTypeRepr::create(Context, tupleElements, RangeWithParens,
+  return TupleTypeRepr::create(*Context, tupleElements, RangeWithParens,
                                ellipsisLoc, ellipsisIdx);
 }
 
@@ -744,12 +744,12 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
         auto conventionName = conventionNameTok->getIdentifierText();
         // Make an identifier for the convention name and use its string so the
         // name stays alive even after the syntax tree has been destructed.
-        convention.Name = Context.getIdentifier(conventionName).str();
+        convention.Name = Context->getIdentifier(conventionName).str();
       } else if (auto conventionAttributeArgs =
                      arg->getAs<CTypeConventionAttributeArgumentsSyntaxRef>()) {
         auto conventionName =
             conventionAttributeArgs->getConvention()->getIdentifierText();
-        conventionName = Context.getIdentifier(conventionName).str();
+        conventionName = Context->getIdentifier(conventionName).str();
         convention.Name = conventionName;
         if (auto cType = conventionAttributeArgs->getCType()) {
           // If the attribute doesn't have a cType, this has already been
@@ -762,7 +762,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
           }
           auto cTypeTokenText = cTypeToken.getText();
           auto cTypeString = cTypeTokenText.slice(1, cTypeTokenText.size() - 1);
-          cTypeString = Context.getIdentifier(cTypeString).str();
+          cTypeString = Context->getIdentifier(cTypeString).str();
           auto cTypeStringLoc = getLoc(cTypeToken);
           convention.ClangType = {cTypeString, cTypeStringLoc};
         }
@@ -813,7 +813,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
 
       auto tokText = manglingTok->getText();
       auto mangling = tokText.slice(1, tokText.size() - 1);
-      mangling = Context.getIdentifier(mangling).str();
+      mangling = Context->getIdentifier(mangling).str();
       unsigned index;
       if (indexTok->getText().getAsInteger(10, index)) {
         diagnose(indexTok.getRef(), diag::attr_expected_int_literal, attrName);
@@ -837,18 +837,18 @@ ComponentIdentTypeRepr *ASTGen::generateTypeIdentifier(const T &TypeSyntax) {
   auto name = TypeSyntax.getName();
   auto declNameLoc = DeclNameLoc(getLoc(name.getRef()));
   auto declNameRef =
-      DeclNameRef(Context.getIdentifier(name->getIdentifierText()));
+      DeclNameRef(Context->getIdentifier(name->getIdentifierText()));
   diagnoseDollarIdentifier(name.getRef(), /*DiagnoseDollarPrefix=*/true);
   if (auto clause = TypeSyntax.getGenericArgumentClause()) {
     SourceRange range;
     SmallVector<TypeRepr *, 4> args;
     std::tie(range, args) = generateGenericArgs(clause.getRef());
     if (!args.empty()) {
-      return GenericIdentTypeRepr::create(Context, declNameLoc, declNameRef,
+      return GenericIdentTypeRepr::create(*Context, declNameLoc, declNameRef,
                                           args, range);
     }
   }
-  return new (Context) SimpleIdentTypeRepr(declNameLoc, declNameRef);
+  return new (*Context) SimpleIdentTypeRepr(declNameLoc, declNameRef);
 }
 
 void ASTGen::gatherTypeIdentifierComponents(
@@ -951,6 +951,6 @@ ASTGen::recoverOldStyleProtocolComposition(const UnknownTypeSyntaxRef &Type) {
       .highlightChars(getRangeWithoutTrivia(Type))
       .fixItReplaceChars(getRangeWithoutTrivia(Type), replacement);
 
-  return CompositionTypeRepr::create(Context, protocols, getLoc(*keyword),
+  return CompositionTypeRepr::create(*Context, protocols, getLoc(*keyword),
                                      getASTRange(Type));
 }
