@@ -82,6 +82,42 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
   default:
     llvm_unreachable("ASTGen hasn't been tought how to generate this type");
   }
+  //  } else if (auto some = Type.getAs<SomeTypeSyntax>()) {
+  //    return generate(*some, Loc);
+  //  } else if (auto classRestriction =
+  //  Type.getAs<ClassRestrictionTypeSyntax>()) {
+  //    return generate(*classRestriction, Loc);
+  //  } else if (auto SILBoxType = Type.getAs<SILBoxTypeSyntax>()) {
+  //    return generate(*SILBoxType, Loc, IsSILFuncDecl);
+  //  } else if (auto SILFunctionType = Type.getAs<SILFunctionTypeSyntax>()) {
+  //    return generate(*SILFunctionType, Loc, IsSILFuncDecl);
+  //  }
+
+  // FIXME: (syntax-parse) Erase generic type parameters
+  //  if (Tok.is(tok::arrow)) {
+  //  } else if (auto firstGenerics = generics ? generics : patternGenerics) {
+  //    // Only function types may be generic.
+  //    auto brackets = firstGenerics->getSourceRange();
+  //    diagnose(brackets.Start, diag::generic_non_function);
+  //
+  //    // Forget any generic parameters we saw in the type.
+  //    class EraseTypeParamWalker : public ASTWalker {
+  //    public:
+  //      bool walkToTypeReprPre(TypeRepr *T) override {
+  //        if (auto ident = dyn_cast<ComponentIdentTypeRepr>(T)) {
+  //          if (auto decl = ident->getBoundDecl()) {
+  //            if (auto genericParam = dyn_cast<GenericTypeParamDecl>(decl))
+  //              ident->overwriteNameRef(genericParam->createNameRef());
+  //          }
+  //        }
+  //        return true;
+  //      }
+  //
+  //    } walker;
+  //
+  //    if (tyR)
+  //      tyR->walk(walker);
+  //  }
 }
 
 TypeRepr *ASTGen::generate(const ArrayTypeSyntaxRef &Type) {
