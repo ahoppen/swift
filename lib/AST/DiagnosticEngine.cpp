@@ -179,10 +179,17 @@ InFlightDiagnostic &InFlightDiagnostic::highlight(SourceRange R) {
 
 InFlightDiagnostic &InFlightDiagnostic::highlightChars(SourceLoc Start,
                                                        SourceLoc End) {
+  if (Engine) {
+    return highlightChars(toCharSourceRange(Engine->SourceMgr, Start, End));
+  } else {
+    return *this;
+  }
+}
+
+InFlightDiagnostic &InFlightDiagnostic::highlightChars(CharSourceRange Range) {
   assert(IsActive && "Cannot modify an inactive diagnostic");
-  if (Engine && Start.isValid())
-    Engine->getActiveDiagnostic()
-        .addRange(toCharSourceRange(Engine->SourceMgr, Start, End));
+  if (Engine && Range.isValid())
+    Engine->getActiveDiagnostic().addRange(Range);
   return *this;
 }
 
@@ -262,11 +269,22 @@ InFlightDiagnostic &
 InFlightDiagnostic::fixItReplaceChars(SourceLoc Start, SourceLoc End,
                                       StringRef FormatString,
                                       ArrayRef<DiagnosticArgument> Args) {
+  if (Engine && Start.isValid()) {
+    return fixItReplaceChars(toCharSourceRange(Engine->SourceMgr, Start, End),
+                             FormatString, Args);
+  } else {
+    return *this;
+  }
+}
+
+InFlightDiagnostic &
+InFlightDiagnostic::fixItReplaceChars(CharSourceRange Range,
+                                      StringRef FormatString,
+                                      ArrayRef<DiagnosticArgument> Args) {
   assert(IsActive && "Cannot modify an inactive diagnostic");
-  if (Engine && Start.isValid())
+  if (Engine && Range.isValid())
     Engine->getActiveDiagnostic().addFixIt(
-        Diagnostic::FixIt(toCharSourceRange(Engine->SourceMgr, Start, End),
-                          FormatString, Args));
+        Diagnostic::FixIt(Range, FormatString, Args));
   return *this;
 }
 
