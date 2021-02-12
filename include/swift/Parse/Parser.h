@@ -1392,6 +1392,9 @@ public:
   ///   an empty parser error.
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeIdentifierSyntax(bool isParsingQualifiedDeclBaseType = false);
+
+  ParsedSyntaxResult<ParsedTypeSyntax>
+  parseTypeOldStyleProtocolCompositionSyntax();
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl = false);
   

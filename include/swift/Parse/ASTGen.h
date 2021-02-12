@@ -183,6 +183,13 @@ public:
       const TypeSyntaxRef &Component,
       llvm::SmallVectorImpl<ComponentIdentTypeRepr *> &Components);
 
+  /// Recover from old-style protocol composition:
+  ///   `protocol` `<` protocols `>`
+  /// Returns the recovered \c TypeRepr if recovery succeeded. Otherwise returns
+  /// \c nullptr;
+  TypeRepr *
+  recoverOldStyleProtocolComposition(const UnknownTypeSyntaxRef &Type);
+
   //===--------------------------------------------------------------------===//
   // MARK: - Miscellaneous
 public:

@@ -781,98 +781,21 @@ ParserResult<TypeRepr> Parser::parseAnyType() {
 ///     type-identifier
 ///     type-composition-list-deprecated ',' type-identifier
 ParserResult<TypeRepr> Parser::parseOldStyleProtocolComposition() {
-  assert(Tok.is(tok::kw_protocol) && startsWithLess(peekToken()));
+  EnableSyntaxParsingRAII enableSyntaxParsing(*this);
 
-  // Start a context for creating type syntax.
-  SyntaxParsingContext TypeParsingContext(SyntaxContext,
-                                          SyntaxContextKind::Type);
-
-  SourceLoc ProtocolLoc = consumeToken();
-  SourceLoc LAngleLoc = consumeStartingLess();
-
-  // Parse the type-composition-list.
-  ParserStatus Status;
-  SmallVector<TypeRepr *, 4> Protocols;
-  bool IsEmpty = startsWithGreater(Tok);
-  if (!IsEmpty) {
-    do {
-      // Parse the type-identifier.
-      ParserResult<TypeRepr> Protocol = parseTypeIdentifier();
-      Status |= Protocol;
-      if (auto *ident =
-            dyn_cast_or_null<IdentTypeRepr>(Protocol.getPtrOrNull()))
-        Protocols.push_back(ident);
-    } while (consumeIf(tok::comma));
+  SourceLoc previousTokLoc = PreviousLoc;
+  auto typeLoc = leadingTriviaLoc();
+  auto result = parseTypeOldStyleProtocolCompositionSyntax();
+  auto status = result.getStatus();
+  SyntaxContext->addSyntax(result.take());
+  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  auto typeRepr =
+      ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
+  if (!typeRepr) {
+    status.setIsParseError();
   }
+  return makeParserResult(status, typeRepr);
 
-  // Check for the terminating '>'.
-  SourceLoc RAngleLoc = PreviousLoc;
-  if (startsWithGreater(Tok)) {
-    RAngleLoc = consumeStartingGreater();
-  } else {
-    if (Status.isSuccess() && !Status.hasCodeCompletion()) {
-      diagnose(Tok, diag::expected_rangle_protocol);
-      diagnose(LAngleLoc, diag::opening_angle);
-      Status.setIsParseError();
-    }
-    
-    // Skip until we hit the '>'.
-    RAngleLoc = skipUntilGreaterInTypeList(/*protocolComposition=*/true);
-  }
-
-  auto composition = CompositionTypeRepr::create(
-    Context, Protocols, ProtocolLoc, {LAngleLoc, RAngleLoc});
-
-  if (Status.isSuccess() && !Status.hasCodeCompletion()) {
-    // Only if we have complete protocol<...> construct, diagnose deprecated.
-    SmallString<32> replacement;
-    if (Protocols.empty()) {
-      replacement = "Any";
-    } else {
-      auto extractText = [&](TypeRepr *Ty) -> StringRef {
-        auto SourceRange = Ty->getSourceRange();
-        return SourceMgr.extractText(
-          Lexer::getCharSourceRangeFromSourceRange(SourceMgr, SourceRange));
-      };
-      auto Begin = Protocols.begin();
-      replacement += extractText(*Begin);
-      while (++Begin != Protocols.end()) {
-        replacement += " & ";
-        replacement += extractText(*Begin);
-      }
-    }
-
-    if (Protocols.size() > 1) {
-      // Need parenthesis if the next token looks like postfix TypeRepr.
-      // i.e. '?', '!', '.Type', '.Protocol'
-      bool needParen = false;
-      needParen |= !Tok.isAtStartOfLine() &&
-          (isOptionalToken(Tok) || isImplicitlyUnwrappedOptionalToken(Tok));
-      needParen |= Tok.isAny(tok::period, tok::period_prefix);
-      if (needParen) {
-        replacement.insert(replacement.begin(), '(');
-        replacement += ")";
-      }
-    }
-
-    // Copy split token after '>' to the replacement string.
-    // FIXME: lexer should smartly separate '>' and trailing contents like '?'.
-    StringRef TrailingContent = L->getTokenAt(RAngleLoc).getRange().str().
-      substr(1);
-    if (!TrailingContent.empty()) {
-      replacement += TrailingContent;
-    }
-
-    // Replace 'protocol<T1, T2>' with 'T1 & T2'
-    diagnose(ProtocolLoc,
-      IsEmpty              ? diag::deprecated_any_composition :
-      Protocols.size() > 1 ? diag::deprecated_protocol_composition :
-                             diag::deprecated_protocol_composition_single)
-      .highlight(composition->getSourceRange())
-      .fixItReplace(composition->getSourceRange(), replacement);
-  }
-
-  return makeParserResult(Status, composition);
 }
 
 /// parseTypeTupleBody
@@ -1625,6 +1548,60 @@ Parser::parseTypeIdentifierSyntax(bool isParsingQualifiedDeclBaseType) {
   }
 
   return makeParsedResult(std::move(typeSyntax), status);
+}
+
+/// parseOldStyleProtocolCompositionSyntax
+///   type-composition-deprecated:
+///     'protocol' '<' '>'
+///     'protocol' '<' type-composition-list-deprecated '>'
+///
+///   type-composition-list-deprecated:
+///     type-identifier
+///     type-composition-list-deprecated ',' type-identifier
+ParsedSyntaxResult<ParsedTypeSyntax>
+Parser::parseTypeOldStyleProtocolCompositionSyntax() {
+  SmallVector<ParsedSyntax, 6> junk;
+
+  junk.emplace_back(consumeTokenSyntax(tok::kw_protocol));
+  auto lAngleLoc = Tok.getLoc();
+  junk.emplace_back(consumeStartingLessSyntax());
+
+  // Parse the type-composition-list.
+  ParserStatus status;
+  bool isEmpty = startsWithGreater(Tok);
+
+  if (!isEmpty) {
+    while (true) {
+      auto typeResult = parseTypeIdentifierSyntax();
+      status |= typeResult.getStatus();
+      junk.emplace_back(typeResult.take());
+      Optional<ParsedTokenSyntax> comma = consumeTokenSyntaxIf(tok::comma);
+      if (comma) {
+        junk.emplace_back(std::move(*comma));
+      } else {
+        break;
+      }
+    };
+  }
+
+  // Check for the terminating '>'.
+  Optional<SourceLoc> rAngleLoc;
+  if (startsWithGreater(Tok)) {
+    rAngleLoc = Tok.getLoc();
+    junk.emplace_back(consumeStartingGreaterSyntax());
+  } else {
+    // We did not find the terminating '>'.
+    diagnose(Tok, diag::expected_rangle_protocol);
+    diagnose(lAngleLoc, diag::opening_angle);
+    status.setIsParseError();
+
+    // Skip until we hit the '>'.
+    ignoreUntilGreaterInTypeList(/*ProtocolComposition=*/true,
+                                 /*Collect=*/&junk);
+  }
+
+  auto unknown = ParsedSyntaxRecorder::makeUnknownType(junk, *SyntaxContext);
+  return makeParsedError(std::move(unknown));
 }
 
 ParsedSyntaxResult<ParsedTypeSyntax>

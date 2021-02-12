@@ -163,6 +163,10 @@ TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
                            Diag<> MissingTypeDiag) {
   auto ChildrenCount = Type.getNumChildren();
 
+  if (auto recovered = recoverOldStyleProtocolComposition(Type)) {
+    return recovered;
+  }
+
   // Recovery failed. Emit diagnostics.
   Optional<Diag<>> diagName = diag::expected_type;
   SourceLoc diagLoc = getLeadingTriviaLoc(Type);
@@ -685,3 +689,88 @@ void ASTGen::gatherTypeIdentifierComponents(
   }
 }
 
+TypeRepr *
+ASTGen::recoverOldStyleProtocolComposition(const UnknownTypeSyntaxRef &Type) {
+  auto ChildrenCount = Type.getNumChildren();
+
+  // Can't be old-style protocol composition because we need at least
+  // 'protocol' '<'
+  if (ChildrenCount < 2) {
+    return nullptr;
+  }
+
+  auto keyword = Type.getChildRef(0)->getAs<TokenSyntaxRef>();
+  if (!keyword || keyword->getText() != "protocol") {
+    return nullptr;
+  }
+  auto lAngle = Type.getChildRef(1)->getAs<TokenSyntaxRef>();
+  if (!lAngle || lAngle->getTokenKind() != tok::l_angle) {
+    return nullptr;
+  }
+
+  // The unknown type starts with 'protocol<'. We are recovering and old style
+  // protocol composition.
+
+  // Generate the composed protocols for the final type representation.
+  // Gather the protocol names for the fixit.
+  SmallVector<TypeRepr *, 4> protocols;
+  SmallVector<StringRef, 2> protocolNames;
+
+  for (unsigned i = 2; i < Type.getNumChildren(); i++) {
+    // Only consider types. Skip over commas.
+    if (auto elem = Type.getChildRef(i)->getAs<TypeSyntaxRef>()) {
+      if (auto proto = generate(*elem)) {
+        protocols.push_back(proto);
+      }
+      auto range = getRangeWithoutTrivia(*elem);
+      if (range.getByteLength() > 0) {
+        // If the protocol name has a source representation, add it to the
+        // protocol names
+        protocolNames.push_back(SourceMgr.extractText(range));
+      }
+    }
+  }
+
+  // Compute the fixit replacement string.
+  SmallString<32> replacement;
+  if (protocolNames.empty()) {
+    replacement = "Any";
+  } else {
+    auto firstProtocol = true;
+    for (auto protocolName : protocolNames) {
+      if (!firstProtocol) {
+        replacement += " & ";
+      }
+      firstProtocol = false;
+      replacement += protocolName;
+    }
+  }
+
+  // If the parent node is also a type syntax, we are performing more operations
+  // on this type. Wrap it in parens.
+  auto Parent = Type.getParentRef();
+  if (Parent && Parent->is<TypeSyntaxRef>()) {
+    replacement.insert(replacement.begin(), '(');
+    replacement += ")";
+  }
+
+  Diag<> message;
+  switch (protocolNames.size()) {
+  case 0:
+    message = diag::deprecated_any_composition;
+    break;
+  case 1:
+    message = diag::deprecated_protocol_composition_single;
+    break;
+  default:
+    message = diag::deprecated_protocol_composition;
+    break;
+  }
+
+  diagnose(getLoc(*keyword), message)
+      .highlightChars(getRangeWithoutTrivia(Type))
+      .fixItReplaceChars(getRangeWithoutTrivia(Type), replacement);
+
+  return CompositionTypeRepr::create(Context, protocols, getLoc(*keyword),
+                                     getASTRange(Type));
+}
