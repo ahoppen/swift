@@ -77,7 +77,7 @@ TYPE_NODES = [
              Child('QuestionMark', kind='PostfixQuestionMarkToken'),
          ]),
 
-    # some type -> some 'type'
+    # some type -> 'some' type
     Node('SomeType', kind='Type',
          children=[
              Child('SomeSpecifier', kind='IdentifierToken',
@@ -163,22 +163,21 @@ TYPE_NODES = [
     Node('FunctionType', kind='Type',
          traits=['Parenthesized'],
          children=[
-             Child('LeftParen', kind='LeftParenToken'),
-             Child('Arguments', kind='TupleTypeElementList',
-                   collection_element_name='Argument'),
-             Child('RightParen', kind='RightParenToken'),
-             Child('AsyncKeyword', kind='IdentifierToken',
-                   classification='Keyword',
-                   text_choices=['async'], is_optional=True),
-             Child('ThrowsOrRethrowsKeyword', kind='Token',
-                   is_optional=True,
-                   token_choices=[
-                       'ThrowsToken',
-                       'RethrowsToken',
-                       'ThrowToken',
-                   ]),
+             Child('Arguments', kind='TupleType'),
+             Child('EffectsSpecifiers', kind='EffectsSpecifierList',
+                   collection_element_name='EffectsSpecifier'),
              Child('Arrow', kind='ArrowToken'),
              Child('ReturnType', kind='Type'),
+         ]),
+
+    Node('EffectsSpecifierList', kind='SyntaxCollection',
+         element='EffectsSpecifier', omit_when_empty=True),
+
+    Node('EffectsSpecifier', kind='Syntax',
+         children=[
+             Child('Specifier', kind='Token', text_choices=[
+                 'throws', 'rethrows', 'async'
+             ])
          ]),
 
     # attributed-type -> type-specifier? attribute-list? type

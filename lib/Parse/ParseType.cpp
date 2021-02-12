@@ -326,25 +326,36 @@ ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID,
       ParsedFunctionTypeSyntaxBuilder Builder(*SyntaxContext);
       Builder.useReturnType(std::move(*SyntaxContext->popIf<ParsedTypeSyntax>()));
       Builder.useArrow(SyntaxContext->popToken());
-      if (throwsLoc.isValid())
-        Builder.useThrowsOrRethrowsKeyword(SyntaxContext->popToken());
-      if (asyncLoc.isValid())
-        Builder.useAsyncKeyword(SyntaxContext->popToken());
+      SmallVector<ParsedEffectsSpecifierSyntax, 2> EffectsSpecifiers;
+      if (throwsLoc.isValid()) {
+        auto Token = SyntaxContext->popToken();
+        auto Specifier = ParsedSyntaxRecorder::makeEffectsSpecifier(
+            std::move(Token), *SyntaxContext);
+        EffectsSpecifiers.insert(EffectsSpecifiers.begin(),
+                                 std::move(Specifier));
+      }
+      if (asyncLoc.isValid()) {
+        auto Token = SyntaxContext->popToken();
+        auto Specifier = ParsedSyntaxRecorder::makeEffectsSpecifier(
+            std::move(Token), *SyntaxContext);
+        EffectsSpecifiers.insert(EffectsSpecifiers.begin(),
+                                 std::move(Specifier));
+      }
+      Builder.useEffectsSpecifiers(
+          ParsedSyntaxRecorder::makeEffectsSpecifierList(EffectsSpecifiers,
+                                                         *SyntaxContext));
 
       auto InputNode(std::move(*SyntaxContext->popIf<ParsedTypeSyntax>()));
       if (InputNode.is<ParsedTupleTypeSyntax>()) {
-        auto TupleTypeNode = std::move(InputNode).castTo<ParsedTupleTypeSyntax>();
-        // Decompose TupleTypeSyntax and repack into FunctionType.
-        auto LeftParen = TupleTypeNode.getDeferredLeftParen(SyntaxContext);
-        auto Arguments = TupleTypeNode.getDeferredElements(SyntaxContext);
-        auto RightParen = TupleTypeNode.getDeferredRightParen(SyntaxContext);
-        Builder
-          .useLeftParen(std::move(LeftParen))
-          .useArguments(std::move(Arguments))
-          .useRightParen(std::move(RightParen));
+        Builder.useArguments(
+            std::move(InputNode).castTo<ParsedTupleTypeSyntax>());
       } else {
-        Builder.addArgumentsMember(ParsedSyntaxRecorder::makeTupleTypeElement(
-            std::move(InputNode), /*TrailingComma=*/None, *SyntaxContext));
+        auto argument = ParsedSyntaxRecorder::makeTupleTypeElement(
+            std::move(InputNode), /*TrailingComma=*/None, *SyntaxContext);
+        ParsedTupleTypeSyntaxBuilder tupleBuilder(*SyntaxContext);
+        tupleBuilder.useElements(ParsedSyntaxRecorder::makeTupleTypeElementList(
+            {argument}, *SyntaxContext));
+        Builder.useArguments(tupleBuilder.build());
       }
       SyntaxContext->addSyntax(Builder.build());
     }
@@ -1747,10 +1758,7 @@ Parser::parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl) {
 ///     type
 ParsedSyntaxResult<ParsedTypeSyntax> Parser::parseTypeTupleBodySyntax() {
   Parser::StructureMarkerRAII ParsingTypeTuple(*this, Tok);
-  // Force the context to create deferred nodes, as we might need to
-  // de-structure the tuple type to create a function type.
-  DeferringContextRAII Deferring(*SyntaxContext);
-
+  
   if (ParsingTypeTuple.isFailed()) {
     auto unknownTy = ParsedSyntaxRecorder::makeUnknownType({}, *SyntaxContext);
     return makeParsedError(std::move(unknownTy));
