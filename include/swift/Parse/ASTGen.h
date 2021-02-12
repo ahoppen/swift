@@ -131,7 +131,11 @@ private:
                      Diag<> MissingTypeDiag = diag::expected_type);
 
   TypeRepr *generate(const ArrayTypeSyntaxRef &Type);
+  TypeRepr *generate(const CodeCompletionTypeSyntaxRef &Type);
   TypeRepr *generate(const DictionaryTypeSyntaxRef &Type);
+  TypeRepr *generate(const MemberTypeIdentifierSyntaxRef &Type);
+  TypeRepr *generate(const SimpleTypeIdentifierSyntaxRef &Type);
+  TypeRepr *generate(const UnknownTypeSyntaxRef &Type, Diag<> MissingTypeDiag);
 public:
   /// Add a \c TypeRepr occurring at \p Loc whose parsing hasn't been migrated
   /// to libSyntaxParsing yet. It can later be retrieved from \c ASTGen using
@@ -145,6 +149,26 @@ public:
   /// Given there is a \c TypeRepr, whose parsing hasn't been migrated to
   /// libSyntax yet, at the given \c Loc.
   TypeRepr *takeType(const SourceLoc &Loc);
+
+  /// Generate the \c TypeReprs specified in the \c clauseSyntax.
+  /// Returns a pair containing
+  /// 1. The source range from the left angle bracket to the right-angle bracket
+  /// 2. The generic arguments
+  std::pair<SourceRange, SmallVector<TypeRepr *, 4>>
+  generateGenericArgs(const GenericArgumentClauseSyntaxRef &ClauseSyntax);
+
+  /// Generate a \c ComponentIdentTypeRepr from a \c SimpleTypeIdentifierSyntax
+  /// or \c MemberTypeIdentifierSyntax. If \c TypeSyntax is a \c
+  /// MemberTypeIdentifierSyntax this will *not* walk its children. Use \c
+  /// gatherTypeIdentifierComponents to gather all components.
+  template <typename T>
+  ComponentIdentTypeRepr *generateTypeIdentifier(const T &TypeSyntax);
+
+  /// Recursively walk the \c Component type syntax and gather all type
+  /// components as \c TypeReprs in \c Components.
+  void gatherTypeIdentifierComponents(
+      const TypeSyntaxRef &Component,
+      llvm::SmallVectorImpl<ComponentIdentTypeRepr *> &Components);
 
   //===--------------------------------------------------------------------===//
   // MARK: - Miscellaneous

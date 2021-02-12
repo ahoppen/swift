@@ -26,7 +26,7 @@ class Container<T> {
 }
 
 func useContainer() -> () {
-  var a : Container<not a type [skip this greater: >] >, b : Int // expected-error{{expected '>' to complete generic argument list}} expected-note{{to match this opening '<'}}
+  var a : Container<not a type [skip this greater: >] >, b : Int // expected-error{{expected '>' to complete generic argument list}} expected-note{{to match this opening '<'}} expected-error{{cannot find type 'not' in scope}}
   b = 5 // no-warning
   a.exists()
 }
@@ -339,29 +339,29 @@ struct ErrorTypeInVarDecl2 {
 }
 
 struct ErrorTypeInVarDecl3 {
-  var v1 : Int< // expected-error {{expected type}}
+  var v1 : Int< // expected-error {{expected type}} expected-error{{cannot specialize non-generic type 'Int'}}
   var v2 : Int
 }
 
 struct ErrorTypeInVarDecl4 {
-  var v1 : Int<, // expected-error {{expected type}} {{16-16= <#type#>}}
+  var v1 : Int<, // expected-error {{expected type}} {{16-16= <#type#>}} expected-error {{expected type}} expected-error{{cannot specialize non-generic type 'Int'}}
   var v2 : Int
 }
 
 struct ErrorTypeInVarDecl5 {
-  var v1 : Int<Int // expected-error {{expected '>' to complete generic argument list}} expected-note {{to match this opening '<'}}
+  var v1 : Int<Int // expected-error {{expected '>' to complete generic argument list}} expected-note {{to match this opening '<'}} expected-error{{cannot specialize non-generic type 'Int'}}
   var v2 : Int
 }
 
 struct ErrorTypeInVarDecl6 {
-  var v1 : Int<Int, // expected-note {{to match this opening '<'}}
+  var v1 : Int<Int, // expected-note {{to match this opening '<'}} expected-error{{cannot specialize non-generic type 'Int'}}
                Int // expected-error {{expected '>' to complete generic argument list}}
   var v2 : Int
 }
 
 
 struct ErrorTypeInVarDecl7 {
-  var v1 : Int<Int, // expected-error {{expected type}}
+  var v1 : Int<Int, // expected-error {{expected type}} expected-error{{cannot specialize non-generic type 'Int'}}
   var v2 : Int
 }
 
@@ -381,16 +381,16 @@ struct ErrorTypeInVarDecl10 {
 }
 
 struct ErrorTypeInVarDecl11 {
-  var v1 : protocol<FooProtocol, // expected-error {{expected identifier for type name}}
+  var v1 : protocol<FooProtocol, // expected-error {{expected type}}
   var v2 : Int
 }
 
-func ErrorTypeInPattern1(_: protocol<) { } // expected-error {{expected identifier for type name}}
+func ErrorTypeInPattern1(_: protocol<) { } // expected-error {{expected type}}
 func ErrorTypeInPattern2(_: protocol<F) { } // expected-error {{expected '>' to complete protocol-constrained type}}
                                             // expected-note@-1 {{to match this opening '<'}}
                                             // expected-error@-2 {{cannot find type 'F' in scope}}
 
-func ErrorTypeInPattern3(_: protocol<F,) { } // expected-error {{expected identifier for type name}}
+func ErrorTypeInPattern3(_: protocol<F,) { } // expected-error {{expected type}}
                                              // expected-error@-1 {{cannot find type 'F' in scope}}
 
 struct ErrorTypeInVarDecl12 {

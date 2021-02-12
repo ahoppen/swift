@@ -897,7 +897,33 @@ public:
                            IsFollowingGuard);
   }
   ParserResult<BraceStmt> parseBraceItemList(Diag<> ID);
-  
+
+  //===--------------------------------------------------------------------===//
+  // MARK: - Primitive Parsing using libSyntax
+
+  /// Assuming that the current token is an identifier (or self or Self),
+  /// consume and return it.
+  ParsedTokenSyntax consumeIdentifierSyntax() {
+    assert(Tok.isAny(tok::identifier, tok::kw_self, tok::kw_Self));
+
+    return consumeTokenSyntax();
+  }
+
+  /// Consume the starting character of the current token, and split the
+  /// remainder of the token into a new token (or tokens).
+  ParsedTokenSyntax
+  consumeStartingCharacterOfCurrentTokenSyntax(tok Kind, size_t Len = 1);
+
+  /// Consume the starting '>' of the current token, which may either
+  /// be a complete '>' token or some kind of operator token starting with '>',
+  /// e.g., '>>'.
+  ParsedTokenSyntax consumeStartingGreaterSyntax();
+
+  /// Consume the starting '<' of the current token, which may either
+  /// be a complete '<' token or some kind of operator token starting with '<',
+  /// e.g., '<>'.
+  ParsedTokenSyntax consumeStartingLessSyntax();
+
   /// Consume a token and return the corresponding \c ParsedTokenSyntax.
   ParsedTokenSyntax consumeTokenSyntax();
   ParsedTokenSyntax consumeTokenSyntax(tok K) {
@@ -912,8 +938,62 @@ public:
       return None;
     return consumeTokenSyntax();
   }
-  
 
+  /// Conditionally ignore the current single token if it matches with the \p
+  /// Kind.
+  /// If \p Collect is \c nullptr, moves the ignored token and its trivia to
+  /// the leading trivia of the next token. Otherwise adds the skipped token to
+  /// \p Collect.
+  /// Returns \c true if a token was ignored, otherwiese false.
+  bool ignoreIf(tok Kind, SmallVectorImpl<ParsedSyntax> *Collect = nullptr) {
+    if (!Tok.is(Kind))
+      return false;
+    ignoreToken(Collect);
+    return true;
+  }
+
+  /// Ignore one bracketed context. E.g. if the current token is a '(' ignore
+  /// until (and including) the next ')'. Similarly for '{', '[', '#if',
+  /// '#else', '#elseif'. If the current token does not start a bracketed
+  /// context, only ignore the current token.
+  /// If \p Collect is \c nullptr, moves the ignored tokens and their trivia to
+  /// the leading trivia of the next token. Otherwise adds the skipped tokens to
+  /// \p Collect.
+  void ignoreSingle(SmallVectorImpl<ParsedSyntax> *Collect = nullptr);
+
+  /// Ignore the current token.
+  /// If \p Collect is \c nullptr, moves the ignored token and its trivia to
+  /// the leading trivia of the next token. Otherwise adds it to \p Collect.
+  void ignoreToken(SmallVectorImpl<ParsedSyntax> *Collect = nullptr);
+  void ignoreToken(tok Kind, SmallVectorImpl<ParsedSyntax> *Collect = nullptr) {
+    /// Ignore the current single token asserting its kind.
+    assert(Tok.is(Kind));
+    ignoreToken(Collect);
+  }
+
+  /// Ignore tokens until a token of type \p Kind is found.
+  /// If \p Collect is \c nullptr, moves the ignored tokens and their trivia to
+  /// the leading trivia of the next token. Otherwise adds the skipped tokens to
+  /// \p Collect.
+  void ignoreUntil(tok Kind, SmallVectorImpl<ParsedSyntax> *Collect = nullptr);
+
+  /// Ignore tokens until a token that starts with '>', and return true it if
+  /// found. Applies heuristics that are suitable when trying to find the end
+  /// of a list of generic parameters, generic arguments.
+  /// If \p Collect is \c nullptr, moves the ignored tokens and their trivia to
+  /// the leading trivia of the next token. Otherwise adds the skipped tokens to
+  /// \p Collect.
+  bool ignoreUntilGreaterInTypeList(
+      bool ProtocolComposition,
+      SmallVectorImpl<ParsedSyntax> *Collect = nullptr);
+
+  ParsedTokenSyntax markSplitTokenSyntax(tok Kind, StringRef Txt);
+  
+  /// Consume an identifier (but not an operator) if present and return
+  /// its \c TokenSyntax.  Otherwise, emit the diagnostic \p D and return \c
+  /// None.
+  llvm::Optional<ParsedTokenSyntax> parseIdentifierSyntax(const Diagnostic &D);
+  
   /// Parse the specified expected token and return a \c ParsedSyntaxResult that
   /// is either an error or contains the corresponding \c ParsedTokenSyntax on
   /// success. On failure if \p SilenceDiag is \c false, emit the specified
@@ -1250,9 +1330,26 @@ public:
   //===--------------------------------------------------------------------===//
   // MARK: - Type Parsing using libSyntax
 
-
-  ParsedSyntaxResult<ParsedTypeSyntax> parseTypeCollectionSyntax();
+  ParsedSyntaxResult<ParsedTypeSyntax> parseTypeAnySyntax();
   
+  ParsedSyntaxResult<ParsedTypeSyntax> parseTypeCollectionSyntax();
+
+  ParsedSyntaxResult<ParsedGenericArgumentClauseSyntax>
+  parseTypeGenericArgumentClauseSyntax();
+
+  /// Parses a type identifier (e.g. 'Foo' or 'Foo.Bar.Baz').
+  ///
+  /// When \c isParsingQualifiedDeclBaseType is true:
+  /// - Parses and returns the base type for a qualified declaration name,
+  ///   positioning the parser at the '.' before the final declaration name.
+  ///   This position is important for parsing final declaration names like
+  ///   '.init' via `parseUnqualifiedDeclName`.
+  /// - For example, 'Foo.Bar.f' parses as 'Foo.Bar' and the parser is
+  ///   positioned at '.f'.
+  /// - If there is no base type qualifier (e.g. when parsing just 'f'), returns
+  ///   an empty parser error.
+  ParsedSyntaxResult<ParsedTypeSyntax>
+  parseTypeIdentifierSyntax(bool isParsingQualifiedDeclBaseType = false);
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl = false);
   

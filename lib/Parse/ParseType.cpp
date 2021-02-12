@@ -630,116 +630,20 @@ ParserStatus Parser::parseGenericArguments(SmallVectorImpl<TypeRepr *> &Args,
 ///
 ParserResult<TypeRepr>
 Parser::parseTypeIdentifier(bool isParsingQualifiedDeclBaseType) {
-  // If parsing a qualified declaration name, return error if base type cannot
-  // be parsed.
-  if (isParsingQualifiedDeclBaseType && !canParseBaseTypeForQualifiedDeclName())
-    return makeParserError();
+  EnableSyntaxParsingRAII enableSyntaxParsing(*this);
 
-  if (Tok.isNot(tok::identifier) && Tok.isNot(tok::kw_Self)) {
-    // is this the 'Any' type
-    if (Tok.is(tok::kw_Any)) {
-      return parseAnyType();
-    } else if (Tok.is(tok::code_complete)) {
-      if (CodeCompletion)
-        CodeCompletion->completeTypeSimpleBeginning();
-      // Eat the code completion token because we handled it.
-      consumeToken(tok::code_complete);
-      return makeParserCodeCompletionResult<IdentTypeRepr>();
-    }
-
-    diagnose(Tok, diag::expected_identifier_for_type);
-
-    // If there is a keyword at the start of a new line, we won't want to
-    // skip it as a recovery but rather keep it.
-    if (Tok.isKeyword() && !Tok.isAtStartOfLine())
-      consumeToken();
-
-    return nullptr;
+  SourceLoc previousTokLoc = PreviousLoc;
+  auto typeLoc = leadingTriviaLoc();
+  auto result = parseTypeIdentifierSyntax(isParsingQualifiedDeclBaseType);
+  auto status = result.getStatus();
+  SyntaxContext->addSyntax(result.take());
+  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  auto typeRepr =
+      ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
+  if (!typeRepr) {
+    status.setIsParseError();
   }
-  SyntaxParsingContext IdentTypeCtxt(SyntaxContext, SyntaxContextKind::Type);
-
-  ParserStatus Status;
-  SmallVector<ComponentIdentTypeRepr *, 4> ComponentsR;
-  SourceLoc EndLoc;
-  while (true) {
-    DeclNameLoc Loc;
-    DeclNameRef Name =
-        parseDeclNameRef(Loc, diag::expected_identifier_in_dotted_type, {});
-    if (!Name)
-      Status.setIsParseError();
-
-    if (Loc.isValid()) {
-      SourceLoc LAngle, RAngle;
-      SmallVector<TypeRepr*, 8> GenericArgs;
-      if (startsWithLess(Tok)) {
-        auto genericArgsStatus = parseGenericArguments(GenericArgs, LAngle, RAngle);
-        if (genericArgsStatus.isErrorOrHasCompletion())
-          return genericArgsStatus;
-      }
-      EndLoc = Loc.getEndLoc();
-
-      ComponentIdentTypeRepr *CompT;
-      if (!GenericArgs.empty())
-        CompT = GenericIdentTypeRepr::create(Context, Loc, Name, GenericArgs,
-                                             SourceRange(LAngle, RAngle));
-      else
-        CompT = new (Context) SimpleIdentTypeRepr(Loc, Name);
-      ComponentsR.push_back(CompT);
-    }
-    SyntaxContext->createNodeInPlace(ComponentsR.size() == 1
-                                         ? SyntaxKind::SimpleTypeIdentifier
-                                         : SyntaxKind::MemberTypeIdentifier);
-
-    // Treat 'Foo.<anything>' as an attempt to write a dotted type
-    // unless <anything> is 'Type'.
-    if ((Tok.is(tok::period) || Tok.is(tok::period_prefix))) {
-      if (peekToken().is(tok::code_complete)) {
-        Status.setHasCodeCompletionAndIsError();
-        break;
-      }
-      if (peekToken().isContextualKeyword("Type") ||
-          peekToken().isContextualKeyword("Protocol"))
-        break;
-      // If parsing a qualified declaration name, break before parsing the
-      // period before the final declaration name component.
-      if (isParsingQualifiedDeclBaseType) {
-        // If qualified name base type cannot be parsed from the current
-        // point (i.e. the next type identifier is not followed by a '.'),
-        // then the next identifier is the final declaration name component.
-        BacktrackingScope backtrack(*this);
-        consumeStartingCharacterOfCurrentToken(tok::period);
-        if (!canParseBaseTypeForQualifiedDeclName())
-          break;
-      }
-      // Consume the period.
-      consumeToken();
-      continue;
-    }
-    if (Tok.is(tok::code_complete) && !Tok.isAtStartOfLine())
-      Status.setHasCodeCompletionAndIsError();
-    break;
-  }
-
-  IdentTypeRepr *ITR = nullptr;
-  if (!ComponentsR.empty()) {
-    ITR = IdentTypeRepr::create(Context, ComponentsR);
-  }
-
-  if (Status.hasCodeCompletion()) {
-    if (Tok.isNot(tok::code_complete)) {
-      // We have a dot.
-      consumeToken();
-      if (CodeCompletion)
-        CodeCompletion->completeTypeIdentifierWithDot(ITR);
-    } else {
-      if (CodeCompletion)
-        CodeCompletion->completeTypeIdentifierWithoutDot(ITR);
-    }
-    // Eat the code completion token because we handled it.
-    consumeToken(tok::code_complete);
-  }
-
-  return makeParserResult(Status, ITR);
+  return makeParserResult(status, typeRepr);
 }
 
 /// parseTypeSimpleOrComposition
@@ -851,11 +755,20 @@ Parser::parseTypeSimpleOrComposition(Diag<> MessageID) {
 }
 
 ParserResult<TypeRepr> Parser::parseAnyType() {
-  SyntaxParsingContext IdentTypeCtxt(SyntaxContext,
-                                     SyntaxKind::SimpleTypeIdentifier);
-  auto Loc = consumeToken(tok::kw_Any);
-  auto TyR = CompositionTypeRepr::createEmptyComposition(Context, Loc);
-  return makeParserResult(TyR);
+  EnableSyntaxParsingRAII enableSyntaxParsing(*this);
+  
+  SourceLoc previousTokLoc = PreviousLoc;
+  auto typeLoc = leadingTriviaLoc();
+  auto result = parseTypeAnySyntax();
+  auto status = result.getStatus();
+  SyntaxContext->addSyntax(result.take());
+  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  auto typeRepr =
+  ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
+  if (!typeRepr) {
+    status.setIsParseError();
+  }
+  return makeParserResult(status, typeRepr);
 }
 
 /// parseOldStyleProtocolComposition
@@ -1604,6 +1517,13 @@ bool Parser::isAtFunctionTypeArrow() {
 //===--------------------------------------------------------------------===//
 // MARK: - Type Parsing using libSyntax
 
+ParsedSyntaxResult<ParsedTypeSyntax> Parser::parseTypeAnySyntax() {
+  auto anyToken = consumeTokenSyntax(tok::kw_Any);
+  auto typeSyntax = ParsedSyntaxRecorder::makeSimpleTypeIdentifier(
+      std::move(anyToken), None, *SyntaxContext);
+  return makeParsedResult(std::move(typeSyntax));
+}
+
 /// Parse a collection type.
 ///   type-simple:
 ///     '[' type ']'
@@ -1660,6 +1580,193 @@ ParsedSyntaxResult<ParsedTypeSyntax> Parser::parseTypeCollectionSyntax() {
     builder.useRightSquareBracket(rsquare.take());
     return makeParsedResult(builder.build(), status);
   }
+}
+
+ParsedSyntaxResult<ParsedGenericArgumentClauseSyntax>
+Parser::parseTypeGenericArgumentClauseSyntax() {
+  assert(startsWithLess(Tok) && "Generic parameter list must start with '<'");
+  auto lAngleLoc = Tok.getLoc();
+  ParsedGenericArgumentClauseSyntaxBuilder builder(*SyntaxContext);
+  ParserStatus status;
+
+  // Parse '<'.
+  builder.useLeftAngleBracket(consumeStartingLessSyntax());
+
+  bool hasNext = true;
+  while (hasNext) {
+    // Parse argument type.
+    auto ty = parseTypeSyntax(diag::expected_type);
+    status |= ty.getStatus();
+    ParsedGenericArgumentSyntaxBuilder argBuilder(*SyntaxContext);
+    argBuilder.useArgumentType(ty.take());
+
+    // Parse trailing comma: ','.
+    if (Tok.is(tok::comma)) {
+      argBuilder.useTrailingComma(consumeTokenSyntax());
+    } else {
+      hasNext = false;
+    }
+    builder.addArgumentsMember(argBuilder.build());
+  }
+
+  // Parse '>'.
+  if (startsWithGreater(Tok)) {
+    builder.useRightAngleBracket(consumeStartingGreaterSyntax());
+  } else {
+    if (status.isSuccess()) {
+      diagnose(Tok, diag::expected_rangle_generic_arg_list);
+      diagnose(lAngleLoc, diag::opening_angle);
+    }
+    checkForInputIncomplete();
+    status.setIsParseError();
+    if (ignoreUntilGreaterInTypeList(/*ProtocolComposition=*/false)) {
+      builder.useRightAngleBracket(consumeStartingGreaterSyntax());
+    }
+  }
+
+  return makeParsedResult(builder.build(), status);
+}
+
+/// parseTypeIdentifierSyntax
+///
+///   type-identifier:
+///     identifier generic-args? ('.' identifier generic-args?)*
+///
+ParsedSyntaxResult<ParsedTypeSyntax>
+Parser::parseTypeIdentifierSyntax(bool isParsingQualifiedDeclBaseType) {
+  // If parsing a qualified declaration name, return an error if the base type
+  // cannot be parsed.
+  if (isParsingQualifiedDeclBaseType &&
+      !canParseBaseTypeForQualifiedDeclName()) {
+    auto unknownTy = ParsedSyntaxRecorder::makeUnknownType({}, *SyntaxContext);
+    return makeParsedError(std::move(unknownTy));
+  }
+
+  if (Tok.is(tok::kw_Any)) {
+    return parseTypeAnySyntax();
+  } else if (Tok.is(tok::code_complete)) {
+    auto ccTok = consumeTokenSyntax(tok::code_complete);
+    auto ccType = ParsedSyntaxRecorder::makeCodeCompletionType(
+        /*Base=*/None, /*Period=*/None, std::move(ccTok), *SyntaxContext);
+    return makeParsedCodeCompletion(std::move(ccType));
+  } else if (Tok.isNot(tok::identifier, tok::kw_Self)) {
+    // Assume that the keyword was supposed to be a type and form an unknown
+    // type with it.
+    // If there is a keyword at the start of a new line, we don't want to
+    // skip it as a recovery but rather keep it.
+    if (Tok.isKeyword() && !Tok.isAtStartOfLine()) {
+      auto kwTok = consumeTokenSyntax();
+      ParsedTypeSyntax type =
+          ParsedSyntaxRecorder::makeUnknownType({&kwTok, 1}, *SyntaxContext);
+      return makeParsedError(std::move(type));
+    }
+
+    auto unknownTy = ParsedSyntaxRecorder::makeUnknownType({}, *SyntaxContext);
+    return makeParsedError<ParsedTypeSyntax>(std::move(unknownTy));
+  }
+
+  /// Parse a type component and its generic args into \p Identifier and \p
+  /// GenericArgs. Return the parser status after parsing the type component.
+  auto parseComponent =
+      [&](Optional<ParsedTokenSyntax> &Identifier,
+          Optional<ParsedGenericArgumentClauseSyntax> &GenericArgs)
+      -> ParserStatus {
+    // Parse the type identifier
+    // FIXME: specialize diagnostic for 'Type': type cannot start with
+    // 'metatype'
+    // FIXME: offer a fixit: 'self' -> 'Self'
+    // TODO: (syntax-parse) According to the previous implementation, We should
+    // be parsing a DeclNameRef here
+    Identifier =
+        parseIdentifierSyntax(diag::expected_identifier_in_dotted_type);
+
+    if (!Identifier) {
+      return makeParserError();
+    }
+
+    // Parse generic arguments if there are any
+    if (startsWithLess(Tok)) {
+      auto genericArgsResult = parseTypeGenericArgumentClauseSyntax();
+      GenericArgs = genericArgsResult.take();
+      return genericArgsResult.getStatus();
+    }
+
+    return makeParserSuccess();
+  };
+
+  // Parse the base identifier.
+  Optional<ParsedTokenSyntax> baseIdentifier;
+  Optional<ParsedGenericArgumentClauseSyntax> baseGenericArgs;
+  auto status = parseComponent(baseIdentifier, baseGenericArgs);
+  // If this isn't an identifier we should have bailed out earlier
+  assert(baseIdentifier);
+  ParsedTypeSyntax typeSyntax = ParsedSyntaxRecorder::makeSimpleTypeIdentifier(
+      std::move(*baseIdentifier), std::move(baseGenericArgs), *SyntaxContext);
+
+  // Parse member identifiers.
+  while (status.isSuccess() && Tok.isAny(tok::period, tok::period_prefix)) {
+    if (peekToken().isContextualKeyword("Type") ||
+        peekToken().isContextualKeyword("Protocol")) {
+      break;
+    }
+    // If parsing a qualified declaration name, break before parsing the
+    // period before the final declaration name component.
+    if (isParsingQualifiedDeclBaseType) {
+      // If qualified name base type cannot be parsed from the current
+      // point (i.e. the next type identifier is not followed by a '.'),
+      // then the next identifier is the final declaration name component.
+      BacktrackingScope backtrack(*this);
+      consumeStartingCharacterOfCurrentToken(tok::period);
+      if (!canParseBaseTypeForQualifiedDeclName()) {
+        break;
+      }
+    }
+
+    // Parse '.'.
+    auto period = consumeTokenSyntax();
+
+    // Parse component;
+    Optional<ParsedTokenSyntax> identifier;
+    Optional<ParsedGenericArgumentClauseSyntax> genericArgs;
+    auto status = parseComponent(identifier, genericArgs);
+    if (identifier) {
+      ParsedMemberTypeIdentifierSyntaxBuilder builder(*SyntaxContext);
+      builder.useBaseType(std::move(typeSyntax));
+      builder.usePeriod(std::move(period));
+      builder.useName(std::move(*identifier));
+      builder.useGenericArgumentClause(std::move(genericArgs));
+      typeSyntax = builder.build();
+      continue;
+    }
+
+    // If there was no identifer there shouldn't be genericArgs.
+    assert(!genericArgs);
+
+    if (Tok.is(tok::code_complete)) {
+      auto ccTok = consumeTokenSyntax(tok::code_complete);
+      auto ty = ParsedSyntaxRecorder::makeCodeCompletionType(
+          std::move(typeSyntax), std::move(period), std::move(ccTok),
+          *SyntaxContext);
+      return makeParsedCodeCompletion(std::move(ty));
+    }
+
+    ParsedSyntax parts[] = {std::move(typeSyntax), std::move(period)};
+    status.setIsParseError();
+    return makeParsedResult(
+        ParsedSyntaxRecorder::makeUnknownType({parts, 2}, *SyntaxContext),
+        status);
+  }
+
+  if (status.isSuccess() && Tok.is(tok::code_complete) &&
+      !Tok.isAtStartOfLine()) {
+    auto ccTok = consumeTokenSyntax(tok::code_complete);
+    auto ty = ParsedSyntaxRecorder::makeCodeCompletionType(
+        std::move(typeSyntax), /*Period=*/None, std::move(ccTok),
+        *SyntaxContext);
+    return makeParsedCodeCompletion(std::move(ty));
+  }
+
+  return makeParsedResult(std::move(typeSyntax), status);
 }
 
 ParsedSyntaxResult<ParsedTypeSyntax>

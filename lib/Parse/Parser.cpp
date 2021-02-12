@@ -1496,12 +1496,154 @@ void PrettyStackTraceParser::print(llvm::raw_ostream &out) const {
 //===----------------------------------------------------------------------===//
 // MARK: - Primitive Parsing using libSyntax
 
+ParsedTokenSyntax
+Parser::consumeStartingCharacterOfCurrentTokenSyntax(tok Kind, size_t Len) {
+  // Consumes prefix of token and returns its location.
+  // (like '?', '<', '>' or '!' immediately followed by '<')
+  assert(Len >= 1);
+
+  // Current token can be either one-character token we want to consume...
+  if (Tok.getLength() == Len) {
+    Tok.setKind(Kind);
+    return consumeTokenSyntax();
+  }
+
+  auto Loc = Tok.getLoc();
+
+  // ... or a multi-character token with the first N characters being the one
+  // that we want to consume as a separate token.
+  assert(Tok.getLength() > Len);
+  auto Token = markSplitTokenSyntax(Kind, Tok.getText().substr(0, Len));
+
+  auto NewState = L->getStateForBeginningOfTokenLoc(Loc.getAdvancedLoc(Len));
+  restoreParserPosition(ParserPosition(NewState, Loc),
+                        /*enableDiagnostics=*/true);
+  return Token;
+}
+
+ParsedTokenSyntax Parser::consumeStartingGreaterSyntax() {
+  assert(startsWithGreater(Tok) && "Token does not start with '>'");
+  return consumeStartingCharacterOfCurrentTokenSyntax(tok::r_angle);
+}
+
+ParsedTokenSyntax Parser::consumeStartingLessSyntax() {
+  assert(startsWithLess(Tok) && "Token does not start with '<'");
+  return consumeStartingCharacterOfCurrentTokenSyntax(tok::l_angle);
+}
+
 ParsedTokenSyntax Parser::consumeTokenSyntax() {
   TokReceiver->receive(Tok);
   ParsedTokenSyntax ParsedToken = ParsedSyntaxRecorder::makeToken(
       Tok, LeadingTrivia, TrailingTrivia, *SyntaxContext);
   consumeTokenWithoutFeedingReceiver();
   return ParsedToken;
+}
+
+void Parser::ignoreSingle(SmallVectorImpl<ParsedSyntax> *Collect) {
+  switch (Tok.getKind()) {
+  case tok::l_paren:
+    ignoreToken(Collect);
+    ignoreUntil(tok::r_paren, Collect);
+    ignoreIf(tok::r_paren, Collect);
+    break;
+  case tok::l_brace:
+    ignoreToken(Collect);
+    ignoreUntil(tok::r_brace, Collect);
+    ignoreIf(tok::r_brace, Collect);
+    break;
+  case tok::l_square:
+    ignoreToken(Collect);
+    ignoreUntil(tok::r_square, Collect);
+    ignoreIf(tok::r_square, Collect);
+    break;
+  case tok::pound_if:
+  case tok::pound_else:
+  case tok::pound_elseif:
+    ignoreToken(Collect);
+    ignoreUntil(tok::pound_endif, Collect);
+    ignoreIf(tok::pound_endif, Collect);
+    break;
+  default:
+    ignoreToken(Collect);
+    break;
+  }
+}
+
+void Parser::ignoreToken(SmallVectorImpl<ParsedSyntax> *Collect) {
+  assert(!Tok.is(tok::eof) && "Lexing eof token");
+  if (Collect) {
+    Collect->push_back(consumeTokenSyntax());
+  } else {
+    const char *SkippedTriviaStart = LeadingTrivia.data();
+
+    TokReceiver->receive(Tok);
+    L->lex(Tok, LeadingTrivia, TrailingTrivia);
+
+    LeadingTrivia = StringRef(SkippedTriviaStart,
+                              LeadingTrivia.data() - SkippedTriviaStart);
+  }
+}
+
+void Parser::ignoreUntil(tok Kind, SmallVectorImpl<ParsedSyntax> *Collect) {
+  while (Tok.isNot(Kind, tok::eof, tok::pound_endif, tok::code_complete)) {
+    ignoreSingle(Collect);
+  }
+}
+
+bool Parser::ignoreUntilGreaterInTypeList(
+    bool ProtocolComposition, SmallVectorImpl<ParsedSyntax> *Collect) {
+  while (true) {
+    switch (Tok.getKind()) {
+    case tok::eof:
+    case tok::l_brace:
+    case tok::r_brace:
+    case tok::code_complete:
+      return false;
+
+#define KEYWORD(X) case tok::kw_##X:
+#define POUND_KEYWORD(X) case tok::pound_##X:
+#include "swift/Syntax/TokenKinds.def"
+      if (isStartOfStmt() || isStartOfSwiftDecl() || Tok.is(tok::pound_endif)) {
+        return false;
+      }
+      break;
+    case tok::l_paren:
+    case tok::r_paren:
+    case tok::l_square:
+    case tok::r_square:
+      if (ProtocolComposition) {
+        // In protocol composition, '[' ']' '(' ')' cannot appear in types.
+        return false;
+      }
+      break;
+    default:
+      if (startsWithGreater(Tok))
+        return true;
+      break;
+    }
+    ignoreSingle(Collect);
+  }
+}
+
+ParsedTokenSyntax Parser::markSplitTokenSyntax(tok Kind, StringRef Txt) {
+  SplitTokens.emplace_back();
+  SplitTokens.back().setToken(Kind, Txt);
+  TokReceiver->receive(SplitTokens.back());
+  return ParsedSyntaxRecorder::makeToken(SplitTokens.back(), LeadingTrivia,
+                                         StringRef(), *SyntaxContext);
+}
+
+Optional<ParsedTokenSyntax> Parser::parseIdentifierSyntax(const Diagnostic &D) {
+  switch (Tok.getKind()) {
+  case tok::kw_self:
+  case tok::kw_Self:
+  case tok::identifier:
+    return consumeIdentifierSyntax();
+  default:
+    checkForInputIncomplete();
+    diagnose(Tok, D);
+    return None;
+  }
 }
 
 ParsedSyntaxResult<ParsedTokenSyntax>

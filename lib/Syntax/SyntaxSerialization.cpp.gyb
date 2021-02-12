@@ -31,12 +31,14 @@ uint16_t getNumericValue(syntax::SyntaxKind Kind) {
     return 0;
   case syntax::SyntaxKind::Unknown:
     return 1;
-% for name, nodes in grouped_nodes.items():
-%   for node in nodes:
+% for node in SYNTAX_NODES:
   case syntax::SyntaxKind::${node.syntax_kind}:
     return ${SYNTAX_NODE_SERIALIZATION_CODES[node.syntax_kind]};
-%   end
 % end
+% for node in PARSEONLY_NODES:
+  case syntax::SyntaxKind::${node.syntax_kind}:
+% end
+    llvm_unreachable("parse only nodes have no serialization code");
   }
   llvm_unreachable("unhandled kind");
 }
