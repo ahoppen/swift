@@ -64,6 +64,12 @@ public:
     }
     return getAllocator().identifyObject(Ptr) != llvm::None;
   }
+
+  void reset() {
+    Allocator = BumpAllocator();
+    HotUseMemoryRegionStart = nullptr;
+    HotUseMemoryRegionEnd = nullptr;
+  }
 };
 
 } // namespace syntax
