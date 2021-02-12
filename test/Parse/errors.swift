@@ -126,7 +126,7 @@ func dupThrows1() throws rethrows -> throws Int throw {}
 // expected-error@-3 {{'throw' has already been specified}} {{49-55=}}
 
 func dupThrows2(_ f: () throws -> rethrows Int) {}
-// expected-error@-1 {{'rethrows' has already been specified}} {{35-44=}}
+// expected-error@-1 {{'rethrows' may only occur before '->'}} {{35-44=}}
 
 func dupThrows3() {
   _ = { () try throws in }

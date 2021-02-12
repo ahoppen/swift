@@ -1633,6 +1633,75 @@ ParsedTokenSyntax Parser::markSplitTokenSyntax(tok Kind, StringRef Txt) {
                                          StringRef(), *SyntaxContext);
 }
 
+ParsedSyntaxResult<ParsedDeclNameSyntax>
+Parser::parseDeclNameRefSyntax(const Diagnostic &Diag, DeclNameOptions Flags) {
+  ParsedDeclNameSyntaxBuilder builder(*SyntaxContext);
+  // Consume the base name.
+  if (Tok.isAny(tok::identifier, tok::kw_Self, tok::kw_self)) {
+    builder.useDeclBaseName(consumeTokenSyntax());
+  } else if (Flags.contains(DeclNameFlag::AllowOperators) &&
+             Tok.isAnyOperator()) {
+    builder.useDeclBaseName(consumeTokenSyntax());
+  } else if (Flags.contains(DeclNameFlag::AllowKeywords) && Tok.isKeyword()) {
+    builder.useDeclBaseName(consumeTokenSyntax());
+  } else {
+    checkForInputIncomplete();
+    diagnose(Tok, Diag);
+    return makeParsedError(builder.build());
+  }
+
+  if (Flags.contains(DeclNameFlag::AllowCompoundNames)) {
+    // TODO: (syntax-parse) Implement decl name argument parsing
+    llvm_unreachable("Parsing of decl name argument not implemented yet.");
+  }
+  return makeParsedResult(builder.build());
+}
+
+ParsedSyntaxResult<ParsedEffectsSpecifierListSyntax>
+Parser::parseEffectsSpecifiersSyntax() {
+  ParserStatus status;
+
+  SmallVector<ParsedEffectsSpecifierSyntax, 2> effectsSpecifiers;
+  bool hasAsyncSpecifier = false;
+  bool hasThrowsSpecifier = false;
+
+  while (true) {
+    if (Tok.isAny(tok::kw_throws, tok::kw_rethrows)) {
+      auto specifier = ParsedSyntaxRecorder::makeEffectsSpecifier(
+          consumeTokenSyntax(), *SyntaxContext);
+      effectsSpecifiers.push_back(std::move(specifier));
+      hasThrowsSpecifier = true;
+    } else if (shouldParseExperimentalConcurrency() &&
+               Tok.isContextualKeyword("async")) {
+      auto specifier = ParsedSyntaxRecorder::makeEffectsSpecifier(
+          consumeTokenSyntax(), *SyntaxContext);
+      effectsSpecifiers.push_back(std::move(specifier));
+      hasAsyncSpecifier = true;
+    } else if (Tok.isAny(tok::kw_throw, tok::kw_try) &&
+               !Tok.isAtStartOfLine()) {
+      // Replace 'throw' or 'try' with 'throws'.
+      diagnose(Tok, diag::throw_in_function_type)
+          .fixItReplace(Tok.getLoc(), "throws");
+
+      ignoreToken();
+    } else if (Tok.is(tok::code_complete) && !Tok.isAtStartOfLine()) {
+      // Code completion.
+      if (CodeCompletion) {
+        CodeCompletion->completeEffectsSpecifier(hasAsyncSpecifier,
+                                                 hasThrowsSpecifier);
+      }
+      ignoreToken(tok::code_complete);
+      status.setHasCodeCompletionAndIsError();
+    } else {
+      break;
+    }
+  }
+
+  auto specifiers = ParsedSyntaxRecorder::makeEffectsSpecifierList(
+      effectsSpecifiers, *SyntaxContext);
+  return makeParsedResult(std::move(specifiers), status);
+}
+
 Optional<ParsedTokenSyntax> Parser::parseIdentifierSyntax(const Diagnostic &D) {
   switch (Tok.getKind()) {
   case tok::kw_self:

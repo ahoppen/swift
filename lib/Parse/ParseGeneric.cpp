@@ -362,7 +362,9 @@ ParserStatus Parser::parseGenericWhereClause(
           FirstType.get(), PreviousLoc, new (Context) ErrorTypeRepr(PreviousLoc)));
     } else {
       BodyContext->setTransparent();
-      diagnose(Tok, diag::expected_requirement_delim);
+      if (!FirstType.isParseError()) {
+        diagnose(Tok, diag::expected_requirement_delim);
+      }
       Status.setIsParseError();
       break;
     }

@@ -42,6 +42,7 @@ struct A<T> {
 // expected-error @+1 {{expected ')' in '@differentiable' attribute}}
 let c: @differentiable(reverse (Float) -> Float
 
+// expected-error @+2 {{unknown differentiability kind 'notValidArg'; only 'reverse' is supported}}
 // expected-error @+1 {{expected ')' in '@differentiable' attribute}}
 let c: @differentiable(notValidArg (Float) -> Float
 

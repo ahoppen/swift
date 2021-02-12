@@ -69,9 +69,6 @@ class ASTGen {
   /// generated
   SourceLoc PreviousTokLoc;
 
-  // TODO: (syntax-parse) Remove once function type parsing has been migrated.
-  /// Whether the type currently being generated is part of function type.
-  bool IsInFunctionType = false;
 public:
   ASTGen(ASTContext &Context, SourceManager &SourceMgr,
          CodeCompletionCallbacks *CodeCompletion, DiagnosticEngine &Diags,
@@ -138,6 +135,7 @@ private:
   TypeRepr *generate(const CodeCompletionTypeSyntaxRef &Type);
   TypeRepr *generate(const CompositionTypeSyntaxRef &Type);
   TypeRepr *generate(const DictionaryTypeSyntaxRef &Type);
+  TypeRepr *generate(const FunctionTypeSyntaxRef &Type);
   TypeRepr *generate(const ImplicitlyUnwrappedOptionalTypeSyntaxRef &Type);
   TypeRepr *generate(const MemberTypeIdentifierSyntaxRef &Type);
   TypeRepr *generate(const MetatypeTypeSyntaxRef &Type);
@@ -160,6 +158,16 @@ public:
   /// Given there is a \c TypeRepr, whose parsing hasn't been migrated to
   /// libSyntax yet, at the given \c Loc.
   TypeRepr *takeType(const SourceLoc &Loc);
+
+private:
+  /// Returns a pair consisting of
+  /// 1. The location of the \c async specifier, if it exists.
+  ///    Otherwise an invalid location
+  /// 2. The location of the \c throws or \c rethrows specifier, if it exists.
+  ///    Otherwise an invalid location
+  std::pair<SourceLoc, SourceLoc> generateEffectsSpecifiers(
+      const EffectsSpecifierListSyntaxRef &EffectsSpecifiers,
+      bool RethrowsAllowed);
 
   /// Generate the \c TypeReprs specified in the \c clauseSyntax.
   /// Returns a pair containing
@@ -303,20 +311,6 @@ private:
   /// Return the \c CharSourceRange occupied by \p Node, excluding leading or
   /// trailing trivia.
   CharSourceRange getRangeWithoutTrivia(const SyntaxRef &Node);
-};
-
-class GeneratingFunctionTypeRAII {
-  ASTGen &ASTGenerator;
-  bool WasInFunctionType;
-  
-public:
-  GeneratingFunctionTypeRAII(ASTGen &ASTGenerator) : ASTGenerator(ASTGenerator), WasInFunctionType(ASTGenerator.IsInFunctionType) {
-    ASTGenerator.IsInFunctionType = true;
-  }
-  
-  ~GeneratingFunctionTypeRAII() {
-    ASTGenerator.IsInFunctionType = WasInFunctionType;
-  }
 };
 
 } // namespace swift

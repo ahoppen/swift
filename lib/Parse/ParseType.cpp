@@ -161,15 +161,6 @@ ParserResult<TypeRepr> Parser::parseTypeSimple(Diag<> MessageID) {
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
   auto collectionType = SyntaxContext->topNode<TypeSyntax>();
-  
-  Optional<GeneratingFunctionTypeRAII> InFunctionType;
-  bool isFunctionType =
-      Tok.isAny(tok::arrow, tok::kw_throws, tok::kw_rethrows) ||
-      Tok.isContextualKeyword("async");
-  if (isFunctionType) {
-    InFunctionType.emplace(ASTGenerator);
-  }
-  
   auto typeRepr =
       ASTGenerator.generate(collectionType, typeLoc, previousTokLoc, MessageID);
   if (!typeRepr) {
@@ -255,8 +246,40 @@ ParserResult<TypeRepr> Parser::parseSILBoxType(GenericParamList *generics,
 ///   type-function:
 ///     type-composition 'async'? 'throws'? '->' type
 ///
-ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID,
-                                         bool IsSILFuncDecl) {
+ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID, bool IsSILFuncDecl) {
+  // Type parsing for SIL hasn't been migrated yet. Use the legacy method
+  if (isInSILMode()) {
+    return parseTypeSIL(MessageID, IsSILFuncDecl);
+  }
+  // Otherwise use syntax-parse
+
+  EnableSyntaxParsingRAII enableSyntaxParsing(*this);
+
+  SourceLoc previousTokLoc = PreviousLoc;
+  auto typeLoc = leadingTriviaLoc();
+  auto result = parseTypeSyntaxNonSIL(MessageID);
+  auto status = result.getStatus();
+  SyntaxContext->addSyntax(result.take());
+  auto type = SyntaxContext->topNode<TypeSyntax>();
+  auto typeRepr =
+      ASTGenerator.generate(type, typeLoc, previousTokLoc, MessageID);
+  if (!typeRepr) {
+    status.setIsParseError();
+  }
+  return makeParserResult(status, typeRepr);
+}
+
+/// parseTypeSIL
+///   type:
+///     attribute-list type-composition
+///     attribute-list type-function
+///
+///   type-function:
+///     type-composition 'async'? 'throws'? '->' type
+///
+ParserResult<TypeRepr> Parser::parseTypeSIL(Diag<> MessageID,
+                                            bool IsSILFuncDecl) {
+  assert(isInSILMode());
   // Start a context for creating type syntax.
   SyntaxParsingContext TypeParsingContext(SyntaxContext,
                                           SyntaxContextKind::Type);
@@ -580,9 +603,8 @@ Parser::parseTypeIdentifier(bool isParsingQualifiedDeclBaseType) {
   auto result = parseTypeIdentifierSyntax(isParsingQualifiedDeclBaseType);
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
-  auto typeRepr =
-      ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
+  auto typeSyntax = SyntaxContext->topNode<TypeSyntax>();
+  auto typeRepr = ASTGenerator.generate(typeSyntax, typeLoc, previousTokLoc);
   if (!typeRepr) {
     status.setIsParseError();
   }
@@ -604,15 +626,6 @@ Parser::parseTypeSimpleOrComposition(Diag<> MessageID) {
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
   auto collectionType = SyntaxContext->topNode<TypeSyntax>();
-  
-  Optional<GeneratingFunctionTypeRAII> InFunctionType;
-  bool isFunctionType =
-      Tok.isAny(tok::arrow, tok::kw_throws, tok::kw_rethrows) ||
-      Tok.isContextualKeyword("async");
-  if (isFunctionType) {
-    InFunctionType.emplace(ASTGenerator);
-  }
-  
   auto typeRepr =
       ASTGenerator.generate(collectionType, typeLoc, previousTokLoc, MessageID);
   if (!typeRepr) {
@@ -654,9 +667,8 @@ ParserResult<TypeRepr> Parser::parseOldStyleProtocolComposition() {
   auto result = parseTypeOldStyleProtocolCompositionSyntax();
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
-  auto typeRepr =
-      ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
+  auto typeSyntax = SyntaxContext->topNode<TypeSyntax>();
+  auto typeRepr = ASTGenerator.generate(typeSyntax, typeLoc, previousTokLoc);
   if (!typeRepr) {
     status.setIsParseError();
   }
@@ -680,27 +692,13 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
   auto result = parseTypeTupleBodySyntax();
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
-  
-  bool isFunctionType =
-      Tok.isAny(tok::arrow, tok::kw_throws, tok::kw_rethrows) ||
-      Tok.isContextualKeyword("async");
-  if (isFunctionType) {
-    GeneratingFunctionTypeRAII InFunctionType(ASTGenerator);
-    auto typeRepr =
-        ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
-    if (!typeRepr) {
-      status.setIsParseError();
-    }
-    return makeParserResult(status, typeRepr);
-  } else {
-    auto typeRepr =
-        ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
-    if (!typeRepr) {
-      status.setIsParseError();
-    }
-    return makeParserResult(status, typeRepr);
+  auto type = SyntaxContext->topNode<TypeSyntax>();
+
+  auto typeRepr = ASTGenerator.generate(type, typeLoc, previousTokLoc);
+  if (!typeRepr) {
+    status.setIsParseError();
   }
+  return makeParserResult(status, typeRepr);
 }
 
 
@@ -1172,11 +1170,386 @@ ParsedTokenSyntax Parser::consumeOptionalTokenSyntax() {
   return consumeStartingCharacterOfCurrentTokenSyntax(tok::question_postfix);
 }
 
+void Parser::ignoreEffectsSpecifiersSyntax(SourceLoc ArrowLoc) {
+  assert(ArrowLoc.isValid());
+  while (true) {
+    if (Tok.isAny(tok::kw_throws, tok::kw_throw, tok::kw_try,
+                  tok::kw_rethrows) ||
+        (shouldParseExperimentalConcurrency() &&
+         Tok.isContextualKeyword("async"))) {
+      StringRef keyword = Tok.getText();
+      SourceLoc loc = Tok.getLoc();
+      ignoreToken();
+
+      diagnose(loc, diag::async_or_throws_in_wrong_position, keyword)
+          .fixItRemove(loc)
+          .fixItInsert(ArrowLoc, (keyword + " ").str());
+    } else {
+      break;
+    }
+  }
+}
+
 ParsedSyntaxResult<ParsedTypeSyntax> Parser::parseTypeAnySyntax() {
   auto anyToken = consumeTokenSyntax(tok::kw_Any);
   auto typeSyntax = ParsedSyntaxRecorder::makeSimpleTypeIdentifier(
       std::move(anyToken), None, *SyntaxContext);
   return makeParsedResult(std::move(typeSyntax));
+}
+
+///   specifier:
+///     'inout'
+///     '__shared'
+///     '__owned'
+///
+///   attribute-list:
+///     attribute-type (',' attribute-type)?
+ParserStatus Parser::parseTypeAttributeListSyntax(
+    Optional<ParsedTokenSyntax> &Specifier,
+    Optional<ParsedAttributeListSyntax> &Attrs) {
+  ParserStatus status;
+
+  assert(!Specifier && !Attrs && "Output parameters not empty");
+  // Parser a specifier.
+  while (Tok.is(tok::kw_inout) || Tok.isContextualKeyword("__shared") ||
+         Tok.isContextualKeyword("__owned")) {
+    if (Specifier) {
+      diagnose(Tok, diag::parameter_specifier_repeated)
+          .fixItRemove(Tok.getLoc());
+      status.setIsParseError();
+      ignoreToken();
+    } else {
+      Specifier = consumeTokenSyntax();
+    }
+  }
+
+  SmallVector<ParsedSyntax, 2> attrsList;
+  while (Tok.is(tok::at_sign) && status.isSuccess()) {
+    // Ignore @substituted in SIL mode and leave it for the type parser.
+    if (isInSILMode() && peekToken().getText() == "substituted") {
+      break;
+    }
+
+    auto attr = parseTypeAttributeSyntax();
+    status |= attr.getStatus();
+    attrsList.emplace_back(attr.take());
+  }
+  if (!attrsList.empty()) {
+    Attrs = ParsedSyntaxRecorder::makeAttributeList(attrsList, *SyntaxContext);
+  }
+
+  return status;
+}
+
+/// Parses an attribute for types.
+///
+///   attribute-type:
+///     '@' identifier
+///     '@' 'convention' '(' identifier ')'
+///     '@' 'convention' '(' 'witness_method' ':' identifier ')'
+///     '@' 'opened' '(' string-literal ')'
+///     '@' '_opaqureResultTypeOf' '(' string-literal ',' integer-literal ')'
+ParsedSyntaxResult<ParsedAttributeSyntax> Parser::parseTypeAttributeSyntax() {
+  ParsedAttributeSyntaxBuilder builder(*SyntaxContext);
+  ParserStatus status;
+
+  // Parse '@'.
+  SourceLoc atLoc = Tok.getLoc();
+  builder.useAtSignToken(consumeTokenSyntax(tok::at_sign));
+
+  // Parse attribute name.
+  if (Tok.is(tok::code_complete)) {
+    // TODO: Implement type attribute completion.
+    ignoreToken(tok::code_complete);
+    diagnose(Tok, diag::expected_attribute_name);
+    return makeParsedError(builder.build());
+  } else if (Tok.isNot(tok::identifier, tok::kw_in, tok::kw_inout)) {
+    diagnose(Tok, diag::expected_attribute_name);
+    return makeParsedError(builder.build());
+  }
+
+  StringRef attrName = Tok.getText();
+  SourceLoc attrLoc = Tok.getLoc();
+  builder.useAttributeName(consumeTokenSyntax());
+
+  TypeAttrKind attr = TypeAttributes::getAttrKindFromString(attrName);
+  switch (attr) {
+  case TAK_out:
+  case TAK_in:
+  case TAK_owned:
+  case TAK_unowned_inner_pointer:
+  case TAK_guaranteed:
+  case TAK_autoreleased:
+  case TAK_callee_owned:
+  case TAK_callee_guaranteed:
+  case TAK_objc_metatype:
+  case TAK_sil_weak:
+  case TAK_sil_unowned:
+    break;
+
+  case TAK_convention:
+    status |= [&]() -> ParserStatus {
+      // Parse '('.
+      if (!Tok.is(tok::l_paren) || Tok.isAtStartOfLine()) {
+        diagnose(Tok, diag::convention_attribute_expected_lparen);
+        return makeParserError();
+      }
+      SourceLoc lParenLoc = Tok.getLoc();
+      builder.useLeftParen(consumeTokenSyntax(tok::l_paren));
+
+      // Parse convention name.
+      if (Tok.isNot(tok::identifier)) {
+        diagnose(Tok, diag::convention_attribute_expected_name);
+        return makeParserError();
+      }
+      auto conventionName = Tok.getText();
+      auto convention = consumeTokenSyntax(tok::identifier);
+
+      // Consume extra (optional) ', cType: " blah blah "'
+      auto comma = consumeTokenSyntaxIf(tok::comma);
+      if (comma) {
+        auto argResult =
+            [&]() -> ParsedSyntaxResult<
+                      ParsedCTypeConventionAttributeArgumentsSyntax> {
+          ParsedCTypeConventionAttributeArgumentsSyntaxBuilder argBuilder(
+              *SyntaxContext);
+          argBuilder.useConvention(std::move(convention));
+          argBuilder.useComma(std::move(*comma));
+
+          // Consume 'cType'
+          if (Tok.isNot(tok::identifier)) {
+            diagnose(Tok, diag::convention_attribute_ctype_expected_label);
+            return makeParsedError(argBuilder.build());
+          }
+          auto cTypeLabel = Tok.getText();
+          if (cTypeLabel != "cType") {
+            diagnose(Tok, diag::convention_attribute_ctype_expected_label);
+            return makeParsedError(argBuilder.build());
+          }
+          argBuilder.useCTypeLabel(consumeTokenSyntax(tok::identifier));
+
+          // Consume ':'
+          if (!Tok.is(tok::colon)) {
+            diagnose(Tok, diag::convention_attribute_ctype_expected_colon);
+            return makeParsedError(argBuilder.build());
+          }
+          argBuilder.useColon(consumeTokenSyntax(tok::colon));
+
+          // Consume the c type (e.g. "void *(void))
+          if (Tok.isNot(tok::string_literal)) {
+            diagnose(Tok, diag::convention_attribute_ctype_expected_string);
+            return makeParsedError(argBuilder.build());
+          }
+          argBuilder.useCType(consumeTokenSyntax(tok::string_literal));
+          return makeParsedResult(argBuilder.build());
+        }();
+
+        builder.useArgument(argResult.take());
+        if (argResult.isError()) {
+          ignoreIf(tok::r_paren);
+          return makeParserError();
+        }
+      } else if (conventionName == "witness_method") {
+        ParsedNamedAttributeStringArgumentSyntaxBuilder argBuilder(
+            *SyntaxContext);
+        argBuilder.useNameTok(std::move(convention));
+
+        // Parse ':'.
+        if (Tok.isNot(tok::colon)) {
+          diagnose(Tok,
+                   diag::convention_attribute_witness_method_expected_colon);
+          builder.useArgument(argBuilder.build());
+          return makeParserError();
+        }
+        argBuilder.useColon(consumeTokenSyntax(tok::colon));
+
+        auto nameResult = parseDeclNameRefSyntax(
+            diag::convention_attribute_witness_method_expected_protocol, {});
+        argBuilder.useStringOrDeclname(nameResult.take());
+        if (nameResult.isError()) {
+          return makeParserError();
+        }
+        builder.useArgument(argBuilder.build());
+      } else {
+        builder.useArgument(std::move(convention));
+      }
+
+      // Parse ')'.
+      auto rParen = parseMatchingTokenSyntax(
+          tok::r_paren, diag::convention_attribute_expected_rparen, lParenLoc);
+      if (rParen.isError()) {
+        return makeParserError();
+      }
+      builder.useRightParen(rParen.take());
+
+      return makeParserSuccess();
+    }();
+    break;
+
+  case TAK_opened:
+    status |= [&]() -> ParserStatus {
+      // Parse '('.
+      if (!Tok.is(tok::l_paren) || Tok.isAtStartOfLine()) {
+        diagnose(Tok, diag::opened_attribute_expected_lparen);
+        return makeParserError();
+      }
+      SourceLoc lParenLoc = Tok.getLoc();
+      builder.useLeftParen(consumeTokenSyntax(tok::l_paren));
+
+      if (!Tok.is(tok::string_literal)) {
+        diagnose(Tok, diag::opened_attribute_id_value);
+        return makeParserError();
+      }
+      builder.useArgument(consumeTokenSyntax(tok::string_literal));
+
+      // Parse ')'.
+      auto rParen = parseMatchingTokenSyntax(
+          tok::r_paren, diag::opened_attribute_expected_rparen, lParenLoc);
+      builder.useRightParen(rParen.take());
+      if (rParen.isError()) {
+        return makeParserError();
+      }
+
+      return makeParserSuccess();
+    }();
+    break;
+
+  case TAK_differentiable:
+    status |= [&]() -> ParserStatus {
+      Parser::BacktrackingScope backtrack(*this);
+
+      if (!Tok.is(tok::l_paren)) {
+        // No arguments -> success
+        backtrack.cancelBacktrack();
+        return makeParserSuccess();
+      }
+      auto leftParen = consumeTokenSyntax(tok::l_paren);
+      if (!Tok.is(tok::identifier)) {
+        // Not an identifier -> backtrack.
+        return makeParserError();
+      }
+
+      ParsedDifferentiableAttributeArgumentsSyntaxBuilder argBuilder(
+          *SyntaxContext);
+      argBuilder.useDiffKind(consumeTokenSyntax(tok::identifier));
+
+      // Special case handling for '( <identifier> (' so that we don't produce
+      // the misleading diagnostic "expected ',' separator" when the real
+      // issue is that the user forgot the ')' closing the '@differentiable'
+      // argument list.
+      if (Tok.is(tok::l_paren)) {
+        backtrack.cancelBacktrack();
+        builder.useLeftParen(std::move(leftParen));
+        builder.useArgument(argBuilder.build());
+        diagnose(Tok, diag::attr_expected_rparen, "@differentiable",
+                 /*DeclModifier=*/false);
+        return makeParserSuccess();
+      } else if (!Tok.is(tok::r_paren)) {
+        // We didn't manage to parse an argument to @differentiable. Backtrack
+        // and parse the opening parenthesis as a function type.
+        return makeParserError();
+      }
+      auto rightParen = consumeTokenSyntax(tok::r_paren);
+
+      // If the next token is not a `(`, `@`, or an identifier, then the
+      // matched '( <identifier> )' is actually the parameter type list,
+      // not an argument to '@differentiable'.
+      if (Tok.isNot(tok::l_paren, tok::at_sign, tok::identifier)) {
+        // Backtrack
+        return makeParserSuccess();
+      }
+
+      // TODO: Parse wrt and where clauses
+
+      backtrack.cancelBacktrack();
+      // Now that we know we don't need to backtrack, commit the left paren and
+      // identifier to the builder.
+      builder.useLeftParen(std::move(leftParen));
+      builder.useArgument(argBuilder.build());
+      builder.useRightParen(std::move(rightParen));
+
+      return makeParserSuccess();
+    }();
+    break;
+
+  case TAK__opaqueReturnTypeOf:
+    status |= [&]() -> ParserStatus {
+      // Parse '('.
+      if (!Tok.is(tok::l_paren) || Tok.isAtStartOfLine()) {
+        diagnose(Tok, diag::attr_expected_lparen, "_opaqueReturnTypeOf", false);
+        return makeParserError();
+      }
+      SourceLoc lParenLoc = Tok.getLoc();
+      builder.useLeftParen(consumeTokenSyntax(tok::l_paren));
+
+      ParsedOpaqueReturnTypeOfAttributeArgumentsSyntaxBuilder argBuilder(
+          *SyntaxContext);
+
+      // Parse the mangled decl name and index.
+      if (!Tok.is(tok::string_literal)) {
+        diagnose(Tok, diag::opened_attribute_id_value);
+        return makeParserError();
+      }
+      argBuilder.useMangledName(consumeTokenSyntax(tok::string_literal));
+
+      // Parse ','.
+      if (!Tok.is(tok::comma)) {
+        diagnose(Tok, diag::attr_expected_comma, "_opaqueReturnTypeOf", false);
+        builder.useArgument(builder.build());
+        return makeParserError();
+      }
+      argBuilder.useComma(consumeTokenSyntax(tok::comma));
+
+      // Parse index number.
+      if (!Tok.is(tok::integer_literal)) {
+        diagnose(Tok, diag::attr_expected_string_literal,
+                 "_opaqueReturnTypeOf");
+        builder.useArgument(builder.build());
+        return makeParserError();
+      }
+      argBuilder.useIndex(consumeTokenSyntax(tok::integer_literal));
+
+      builder.useArgument(argBuilder.build());
+
+      // Parse ')'.
+      auto rParen = parseMatchingTokenSyntax(
+          tok::r_paren, diag::expected_rparen_expr_list, lParenLoc);
+      builder.useRightParen(rParen.take());
+      if (rParen.isError()) {
+        return makeParserError();
+      }
+
+      return makeParserSuccess();
+    }();
+    break;
+  case TAK_Count: { // Unknown attribute
+    // Recover by eating @foo(...) when foo is not known.
+    if (Tok.is(tok::l_paren) && getEndOfPreviousLoc() == Tok.getLoc()) {
+      diagnose(attrLoc, diag::attr_invalid_argument, attrName);
+      BacktrackingScope backtrack(*this);
+      auto lParen = consumeTokenSyntax(tok::l_paren);
+      ignoreUntil(tok::r_paren);
+      auto rParen = consumeTokenSyntaxIf(tok::r_paren);
+
+      // If we found '->', or 'throws' after paren, it's likely a parameter
+      // of function type.
+      if (Tok.isAny(tok::arrow, tok::kw_throws, tok::kw_rethrows,
+                    tok::kw_throw)) {
+        // If we found '->', or 'throws' after paren, the parameter we just
+        // parsed is likely the input of a function type. Backtrack.
+      } else {
+        backtrack.cancelBacktrack();
+        builder.useLeftParen(std::move(lParen));
+        builder.useRightParen(std::move(rParen));
+      }
+    }
+    status.setIsParseError();
+    break;
+  }
+  default:
+    break;
+  }
+  return makeParsedResult(builder.build(), status);
 }
 
 /// Parse a collection type.
@@ -1748,6 +2121,179 @@ Parser::parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl) {
   auto unknownType = ParsedSyntaxRecorder::makeUnknownType({}, *SyntaxContext);
   return makeParsedError(std::move(unknownType));
 }
+
+ParsedSyntaxResult<ParsedTypeSyntax>
+Parser::parseTypeSyntaxNonSIL(Diag<> MessageID) {
+  assert(!isInSILMode());
+  ParserStatus status;
+
+  // Parse attributes.
+  Optional<ParsedTokenSyntax> specifier;
+  Optional<ParsedAttributeListSyntax> attrs;
+  status |= parseTypeAttributeListSyntax(specifier, attrs);
+
+  // Parse generic parameters in SIL mode.
+  // Optional<ParsedGenericParameterClauseListSyntax> genericParams;
+  // FIXME: (syntax-parse) Handling of SIL mode
+  //  SourceLoc genericParamsLoc = Tok.getLoc();
+  //  if (isInSILMode()) {
+  //    (void)parseSILGenericParamsSyntax(genericParams);
+  //    if (Tok.is(tok::at_sign) && peekToken().getText() == "substituted") {
+  //      consumeToken(tok::at_sign);
+  //      substitutedLoc = consumeToken(tok::identifier);
+  //      patternGenerics = maybeParseGenericParams().getPtrOrNull();
+  //      if (!patternGenerics) {
+  //        diagnose(Tok.getLoc(), diag::sil_function_subst_expected_generics);
+  //      }
+  //    }
+  //  }
+
+  // In SIL mode, parse box types { ... }.
+  //  if (isInSILMode() && Tok.is(tok::l_brace)) {
+  //    if (patternGenerics) {
+  //      diagnose(Tok.getLoc(), diag::sil_function_subst_expected_function);
+  //    }
+  //    auto ty = parseSILBoxTypeSyntax(std::move(genericParams));
+  //    return applyAttributeToTypeSyntax(std::move(ty), std::move(specifier),
+  //                                      std::move(attrs));
+  //  }
+
+  // Parse the function input type. If we later discover, we are not parsing a
+  // function this will form the parsed type.
+  auto argTypeStartLoc = Tok.getLoc();
+  auto argTypeResult = parseTypeSimpleOrCompositionSyntax(MessageID);
+  status |= argTypeResult.getStatus();
+  ParsedTypeSyntax &&argType = argTypeResult.take();
+  auto argTypeEndLoc = PreviousLoc;
+
+  if (!isAtFunctionTypeArrow()) {
+    // TODO: (syntax-parse) Apply genericParams
+    auto attrResult = applyAttributeToTypeSyntax(
+        std::move(argType), std::move(specifier), std::move(attrs));
+    status |= attrResult.getStatus();
+    return makeParsedResult(attrResult.take(), status);
+  }
+
+  // Parse an async specifier.
+  auto effectsSpecifiersResult = parseEffectsSpecifiersSyntax();
+  status |= effectsSpecifiersResult.getStatus();
+  ParsedEffectsSpecifierListSyntax &&effectsSpecifiers =
+      effectsSpecifiersResult.take();
+
+  ParsedFunctionTypeSyntaxBuilder builder(*SyntaxContext);
+
+  // Arguments are being added further below once we know that the return type
+  // has parsed successfully.
+  builder.useEffectsSpecifiers(std::move(effectsSpecifiers));
+
+  SourceLoc arrowLoc = Tok.getLoc();
+  builder.useArrow(consumeTokenSyntaxIf(tok::arrow));
+
+  // Ignore and diagnose async/throws in the wrong place.
+  ignoreEffectsSpecifiersSyntax(arrowLoc);
+
+  ParsedSyntaxResult<ParsedTypeSyntax> returnTypeResult =
+      parseTypeSyntax(diag::expected_type_function_result);
+  status |= returnTypeResult.getStatus();
+
+  builder.useReturnType(returnTypeResult.take());
+
+  if (argType.is<ParsedTupleTypeSyntax>()) {
+    builder.useArguments(std::move(argType).castTo<ParsedTupleTypeSyntax>());
+  } else {
+    auto argument = ParsedSyntaxRecorder::makeTupleTypeElement(
+        std::move(argType), /*TrailingComma=*/None, *SyntaxContext);
+    ParsedTupleTypeSyntaxBuilder tupleBuilder(*SyntaxContext);
+    tupleBuilder.useElements(ParsedSyntaxRecorder::makeTupleTypeElementList(
+        {argument}, *SyntaxContext));
+    builder.useArguments(tupleBuilder.build());
+
+    // Diagnostics to write function input type inside parens.
+    // Diagnose only if the result type is successfully parsed, to reduce the
+    // noisy diagnostics.
+    if (returnTypeResult.isSuccess()) {
+      auto charRange = Lexer::getCharSourceRangeFromSourceRange(
+          SourceMgr, {argTypeStartLoc, argTypeEndLoc});
+      auto diag = diagnose(argTypeStartLoc, diag::function_type_no_parens);
+      if (SourceMgr.extractText(charRange) == "Void") {
+        diag.fixItReplace(argTypeStartLoc, "()");
+      } else {
+        diag.highlight(SourceRange(argTypeStartLoc, argTypeEndLoc));
+        diag.fixItInsert(argTypeStartLoc, "(");
+        diag.fixItInsertAfter(argTypeEndLoc, ")");
+      }
+    }
+  }
+
+  // FIXME: (syntax-parse) Handling of SIL mode
+  //    if (isInSILMode()) {
+  //      auto parseSubstitutions =
+  //      [&](MutableArrayRef<TypeRepr*> &subs) -> Optional<bool> {
+  //        if (!consumeIf(tok::kw_for)) return None;
+  //
+  //        if (!startsWithLess(Tok)) {
+  //          diagnose(Tok, diag::sil_function_subst_expected_l_angle);
+  //          return false;
+  //        }
+  //
+  //        consumeStartingLess();
+  //
+  //        SmallVector<TypeRepr*, 4> SubsTypesVec;
+  //        for (;;) {
+  //          auto argTy = parseType();
+  //          if (!argTy.getPtrOrNull())
+  //            return false;
+  //          SubsTypesVec.push_back(argTy.get());
+  //          if (!consumeIf(tok::comma))
+  //            break;
+  //        }
+  //        if (!startsWithGreater(Tok)) {
+  //          diagnose(Tok, diag::sil_function_subst_expected_r_angle);
+  //          return false;
+  //        }
+  //        consumeStartingGreater();
+  //
+  //        subs = Context.AllocateCopy(SubsTypesVec);
+  //        return true;
+  //      };
+  //
+  //      // Parse pattern substitutions.  These must exist if we had pattern
+  //      // generics above.
+  //      if (patternGenerics) {
+  //        auto result = parseSubstitutions(patternSubsTypes);
+  //        if (!result || patternSubsTypes.empty()) {
+  //          diagnose(Tok, diag::sil_function_subst_expected_subs);
+  //          patternGenerics = nullptr;
+  //        } else if (!*result) {
+  //          return makeParserError();
+  //        }
+  //      }
+  //
+  //      if (generics) {
+  //        if (auto result = parseSubstitutions(invocationSubsTypes))
+  //          if (!*result) return makeParserError();
+  //      }
+  //
+  //      if (Tok.is(tok::kw_for)) {
+  //        diagnose(Tok, diag::sil_function_subs_without_generics);
+  //        return makeParserError();
+  //      }
+  //    }
+  //
+  //    tyR = new (Context) FunctionTypeRepr(generics, argsTyR, asyncLoc,
+  //    throwsLoc,
+  //                                         arrowLoc, SecondHalf.get(),
+  //                                         patternGenerics, patternSubsTypes,
+  //                                         invocationSubsTypes);
+  //  }
+
+  // FIXME: (syntax-parse) Apply generics
+  auto attrResult = applyAttributeToTypeSyntax(
+      builder.build(), std::move(specifier), std::move(attrs));
+  status |= attrResult.getStatus();
+  return makeParsedResult(attrResult.take(), status);
+}
+
 /// parseTypeTupleBodySyntax
 ///   type-tuple:
 ///     '(' type-tuple-body? ')'
