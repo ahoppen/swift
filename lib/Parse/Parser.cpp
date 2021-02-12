@@ -378,21 +378,16 @@ Parser::Parser(unsigned BufferID, SourceFile &SF, SILParserStateBase *SIL,
 Parser::Parser(unsigned BufferID, SourceFile &SF, DiagnosticEngine *LexerDiags,
                SILParserStateBase *SIL, PersistentParserState *PersistentState,
                std::shared_ptr<HiddenLibSyntaxAction> SPActions)
-    : Parser(
-          std::unique_ptr<Lexer>(new Lexer(
-              SF.getASTContext().LangOpts, SF.getASTContext().SourceMgr,
-              BufferID, LexerDiags,
-              sourceFileKindToLexerMode(SF.Kind),
-              SF.Kind == SourceFileKind::Main
-                  ? HashbangMode::Allowed
-                  : HashbangMode::Disallowed,
-              SF.getASTContext().LangOpts.AttachCommentsToDecls
-                  ? CommentRetentionMode::AttachToNextToken
-                  : CommentRetentionMode::None,
-              SF.shouldBuildSyntaxTree()
-                  ? TriviaRetentionMode::WithTrivia
-                  : TriviaRetentionMode::WithoutTrivia)),
-          SF, SIL, PersistentState, std::move(SPActions)) {}
+    : Parser(std::unique_ptr<Lexer>(new Lexer(
+                 SF.getASTContext().LangOpts, SF.getASTContext().SourceMgr,
+                 BufferID, LexerDiags, sourceFileKindToLexerMode(SF.Kind),
+                 SF.Kind == SourceFileKind::Main ? HashbangMode::Allowed
+                                                 : HashbangMode::Disallowed,
+                 SF.getASTContext().LangOpts.AttachCommentsToDecls
+                     ? CommentRetentionMode::AttachToNextToken
+                     : CommentRetentionMode::None,
+                 TriviaRetentionMode::WithTrivia)),
+             SF, SIL, PersistentState, std::move(SPActions)) {}
 
 namespace {
 
