@@ -406,7 +406,7 @@ func ErrorTypeInPattern3(_: protocol<F,) { } // expected-error {{expected type}}
                                              // expected-error@-4 {{protocol<...>' composition syntax has been removed and is not needed here}} {{29-40=F}}
 
 struct ErrorTypeInVarDecl12 {
-  var v1 : FooProtocol & // expected-error{{expected identifier for type name}}
+  var v1 : FooProtocol & // expected-error{{expected type}}
   var v2 : Int
 }
 
@@ -416,11 +416,11 @@ struct ErrorTypeInVarDecl13 {
 }
 
 struct ErrorTypeInVarDecl16 {
-  var v1 : FooProtocol & // expected-error {{expected identifier for type name}}
+  var v1 : FooProtocol & // expected-error {{expected type}}
   var v2 : Int
 }
 
-func ErrorTypeInPattern4(_: FooProtocol & ) { } // expected-error {{expected identifier for type name}}
+func ErrorTypeInPattern4(_: FooProtocol & ) { } // expected-error {{expected type}}
 
 
 struct ErrorGenericParameterList1< // expected-error {{expected an identifier to name generic parameter}} expected-error {{expected '{' in struct}}

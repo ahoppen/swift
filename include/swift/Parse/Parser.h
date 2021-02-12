@@ -1424,6 +1424,10 @@ public:
 
   ParsedSyntaxResult<ParsedTypeSyntax>
   parseTypeOldStyleArraySyntax(ParsedTypeSyntax, SourceLoc BaseLoc);
+
+  ParsedSyntaxResult<ParsedTypeSyntax>
+  parseTypeSimpleOrCompositionSyntax(Diag<> MessageID);
+
   ParsedSyntaxResult<ParsedTypeSyntax> parseTypeSimpleSyntax(Diag<> MessageID);
 
   ParsedSyntaxResult<ParsedTypeSyntax>
