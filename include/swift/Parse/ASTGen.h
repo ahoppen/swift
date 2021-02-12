@@ -136,12 +136,14 @@ private:
   TypeRepr *generate(const ArrayTypeSyntaxRef &Type);
   TypeRepr *generate(const AttributedTypeSyntaxRef &Type);
   TypeRepr *generate(const CodeCompletionTypeSyntaxRef &Type);
+  TypeRepr *generate(const CompositionTypeSyntaxRef &Type);
   TypeRepr *generate(const DictionaryTypeSyntaxRef &Type);
   TypeRepr *generate(const ImplicitlyUnwrappedOptionalTypeSyntaxRef &Type);
   TypeRepr *generate(const MemberTypeIdentifierSyntaxRef &Type);
   TypeRepr *generate(const MetatypeTypeSyntaxRef &Type);
   TypeRepr *generate(const OptionalTypeSyntaxRef &Type);
   TypeRepr *generate(const SimpleTypeIdentifierSyntaxRef &Type);
+  TypeRepr *generate(const SomeTypeSyntaxRef &Type);
   TypeRepr *generate(const TupleTypeSyntaxRef &Type);
   TypeRepr *generate(const UnknownTypeSyntaxRef &Type, Diag<> MissingTypeDiag);
 

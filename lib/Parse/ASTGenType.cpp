@@ -48,6 +48,14 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
     return generate(Type.castTo<AttributedTypeSyntaxRef>());
   case SyntaxKind::CodeCompletionType:
     return generate(Type.castTo<CodeCompletionTypeSyntaxRef>());
+  case SyntaxKind::CompositionTypeElementList:
+    llvm_unreachable("Composition elements list is being generated from "
+                     "within the CompositionType generate function.");
+  case SyntaxKind::CompositionTypeElement:
+    llvm_unreachable("Composition type elements are being generated from "
+                     "within the CompositionType generate function.");
+  case SyntaxKind::CompositionType:
+    return generate(Type.castTo<CompositionTypeSyntaxRef>());
   case SyntaxKind::DictionaryType:
     return generate(Type.castTo<DictionaryTypeSyntaxRef>());
   case SyntaxKind::ImplicitlyUnwrappedOptionalType:
@@ -60,6 +68,8 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
     return generate(Type.castTo<OptionalTypeSyntaxRef>());
   case SyntaxKind::SimpleTypeIdentifier:
     return generate(Type.castTo<SimpleTypeIdentifierSyntaxRef>());
+  case SyntaxKind::SomeType:
+    return generate(Type.castTo<SomeTypeSyntaxRef>());
   case SyntaxKind::TupleType:
     return generate(Type.castTo<TupleTypeSyntaxRef>());
   case SyntaxKind::TupleTypeElement:
@@ -134,6 +144,47 @@ TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
   return new (Context) ErrorTypeRepr(getASTRange(Type));
 }
 
+TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
+  auto elements = Type.getElements();
+  assert(!elements.empty());
+
+  SmallVector<TypeRepr *, 4> elementTypeReprs;
+  for (auto element = elements.begin(); element != elements.end(); ++element) {
+    auto elementType = (*element).getType();
+    TypeRepr *elementTypeRepr;
+    if (auto someSyntax = elementType.getAs<SomeTypeSyntaxRef>()) {
+      // Some types inside type compositions are not valid. Diagnose and ignore
+      // the 'some'.
+      auto diag = diagnose(someSyntax->getSomeSpecifier(),
+                           diag::opaque_mid_composition);
+      diag.fixItRemove(getLoc(someSyntax->getSomeSpecifier()));
+
+      // Don't suggest adding 'some' before the composition if there is already
+      // a 'some' before.
+      bool isAlreadySomeType =
+          Type.getParentRef() && Type.getParentRef()->is<SomeTypeSyntaxRef>();
+      if (!isAlreadySomeType) {
+        diag.fixItInsert(getContentStartLoc(Type), "some ");
+      }
+
+      elementTypeRepr = generate(someSyntax->getBaseType());
+    } else {
+      elementTypeRepr = generate(elementType);
+    }
+
+    if (elementTypeRepr) {
+      elementTypeReprs.push_back(elementTypeRepr);
+    }
+  }
+
+  SourceLoc firstTypeLoc;
+  if (!elements.empty()) {
+    firstTypeLoc = getContentStartLoc(elements[0]);
+  }
+  return CompositionTypeRepr::create(Context, elementTypeReprs, firstTypeLoc,
+                                     getASTRange(Type));
+}
+
 TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
   SourceLoc ColonLoc = getLoc(Type.getColon());
 
@@ -185,6 +236,12 @@ TypeRepr *ASTGen::generate(const SimpleTypeIdentifierSyntaxRef &Type) {
 
   auto typeRepr = generateTypeIdentifier(Type);
   return IdentTypeRepr::create(Context, {typeRepr});
+}
+
+TypeRepr *ASTGen::generate(const SomeTypeSyntaxRef &Type) {
+  auto someLoc = getLoc(Type.getSomeSpecifier());
+  auto baseTypeRepr = generate(Type.getBaseType());
+  return new (Context) OpaqueReturnTypeRepr(someLoc, baseTypeRepr);
 }
 
 TypeRepr *ASTGen::generate(const TupleTypeSyntaxRef &Type) {
