@@ -18,7 +18,6 @@
 #include "llvm/ADT/StringRef.h"
 
 namespace swift {
-  class RawSyntaxTokenCache;
   class SourceManager;
   class SyntaxParsingCache;
   class SourceFile;
@@ -54,10 +53,6 @@ class SyntaxTreeCreator: public SyntaxParseActions {
   /// All of these nodes will receive a \c Release call when the \c
   /// SyntaxTreeCreator is destructed.
   std::vector<OpaqueSyntaxNode> DeferredNodes;
-
-  /// Tokens nodes that have already been created and may be reused in other
-  /// parts of the syntax tree.
-  std::unique_ptr<RawSyntaxTokenCache> TokenCache;
 
 public:
   SyntaxTreeCreator(SourceManager &SM, unsigned bufferID,

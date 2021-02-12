@@ -22,7 +22,6 @@
 #include "swift/AST/Module.h"
 #include "swift/AST/SourceFile.h"
 #include "swift/Basic/OwnedString.h"
-#include "RawSyntaxTokenCache.h"
 
 using namespace swift;
 using namespace swift::syntax;
@@ -38,10 +37,8 @@ static RC<RawSyntax> transferOpaqueNode(OpaqueSyntaxNode opaqueN) {
 SyntaxTreeCreator::SyntaxTreeCreator(SourceManager &SM, unsigned bufferID,
                                      SyntaxParsingCache *syntaxCache,
                                      RC<syntax::SyntaxArena> arena)
-    : SM(SM), BufferID(bufferID),
-      Arena(std::move(arena)),
-      SyntaxCache(syntaxCache),
-      TokenCache(new RawSyntaxTokenCache()) {
+    : SM(SM), BufferID(bufferID), Arena(std::move(arena)),
+      SyntaxCache(syntaxCache) {
   StringRef BufferContent = SM.getEntireTextForBuffer(BufferID);
   if (!BufferContent.empty()) {
     char *Data = (char *)Arena->Allocate(BufferContent.size(), alignof(char *));
@@ -145,9 +142,9 @@ OpaqueSyntaxNode SyntaxTreeCreator::recordToken(tok tokenKind,
   StringRef trailingTriviaText = ArenaSourceBuffer.substr(
       trailingTriviaStartOffset, trailingTrivia.size());
 
-  auto raw =
-      TokenCache->getToken(Arena, tokenKind, range.getByteLength(), tokenText,
-                           leadingTriviaText, trailingTriviaText);
+  auto raw = RawSyntax::make(tokenKind, tokenText, range.getByteLength(),
+                             leadingTriviaText, trailingTriviaText,
+                             SourcePresence::Present, Arena);
   OpaqueSyntaxNode opaqueN = raw.get();
   raw.resetWithoutRelease();
   return opaqueN;
