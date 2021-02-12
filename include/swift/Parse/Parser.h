@@ -455,9 +455,21 @@ public:
   }
 
   void restoreParserPosition(ParserPosition PP, bool enableDiagnostics = false) {
+    // Disable diagnostics emitted during the restore if requested to do so.
+    // The lexer also disables diagnostics in restoreState, but diagnostics may
+    // still be emitted by the following lex() call.
+    Optional<DiagnosticTransaction> diagTransaction;
+    if (!enableDiagnostics) {
+      diagTransaction.emplace(Diags);
+    }
+
     L->restoreState(PP.LS, enableDiagnostics);
     L->lex(Tok, LeadingTrivia, TrailingTrivia);
     PreviousLoc = PP.PreviousLoc;
+
+    if (diagTransaction) {
+      diagTransaction->abort();
+    }
   }
 
   void backtrackToPosition(ParserPosition PP) {
