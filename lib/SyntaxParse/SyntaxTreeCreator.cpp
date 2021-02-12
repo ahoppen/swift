@@ -43,12 +43,16 @@ SyntaxTreeCreator::SyntaxTreeCreator(SourceManager &SM, unsigned bufferID,
       SyntaxCache(syntaxCache),
       TokenCache(new RawSyntaxTokenCache()) {
   StringRef BufferContent = SM.getEntireTextForBuffer(BufferID);
-  char *Data = (char *)Arena->Allocate(BufferContent.size(), alignof(char *));
-  std::uninitialized_copy(BufferContent.begin(), BufferContent.end(), Data);
-  ArenaSourceBuffer = StringRef(Data, BufferContent.size());
-  assert(ArenaSourceBuffer == BufferContent);
-  Arena->setHotUseMemoryRegion(ArenaSourceBuffer.begin(),
-                               ArenaSourceBuffer.end());
+  if (!BufferContent.empty()) {
+    char *Data = (char *)Arena->Allocate(BufferContent.size(), alignof(char *));
+    std::uninitialized_copy(BufferContent.begin(), BufferContent.end(), Data);
+    ArenaSourceBuffer = StringRef(Data, BufferContent.size());
+    assert(ArenaSourceBuffer == BufferContent);
+    Arena->setHotUseMemoryRegion(ArenaSourceBuffer.begin(),
+                                 ArenaSourceBuffer.end());
+  } else {
+    ArenaSourceBuffer = StringRef();
+  }
 }
 
 SyntaxTreeCreator::~SyntaxTreeCreator() {
