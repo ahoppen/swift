@@ -68,7 +68,6 @@ public:
   Optional<syntax::SourceFileSyntax>
   realizeSyntaxRoot(OpaqueSyntaxNode root, const SourceFile &SF) override;
 
-private:
   OpaqueSyntaxNode recordToken(tok tokenKind, StringRef leadingTrivia,
                                StringRef trailingTrivia,
                                CharSourceRange range) override;

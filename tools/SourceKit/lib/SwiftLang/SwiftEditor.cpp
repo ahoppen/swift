@@ -693,20 +693,22 @@ public:
     BufferID = SM.addNewSourceBuffer(std::move(BufCopy));
     DiagConsumer.setInputBufferIDs(BufferID);
 
+    RC<SyntaxArena> syntaxArena{new syntax::SyntaxArena()};
+    SynTreeCreator = std::make_shared<SyntaxTreeCreator>(
+        SM, BufferID, CompInv.getMainFileSyntaxParsingCache(), syntaxArena);
+    std::shared_ptr<HiddenLibSyntaxAction> hiddenAction;
     if (CompInv.getLangOptions().BuildSyntaxTree) {
-      RC<SyntaxArena> syntaxArena{new syntax::SyntaxArena()};
-      SynTreeCreator = std::make_shared<SyntaxTreeCreator>(
-          SM, BufferID, CompInv.getMainFileSyntaxParsingCache(), syntaxArena);
+      hiddenAction = std::make_shared<HiddenLibSyntaxAction>(SynTreeCreator,
+                                                             SynTreeCreator);
+    } else {
+      hiddenAction =
+          std::make_shared<HiddenLibSyntaxAction>(nullptr, SynTreeCreator);
     }
 
-    Parser.reset(
-                 new ParserUnit(SM, SourceFileKind::Main, BufferID,
-                     CompInv.getLangOptions(),
-                     CompInv.getTypeCheckerOptions(),
-                     CompInv.getModuleName(),
-                     SynTreeCreator,
-                     CompInv.getMainFileSyntaxParsingCache())
-    );
+    Parser.reset(new ParserUnit(
+        SM, SourceFileKind::Main, BufferID, CompInv.getLangOptions(),
+        CompInv.getTypeCheckerOptions(), CompInv.getModuleName(), hiddenAction,
+        CompInv.getMainFileSyntaxParsingCache()));
 
     registerParseRequestFunctions(Parser->getParser().Context.evaluator);
     registerTypeCheckerRequestFunctions(

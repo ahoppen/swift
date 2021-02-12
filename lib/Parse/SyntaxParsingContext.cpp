@@ -33,12 +33,12 @@ void SyntaxParseActions::_anchor() {}
 
 using RootContextData = SyntaxParsingContext::RootContextData;
 
-SyntaxParsingContext::SyntaxParsingContext(SyntaxParsingContext *&CtxtHolder,
-                                           SourceFile &SF, unsigned BufferID,
-                                 std::shared_ptr<SyntaxParseActions> SPActions)
-    : RootDataOrParent(new RootContextData(
-          SF, SF.getASTContext().Diags, SF.getASTContext().SourceMgr, BufferID,
-          std::move(SPActions))),
+SyntaxParsingContext::SyntaxParsingContext(
+    SyntaxParsingContext *&CtxtHolder, SourceFile &SF, unsigned BufferID,
+    std::shared_ptr<HiddenLibSyntaxAction> SPActions)
+    : RootDataOrParent(new RootContextData(SF, SF.getASTContext().Diags,
+                                           SF.getASTContext().SourceMgr,
+                                           BufferID, std::move(SPActions))),
       CtxtHolder(CtxtHolder),
       RootData(RootDataOrParent.get<RootContextData *>()), Offset(0),
       Mode(AccumulationMode::Root), Enabled(SF.shouldBuildSyntaxTree()) {
