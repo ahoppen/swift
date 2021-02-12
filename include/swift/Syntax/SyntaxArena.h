@@ -26,10 +26,13 @@ namespace syntax {
 
 /// Memory manager for Syntax nodes.
 class SyntaxArena : public llvm::ThreadSafeRefCountedBase<SyntaxArena> {
+  using BumpAllocator =
+      llvm::BumpPtrAllocatorImpl<llvm::MallocAllocator, 4096, 4096, 1>;
+
   SyntaxArena(const SyntaxArena &) = delete;
   void operator=(const SyntaxArena &) = delete;
 
-  llvm::BumpPtrAllocator Allocator;
+  BumpAllocator Allocator;
 
   /// The start (inclusive) and end (exclusive) pointers of a memory region that
   /// is frequently requested using \c containsPointer. Must be inside \c
@@ -50,7 +53,7 @@ public:
     HotUseMemoryRegionEnd = End;
   }
 
-  llvm::BumpPtrAllocator &getAllocator() { return Allocator; }
+  BumpAllocator &getAllocator() { return Allocator; }
   void *Allocate(size_t size, size_t alignment) {
     return Allocator.Allocate(size, alignment);
   }
