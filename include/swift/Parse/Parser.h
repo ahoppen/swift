@@ -1043,6 +1043,13 @@ public:
   parseMatchingTokenSyntax(tok K, Diag<> ErrorDiag, SourceLoc OtherLoc,
                            bool SilenceDiag = false);
 
+  /// The parser expects that \p K is the next token in the input.  If so,
+  /// it is consumed and the corresponding \c ParsedTokenSyntax returned.
+  ///
+  /// If the input is malformed, this emits the specified error diagnostic and
+  /// \c None is returned.
+  Optional<ParsedTokenSyntax> parseTokenSyntax(tok K, const Diagnostic &D);
+
   //===--------------------------------------------------------------------===//
   // MARK: - Utility functions for libSyntax
 

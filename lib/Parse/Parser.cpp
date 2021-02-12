@@ -1748,3 +1748,14 @@ Parser::parseMatchingTokenSyntax(tok K, Diag<> ErrorDiag, SourceLoc OtherLoc,
   auto missingToken = ParsedSyntaxRecorder::makeMissingToken(K, *SyntaxContext);
   return makeParsedError(std::move(missingToken));
 }
+
+Optional<ParsedTokenSyntax> Parser::parseTokenSyntax(tok K,
+                                                     const Diagnostic &D) {
+  if (Tok.is(K)) {
+    return consumeTokenSyntax(K);
+  }
+
+  checkForInputIncomplete();
+  diagnose(Tok.getLoc(), D);
+  return None;
+}
