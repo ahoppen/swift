@@ -58,6 +58,8 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
     return generate(Type.castTo<CompositionTypeSyntaxRef>());
   case SyntaxKind::DictionaryType:
     return generate(Type.castTo<DictionaryTypeSyntaxRef>());
+  case SyntaxKind::FunctionType:
+    return generate(Type.castTo<FunctionTypeSyntaxRef>());
   case SyntaxKind::ImplicitlyUnwrappedOptionalType:
     return generate(Type.castTo<ImplicitlyUnwrappedOptionalTypeSyntaxRef>());
   case SyntaxKind::MemberTypeIdentifier:
@@ -196,6 +198,29 @@ TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
   return new (Context) DictionaryTypeRepr(KeyType, ValueType, ColonLoc, Range);
 }
 
+TypeRepr *ASTGen::generate(const FunctionTypeSyntaxRef &FuncSyntax) {
+  TupleTypeRepr *argumentTypes = argumentTypes =
+      generateTuple(FuncSyntax.getArguments()->getElements().getRef(),
+                    getASTRange(FuncSyntax), /*IsInFunctionSignature=*/true);
+
+  if (!argumentTypes) {
+    return new (Context) ErrorTypeRepr(getASTRange(FuncSyntax));
+  }
+
+  SourceLoc asyncLoc, throwsLoc;
+  std::tie(asyncLoc, throwsLoc) = generateEffectsSpecifiers(
+      FuncSyntax.getEffectsSpecifiers().getRef(), /*RethrowsAllowed=*/false);
+
+  auto arrowLoc = getLoc(FuncSyntax.getArrow().getRef());
+  auto returnType = generate(FuncSyntax.getReturnType().getRef());
+  if (!returnType) {
+    return new (Context) ErrorTypeRepr(getASTRange(FuncSyntax));
+  }
+
+  return new (Context) FunctionTypeRepr(nullptr, argumentTypes, asyncLoc,
+                                        throwsLoc, arrowLoc, returnType);
+}
+
 TypeRepr *
 ASTGen::generate(const ImplicitlyUnwrappedOptionalTypeSyntaxRef &Type) {
   auto baseTypeRepr = generate(Type.getWrappedType().getRef());
@@ -323,6 +348,58 @@ TypeRepr *ASTGen::takeType(const SourceLoc &Loc) {
 //===--------------------------------------------------------------------===//
 // MARK: - Private helper functions
 
+std::pair<SourceLoc, SourceLoc> ASTGen::generateEffectsSpecifiers(
+    const EffectsSpecifierListSyntaxRef &EffectsSpecifiers,
+    bool RethrowsAllowed) {
+  SourceLoc asyncLoc;
+  SourceLoc throwsLoc;
+  // When throwsLoc is valid, whether it points to a 'throws' or 'rethrows'
+  // token
+  bool isRethrows;
+
+  for (auto specifier : EffectsSpecifiers) {
+    auto ownedToken = specifier->getSpecifier();
+    auto token = ownedToken.getRef();
+
+    switch (token.getTokenKind()) {
+    case tok::kw_throws:
+    case tok::kw_rethrows:
+      if (throwsLoc.isValid()) {
+        diagnose(token, diag::duplicate_effects_specifier, token.getText())
+            .highlight(throwsLoc)
+            .fixItRemove(getLoc(token));
+      } else if (token.getTokenKind() == tok::kw_rethrows && !RethrowsAllowed) {
+        diagnose(token, diag::rethrowing_function_type)
+            .fixItReplace(getLoc(token), "throws");
+      } else {
+        isRethrows = (token.getTokenKind() == tok::kw_rethrows);
+        throwsLoc = getLoc(token);
+      }
+      break;
+    default:
+      if (token.getText() == "async") {
+        if (asyncLoc.isValid()) {
+          diagnose(token, diag::duplicate_effects_specifier, token.getText())
+              .highlight(asyncLoc)
+              .fixItRemove(getLoc(token));
+        } else if (throwsLoc.isValid()) {
+          // 'async' cannot be after 'throws'.
+          diagnose(token, diag::async_after_throws, /*TODO*/false, isRethrows)
+              .fixItRemove(getLoc(token))
+              .fixItInsert(throwsLoc, "async ");
+        } else {
+          // The async specifier is valid
+          asyncLoc = getLoc(token);
+        }
+      } else {
+        assert(false && "Unknown effects specifier");
+      }
+    }
+  }
+
+  return std::make_pair(asyncLoc, throwsLoc);
+}
+
 std::pair<SourceRange, SmallVector<TypeRepr *, 4>> ASTGen::generateGenericArgs(
     const GenericArgumentClauseSyntaxRef &ClauseSyntax) {
   SmallVector<TypeRepr *, 4> args;
@@ -340,8 +417,6 @@ TupleTypeRepr *
 ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
                       const SourceRange &RangeWithParens,
                       bool IsInFunctionSignature) {
-  // TODO: Remove once generating function types has been migrated.
-  IsInFunctionSignature = this->IsInFunctionType;
   SmallVector<TupleTypeReprElement, 4> tupleElements;
 
   SourceLoc ellipsisLoc;

@@ -237,9 +237,7 @@ ATTRIBUTE_NODES = [
          and an optional 'where' clause.
          ''',
          children=[
-             Child('DiffKind', kind='IdentifierToken',
-                   text_choices=['forward', 'reverse', 'linear'],
-                   is_optional=True),
+             Child('DiffKind', kind='IdentifierToken', is_optional=True),
              Child('DiffKindComma', kind='CommaToken', description='''
                    The comma following the differentiability kind, if it exists.
                    ''', is_optional=True),

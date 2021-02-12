@@ -102,7 +102,7 @@ public func requirementOnNonGenericFunction(x: Int, y: Int) {
 public func missingRequirement<X:P, Y>(x: X, y: Y) {
 }
 
-@_specialize(where) // expected-error{{expected type}} expected-error{{expected ':' or '==' to indicate a conformance or same-type requirement}}
+@_specialize(where) // expected-error{{expected type}}
 @_specialize() // expected-error{{expected a parameter label or a where clause in '_specialize' attribute}} expected-error{{expected declaration}}
 public func funcWithEmptySpecializeAttr<X: P, Y>(x: X, y: Y) {
 }

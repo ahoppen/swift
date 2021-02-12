@@ -253,6 +253,9 @@ SYNTAX_NODE_SERIALIZATION_CODES = {
     'AwaitExpr': 249,
     'OpaqueReturnTypeOfAttributeArguments': 250,
     'CTypeConventionAttributeArguments': 251,
+    'EffectsSpecifierList': 252,
+    'EffectsSpecifier': 253,
+
 }
 
 

@@ -56,7 +56,7 @@ func zim() {}
 func zung<T>(_: T) {}
 @_transparent // expected-error{{'@_transparent' attribute cannot be applied to stored properties}} {{1-15=}}
 var zippity : Int
-func zoom(x: @_transparent () -> ()) { } // expected-error{{attribute can only be applied to declarations, not types}} {{1-1=@_transparent }} {{14-28=}}
+func zoom(x: @_transparent () -> ()) { } // expected-error{{attribute can only be applied to declarations, not types}}
 protocol ProtoWithTransparent {
   @_transparent// expected-error{{'@_transparent' attribute is not supported on declarations within protocols}} {{3-16=}}
   func transInProto()
@@ -201,12 +201,12 @@ func func_result_attr() -> @xyz Int {       // expected-error {{unknown attribut
 }
 
 func func_with_unknown_attr1(@unknown(*) x: Int) {} // expected-error {{unknown attribute 'unknown'}}
-func func_with_unknown_attr2(x: @unknown(_) Int) {} // expected-error {{unknown attribute 'unknown'}}
-func func_with_unknown_attr3(x: @unknown(Int) -> Int) {} // expected-error {{unknown attribute 'unknown'}}
-func func_with_unknown_attr4(x: @unknown(Int) throws -> Int) {} // expected-error {{unknown attribute 'unknown'}}
+func func_with_unknown_attr2(x: @unknown(_) Int) {} // expected-error {{unknown attribute 'unknown'}} expected-error {{invalid arguments to 'unknown' attribute}}
+func func_with_unknown_attr3(x: @unknown(Int) -> Int) {} // expected-error {{unknown attribute 'unknown'}} expected-error {{invalid arguments to 'unknown' attribute}}
+func func_with_unknown_attr4(x: @unknown(Int) throws -> Int) {} // expected-error {{unknown attribute 'unknown'}} expected-error {{invalid arguments to 'unknown' attribute}}
 func func_with_unknown_attr5(x: @unknown (x: Int, y: Int)) {} // expected-error {{unknown attribute 'unknown'}}
-func func_with_unknown_attr6(x: @unknown(x: Int, y: Int)) {} // expected-error {{unknown attribute 'unknown'}} expected-error {{expected parameter type following ':'}}
-func func_with_unknown_attr7(x: @unknown (Int) () -> Int) {} // expected-error {{unknown attribute 'unknown'}} expected-error {{expected ',' separator}} {{47-47=,}} expected-error {{unnamed parameters must be written with the empty name '_'}} {{48-48=_: }}
+func func_with_unknown_attr6(x: @unknown(x: Int, y: Int)) {} // expected-error {{unknown attribute 'unknown'}} expected-error {{expected type}} expected-error {{invalid arguments to 'unknown' attribute}}
+func func_with_unknown_attr7(x: @unknown (Int) () -> Int) {} // expected-error {{unknown attribute 'unknown'}}
 
 func func_type_attribute_with_space(x: @convention (c) () -> Int) {} // OK. Known attributes can have space before its paren.
 
