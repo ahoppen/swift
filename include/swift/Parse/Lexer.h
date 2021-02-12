@@ -195,6 +195,8 @@ public:
     return LexMode == LexerMode::SwiftInterface;
   }
 
+  LexerMode getMode() const { return LexMode; }
+
   /// Lex a token. If \c TriviaRetentionMode is \c WithTrivia, passed pointers
   /// to trivias are populated.
   void lex(Token &Result, StringRef &LeadingTriviaResult,
@@ -274,6 +276,13 @@ public:
     // Don't reemit diagnostics while readvancing the lexer.
     llvm::SaveAndRestore<DiagnosticEngine*>
       D(Diags, enableDiagnostics ? Diags : nullptr);
+
+    // FIXME: Some lexing functions access NextToken (which will be the
+    // previous token) to decide how to continue lexing. We should be populating
+    // this with the previous token, but its starting position is hard (or even
+    // impossible) to find. For now just set it to an empty token. This is
+    // definitely preferable to having the pre-restored token leak through.
+    NextToken = Token();
 
     lexImpl();
 

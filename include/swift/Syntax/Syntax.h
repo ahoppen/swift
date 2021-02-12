@@ -70,6 +70,10 @@ public:
   /// Get the Data for this Syntax node.
   const SyntaxDataRef &getDataRef() const { return Data; }
 
+  const AbsoluteRawSyntaxRef &getAbsoluteRawRef() const {
+    return getDataRef().getAbsoluteRawRef();
+  }
+  
   /// Get the shared raw syntax.
   const RawSyntax *getRawRef() const { return getDataRef().getRawRef(); }
 
@@ -110,6 +114,26 @@ public:
   llvm::Optional<SyntaxRef> getChildRef(const size_t N) const {
     if (auto ChildData = getDataRef().getChildRef(N)) {
       return SyntaxRef(*ChildData);
+    } else {
+      return None;
+    }
+  }
+
+  /// Get the node immediately before this current node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  Optional<SyntaxRef> getPreviousNodeRef() const {
+    if (auto prev = getDataRef().getPreviousNodeRef()) {
+      return SyntaxRef(*prev);
+    } else {
+      return None;
+    }
+  }
+
+  /// Get the node immediately after this node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  Optional<SyntaxRef> getNextNodeRef() const {
+    if (auto prev = getDataRef().getNextNodeRef()) {
+      return SyntaxRef(*prev);
     } else {
       return None;
     }

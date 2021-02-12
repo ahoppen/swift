@@ -27,6 +27,41 @@ Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
   }
 }
 
+Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
+  if (size_t N = getIndexInParent()) {
+    if (hasParent()) {
+      for (size_t I = N - 1;; --I) {
+        if (auto C = getParentRef()->getChildRef(I)) {
+          if (C->getRawRef()->isPresent() &&
+              C->getAbsoluteRawRef().getFirstTokenRef() != None) {
+            return C;
+          }
+        }
+        if (I == 0) {
+          break;
+        }
+      }
+    }
+  }
+  return hasParent() ? getParentRef()->getPreviousNodeRef() : None;
+}
+
+Optional<SyntaxDataRef> SyntaxDataRef::getNextNodeRef() const {
+  if (hasParent()) {
+    size_t NumChildren = getParentRef()->getNumChildren();
+    for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
+      if (auto C = getParentRef()->getChildRef(I)) {
+        if (C->getRawRef()->isPresent() &&
+            C->getAbsoluteRawRef().getFirstTokenRef() != None) {
+          return C;
+        }
+      }
+    }
+    return getParentRef()->getNextNodeRef();
+  }
+  return None;
+}
+
 AbsoluteOffsetPosition
 SyntaxDataRef::getAbsolutePositionBeforeLeadingTrivia() const {
   return AbsoluteRaw.getPosition();

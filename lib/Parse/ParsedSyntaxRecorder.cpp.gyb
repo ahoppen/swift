@@ -163,8 +163,60 @@ ParsedSyntaxRecorder::makeBlank${node.syntax_kind}(SourceLoc loc,
   }
   return Parsed${node.name}(std::move(raw));
 }
+%   elif node.is_unknown():
+Parsed${node.name}
+ParsedSyntaxRecorder::record${node.syntax_kind}(
+    MutableArrayRef<ParsedRawSyntaxNode> layout,
+    ParsedRawSyntaxRecorder &rec) {
+  auto raw = rec.recordRawSyntax(SyntaxKind::${node.syntax_kind}, layout);
+  return Parsed${node.name}(std::move(raw));
+}
+
+Parsed${node.name}
+ParsedSyntaxRecorder::defer${node.syntax_kind}(
+    MutableArrayRef<ParsedRawSyntaxNode> layout,
+    SyntaxParsingContext &SPCtx) {
+  auto raw = SPCtx.getRecorder().makeDeferred(SyntaxKind::${node.syntax_kind},
+                             layout, SPCtx);
+  return Parsed${node.name}(std::move(raw));
+}
+
+Parsed${node.name}
+ParsedSyntaxRecorder::make${node.syntax_kind}(
+    MutableArrayRef<ParsedSyntax> elements,
+    SyntaxParsingContext &SPCtx) {
+  SmallVector<ParsedRawSyntaxNode, 16> layout;
+  layout.reserve(elements.size());
+  for (auto &element : elements) {
+    layout.push_back(element.takeRaw());
+  }
+  if (SPCtx.shouldDefer())
+    return defer${node.syntax_kind}(layout, SPCtx);
+  return record${node.syntax_kind}(layout, SPCtx.getRecorder());
+}
 %   end
 % end
+
+ParsedTokenSyntax
+ParsedSyntaxRecorder::makeToken(const Token &Tok, StringRef LeadingTrivia,
+                                StringRef TrailingTrivia,
+                                SyntaxParsingContext &SPCtx)  {
+  if (SPCtx.shouldDefer()) {
+    return ParsedTokenSyntax(SPCtx.getRecorder().makeDeferred(Tok, LeadingTrivia, TrailingTrivia));
+  } else {
+    return ParsedTokenSyntax(SPCtx.getRecorder().recordToken(Tok, LeadingTrivia, TrailingTrivia));
+  }
+}
+
+ParsedTokenSyntax
+ParsedSyntaxRecorder::makeMissingToken(const tok &TokenKind,
+                                       SyntaxParsingContext &SPCtx) {
+  if (SPCtx.shouldDefer()) {
+    return ParsedTokenSyntax(SPCtx.getRecorder().makeDeferredMissing(TokenKind, SourceLoc()));
+  } else {
+    return ParsedTokenSyntax(SPCtx.getRecorder().recordMissingToken(TokenKind, SourceLoc()));
+  }
+}
 
 ParsedTupleTypeElementSyntax
 ParsedSyntaxRecorder::makeTupleTypeElement(ParsedTypeSyntax Type,

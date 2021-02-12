@@ -173,6 +173,14 @@ public:
   AbsoluteSyntaxPosition::IndexInParentType getIndexInParent() const {
     return getAbsoluteRawRef().getPosition().getIndexInParent();
   }
+  
+  /// Get the node immediately before this current node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  Optional<SyntaxDataRef> getPreviousNodeRef() const;
+
+  /// Get the node immediately after this current node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  Optional<SyntaxDataRef> getNextNodeRef() const;
 
   // MARK: - Retrieving source locations
 

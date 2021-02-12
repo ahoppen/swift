@@ -19,22 +19,25 @@
 
 #include "swift/AST/ASTContext.h"
 #include "swift/AST/ASTNode.h"
-#include "swift/AST/Expr.h"
 #include "swift/AST/DiagnosticsParse.h"
+#include "swift/AST/Expr.h"
 #include "swift/AST/LayoutConstraint.h"
 #include "swift/AST/ParseRequests.h"
 #include "swift/AST/Pattern.h"
 #include "swift/AST/Stmt.h"
 #include "swift/Basic/OptionSet.h"
+#include "swift/Config.h"
+#include "swift/Parse/ASTGen.h"
 #include "swift/Parse/Lexer.h"
 #include "swift/Parse/LocalContext.h"
-#include "swift/Parse/PersistentParserState.h"
-#include "swift/Parse/Token.h"
+#include "swift/Parse/ParsedSyntaxNodes.h"
+#include "swift/Parse/ParsedSyntaxResult.h"
 #include "swift/Parse/ParserPosition.h"
 #include "swift/Parse/ParserResult.h"
+#include "swift/Parse/PersistentParserState.h"
 #include "swift/Parse/SyntaxParsingContext.h"
+#include "swift/Parse/Token.h"
 #include "swift/Syntax/References.h"
-#include "swift/Config.h"
 
 namespace llvm {
   template <typename...  PTs> class PointerUnion;
@@ -181,6 +184,7 @@ public:
 
   void setCodeCompletionCallbacks(CodeCompletionCallbacks *Callbacks) {
     CodeCompletion = Callbacks;
+    ASTGenerator.setCodeCompletionCallbacks(Callbacks);
   }
 
   bool isCodeCompletionFirstPass() const {
@@ -403,6 +407,9 @@ public:
 
   /// Has \c AvailabilityMacros been computed?
   bool AvailabilityMacrosComputed = false;
+
+  /// The AST generator that generates AST nodes from libSyntax nodes.
+  ASTGen ASTGenerator;
 
 public:
   Parser(unsigned BufferID, SourceFile &SF, DiagnosticEngine *LexerDiags,
@@ -891,6 +898,21 @@ public:
   }
   ParserResult<BraceStmt> parseBraceItemList(Diag<> ID);
   
+  /// Consume a token and return the corresponding \c ParsedTokenSyntax.
+  ParsedTokenSyntax consumeTokenSyntax();
+  ParsedTokenSyntax consumeTokenSyntax(tok K) {
+    assert(Tok.is(K) && "Consuming wrong token kind");
+    return consumeTokenSyntax();
+  }
+
+  /// If the current token is the specified kind, consume it and
+  /// return it. Otherwise, return \c None without consuming it.
+  Optional<ParsedTokenSyntax> consumeTokenSyntaxIf(tok K) {
+    if (Tok.isNot(K))
+      return None;
+    return consumeTokenSyntax();
+  }
+
   //===--------------------------------------------------------------------===//
   // Decl Parsing
 
@@ -1619,6 +1641,23 @@ public:
   void validateCollectionElement(ParserResult<Expr> element);
 
   //===--------------------------------------------------------------------===//
+  // MARK: - Expression parsing using libSyntax
+
+  // TODO: (syntax-parse) remove when possible
+  /// Parse the upcoming expression of type \c SyntaxNode through libSyntax,
+  /// i.e. parse it into a libSyntax node and generate the \c Expr node from the
+  /// libSyntax node using \c ASTGen.
+  template <typename SyntaxNode>
+  ParserResult<Expr> parseExprAST();
+
+  // TODO: (syntax-parse) create new result type for ParsedSyntax
+  // TODO: (syntax-parse) turn into proper non-templated methods later
+  /// Parse the upcoming expression of type \c SyntaxNode into a libSyntax node
+  /// and return it.
+  template <typename SyntaxNode>
+  ParsedExprSyntax parseExprSyntax();
+
+  //===--------------------------------------------------------------------===//
   // Statement Parsing
 
   bool isStartOfStmt();
@@ -1789,6 +1828,47 @@ class PrettyStackTraceParser : public llvm::PrettyStackTraceEntry {
 public:
   explicit PrettyStackTraceParser(Parser &P) : P(P) {}
   void print(llvm::raw_ostream &out) const override;
+};
+
+// TODO: (syntax-parse) Remove when migration is finished
+/// Ensure that the \c SyntaxParsingContext is enabled and that the lexer
+/// retains trivia while this RAII is alive. If the context was previously
+/// enabled, do nothing. Otherwise, do the following actions, which will be
+/// reverted to the original state when the RAII is destructed:
+///  - Enable the syntax parsing context
+///  - Set the syntax parsing context to defer node creation
+///  - Set the syntax parsing context's accumulation mode to discard
+///  - Make sure the lexer retain trivia
+///  - Reset the parser's state to the current state to trigger a re-lex of the
+///    current token that now includes trivia.
+class EnableSyntaxParsingRAII {
+  Parser &P;
+  Optional<SyntaxParsingContext> EnabledDiscardContext;
+
+public:
+  explicit EnableSyntaxParsingRAII(Parser &P) : P(P) {
+    if (!P.SyntaxContext->Enabled) {
+      // Create a new syntax parsing context that is enabled and discards all
+      // added syntax elements
+      EnabledDiscardContext.emplace(P.SyntaxContext);
+      EnabledDiscardContext->Enabled = true;
+      EnabledDiscardContext->ShouldDefer = true;
+      EnabledDiscardContext->Mode =
+          SyntaxParsingContext::AccumulationMode::Discard;
+    }
+  }
+
+  ~EnableSyntaxParsingRAII() {
+    if (EnabledDiscardContext) {
+      // We created a discarding context and thus also changed the lexer to
+      // retain trivia. Undo the actions
+      assert(EnabledDiscardContext->Enabled == true &&
+             P.SyntaxContext->Mode ==
+                 SyntaxParsingContext::AccumulationMode::Discard &&
+             P.SyntaxContext->ShouldDefer == true &&
+             "Illegally modified the EnabledDiscardContext");
+    }
+  }
 };
 
 /// Parse a stringified Swift declaration name,

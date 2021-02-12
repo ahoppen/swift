@@ -65,10 +65,30 @@ public:
 
   static Parsed${node.name} makeBlank${node.syntax_kind}(SourceLoc loc,
       SyntaxParsingContext &SPCtx);
+%   elif node.is_unknown():
+private:
+  static Parsed${node.name} record${node.syntax_kind}(
+      MutableArrayRef<ParsedRawSyntaxNode> elts,
+      ParsedRawSyntaxRecorder &rec);
+  static Parsed${node.name} defer${node.syntax_kind}(
+      MutableArrayRef<ParsedRawSyntaxNode> layout,
+      SyntaxParsingContext &SPCtx);
+public:
+  static Parsed${node.name} make${node.syntax_kind}(
+      MutableArrayRef<ParsedSyntax> elts,
+      SyntaxParsingContext &SPCtx);
 %   end
 % end
 
 #pragma mark - Convenience APIs
+
+public:
+  static ParsedTokenSyntax makeToken(const Token &Tok, StringRef LeadingTrivia,
+                                     StringRef TrailingTrivia,
+                                     SyntaxParsingContext &SPCtx);
+
+  static ParsedTokenSyntax
+  makeMissingToken(const tok &TokenKind, SyntaxParsingContext &SPCtx);
 
   /// Records an unlabelled TupleTypeElementSyntax with the provided type and
   /// optional trailing comma.
