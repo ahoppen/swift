@@ -50,8 +50,14 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
     return generate(Type.castTo<CodeCompletionTypeSyntaxRef>());
   case SyntaxKind::DictionaryType:
     return generate(Type.castTo<DictionaryTypeSyntaxRef>());
+  case SyntaxKind::ImplicitlyUnwrappedOptionalType:
+    return generate(Type.castTo<ImplicitlyUnwrappedOptionalTypeSyntaxRef>());
   case SyntaxKind::MemberTypeIdentifier:
     return generate(Type.castTo<MemberTypeIdentifierSyntaxRef>());
+  case SyntaxKind::MetatypeType:
+    return generate(Type.castTo<MetatypeTypeSyntaxRef>());
+  case SyntaxKind::OptionalType:
+    return generate(Type.castTo<OptionalTypeSyntaxRef>());
   case SyntaxKind::SimpleTypeIdentifier:
     return generate(Type.castTo<SimpleTypeIdentifierSyntaxRef>());
   case SyntaxKind::TupleType:
@@ -138,10 +144,37 @@ TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
   return new (Context) DictionaryTypeRepr(KeyType, ValueType, ColonLoc, Range);
 }
 
+TypeRepr *
+ASTGen::generate(const ImplicitlyUnwrappedOptionalTypeSyntaxRef &Type) {
+  auto baseTypeRepr = generate(Type.getWrappedType());
+  auto exclamationLoc = getLoc(Type.getExclamationMark());
+  return new (Context)
+      ImplicitlyUnwrappedOptionalTypeRepr(baseTypeRepr, exclamationLoc);
+}
+
 TypeRepr *ASTGen::generate(const MemberTypeIdentifierSyntaxRef &Type) {
   SmallVector<ComponentIdentTypeRepr *, 4> components;
   gatherTypeIdentifierComponents(Type, components);
   return IdentTypeRepr::create(Context, components);
+}
+
+TypeRepr *ASTGen::generate(const MetatypeTypeSyntaxRef &Type) {
+  auto baseTypeRepr = generate(Type.getBaseType());
+  auto metaLoc = getLoc(Type.getTypeOrProtocol());
+  auto metaText = Type.getTypeOrProtocol().getText();
+  if (metaText == "Type") {
+    return new (Context) MetatypeTypeRepr(baseTypeRepr, metaLoc);
+  } else if (metaText == "Protocol") {
+    return new (Context) ProtocolTypeRepr(baseTypeRepr, metaLoc);
+  } else {
+    llvm_unreachable("Meta part must be 'Type' or 'Protocol'");
+  }
+}
+
+TypeRepr *ASTGen::generate(const OptionalTypeSyntaxRef &Type) {
+  auto baseTypeRepr = generate(Type.getWrappedType());
+  auto questionLoc = getLoc(Type.getQuestionMark());
+  return new (Context) OptionalTypeRepr(baseTypeRepr, questionLoc);
 }
 
 TypeRepr *ASTGen::generate(const SimpleTypeIdentifierSyntaxRef &Type) {

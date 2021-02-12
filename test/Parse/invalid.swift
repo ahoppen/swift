@@ -63,7 +63,7 @@ func test4() {
 }
 
 // rdar://problem/18507467
-func d(_ b: String -> <T>() -> T) {} // expected-error {{expected type for function result}}
+func d(_ b: String -> <T>() -> T) {} // expected-error {{expected type for function result}} expected-error {{single argument function types require parentheses}}
 
 
 // <rdar://problem/22143680> QoI: terrible diagnostic when trying to form a generic protocol
