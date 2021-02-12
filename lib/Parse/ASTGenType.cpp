@@ -44,8 +44,16 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
   switch (Type.getKind()) {
   case SyntaxKind::ArrayType:
     return generate(Type.castTo<ArrayTypeSyntaxRef>());
+  case SyntaxKind::CodeCompletionType:
+    return generate(Type.castTo<CodeCompletionTypeSyntaxRef>());
   case SyntaxKind::DictionaryType:
     return generate(Type.castTo<DictionaryTypeSyntaxRef>());
+  case SyntaxKind::MemberTypeIdentifier:
+    return generate(Type.castTo<MemberTypeIdentifierSyntaxRef>());
+  case SyntaxKind::SimpleTypeIdentifier:
+    return generate(Type.castTo<SimpleTypeIdentifierSyntaxRef>());
+  case SyntaxKind::UnknownType:
+    return generate(Type.castTo<UnknownTypeSyntaxRef>(), MissingTypeDiag);
   default:
     llvm_unreachable("ASTGen hasn't been tought how to generate this type");
   }
@@ -56,6 +64,30 @@ TypeRepr *ASTGen::generate(const ArrayTypeSyntaxRef &Type) {
   return new (Context) ArrayTypeRepr(ElementType, getASTRange(Type));
 }
 
+TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
+  auto base = Type.getBase();
+  if (!base) {
+    if (CodeCompletion) {
+      CodeCompletion->completeTypeSimpleBeginning();
+    }
+    return new (Context) ErrorTypeRepr(getASTRange(Type));
+  }
+
+  if (auto *parsedTyR = generate(base.getRef())) {
+    if (CodeCompletion) {
+      CodeCompletion->setParsedTypeLoc(parsedTyR);
+      if (Type.getPeriod()) {
+        CodeCompletion->completeTypeIdentifierWithDot();
+      } else {
+        CodeCompletion->completeTypeIdentifierWithoutDot();
+      }
+    }
+    return parsedTyR;
+  }
+
+  return new (Context) ErrorTypeRepr(getASTRange(Type));
+}
+
 TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
   SourceLoc ColonLoc = getLoc(Type.getColon().getRef());
 
@@ -64,6 +96,65 @@ TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
   auto Range = getASTRange(Type);
 
   return new (Context) DictionaryTypeRepr(KeyType, ValueType, ColonLoc, Range);
+}
+
+TypeRepr *ASTGen::generate(const MemberTypeIdentifierSyntaxRef &Type) {
+  SmallVector<ComponentIdentTypeRepr *, 4> components;
+  gatherTypeIdentifierComponents(Type, components);
+  return IdentTypeRepr::create(Context, components);
+}
+
+TypeRepr *ASTGen::generate(const SimpleTypeIdentifierSyntaxRef &Type) {
+  auto Name = Type.getName();
+  if (Name->getTokenKind() == tok::kw_Any) {
+    auto anyLoc = getLoc(Name.getRef());
+    return CompositionTypeRepr::createEmptyComposition(Context, anyLoc);
+  }
+
+  auto typeRepr = generateTypeIdentifier(Type);
+  return IdentTypeRepr::create(Context, {typeRepr});
+}
+
+TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
+                           Diag<> MissingTypeDiag) {
+  auto ChildrenCount = Type.getNumChildren();
+
+  // Recovery failed. Emit diagnostics.
+  Optional<Diag<>> diagName = diag::expected_type;
+  SourceLoc diagLoc = getLeadingTriviaLoc(Type);
+  if (ChildrenCount == 0) {
+    diagName = MissingTypeDiag;
+  }
+  if (ChildrenCount == 1) {
+    auto child = Type.getChildRef(0);
+    if (auto token = child->getAs<TokenSyntaxRef>()) {
+      if (token->getTokenKind() != tok::identifier &&
+          token->getTokenKind() != tok::kw_Self) {
+        diagName = diag::expected_identifier_for_type;
+      }
+    }
+  }
+
+  if (diagName) {
+    auto diag = diagnose(diagLoc, *diagName);
+    if (ChildrenCount == 0) {
+      diag.fixItInsert(getLeadingTriviaLoc(Type), "<#type#> ");
+    }
+  }
+
+  // generate child 'TypeSyntax' anyway to trigger the side effects e.g.
+  // code-completion.
+  for (size_t i = 0; i != ChildrenCount; ++i) {
+    if (auto elem = Type.getChildRef(i)) {
+      // TODO: (syntax-parse): Once everything is migrated, we can remove the
+      // check for TypeSyntax here and always call generate.
+      if (auto ty = elem->getAs<TypeSyntaxRef>()) {
+        (void)generate(std::move(*ty));
+      }
+    }
+  }
+
+  return new (Context) ErrorTypeRepr(getASTRange(Type));
 }
 
 //===--------------------------------------------------------------------===//
@@ -87,4 +178,57 @@ TypeRepr *ASTGen::takeType(const SourceLoc &Loc) {
   auto type = I->second;
   Types.erase(I);
   return type;
+}
+
+//===--------------------------------------------------------------------===//
+// MARK: - Private helper functions
+
+std::pair<SourceRange, SmallVector<TypeRepr *, 4>> ASTGen::generateGenericArgs(
+    const GenericArgumentClauseSyntaxRef &ClauseSyntax) {
+  SmallVector<TypeRepr *, 4> args;
+  auto arguments = ClauseSyntax.getArguments();
+  for (auto arg : arguments.getRef()) {
+    auto typeRepr = generate(arg->getArgumentType().getRef());
+    args.push_back(typeRepr);
+  }
+
+  auto range = getASTRange(ClauseSyntax);
+  return std::make_pair(range, args);
+}
+
+template <typename T>
+ComponentIdentTypeRepr *ASTGen::generateTypeIdentifier(const T &TypeSyntax) {
+  auto name = TypeSyntax.getName();
+  auto declNameLoc = DeclNameLoc(getLoc(name.getRef()));
+  auto declNameRef =
+      DeclNameRef(Context.getIdentifier(name->getIdentifierText()));
+  diagnoseDollarIdentifier(name.getRef(), /*DiagnoseDollarPrefix=*/true);
+  if (auto clause = TypeSyntax.getGenericArgumentClause()) {
+    SourceRange range;
+    SmallVector<TypeRepr *, 4> args;
+    std::tie(range, args) = generateGenericArgs(clause.getRef());
+    if (!args.empty()) {
+      return GenericIdentTypeRepr::create(Context, declNameLoc, declNameRef,
+                                          args, range);
+    }
+  }
+  return new (Context) SimpleIdentTypeRepr(declNameLoc, declNameRef);
+}
+
+void ASTGen::gatherTypeIdentifierComponents(
+    const TypeSyntaxRef &Component,
+    SmallVectorImpl<ComponentIdentTypeRepr *> &Components) {
+  if (auto simpleIdentifier =
+          Component.getAs<SimpleTypeIdentifierSyntaxRef>()) {
+    auto componentType = generateTypeIdentifier(*simpleIdentifier);
+    Components.push_back(componentType);
+  } else if (auto memberIdentifier =
+                 Component.getAs<MemberTypeIdentifierSyntaxRef>()) {
+    gatherTypeIdentifierComponents(memberIdentifier->getBaseType().getRef(),
+                                   Components);
+    auto ComponentType = generateTypeIdentifier(*memberIdentifier);
+    Components.push_back(ComponentType);
+  } else {
+    llvm_unreachable("unexpected type identifier component");
+  }
 }

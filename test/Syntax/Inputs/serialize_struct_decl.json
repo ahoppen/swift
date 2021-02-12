@@ -234,7 +234,7 @@
                                                       "presence": "Present"
                                                     },
                                                     {
-                                                      "id": 24,
+                                                      "id": 25,
                                                       "kind": "GenericArgumentList",
                                                       "layout": [
                                                         {
@@ -267,7 +267,7 @@
                                                       "presence": "Present"
                                                     },
                                                     {
-                                                      "id": 25,
+                                                      "id": 24,
                                                       "tokenKind": {
                                                         "kind": "r_angle"
                                                       },

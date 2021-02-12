@@ -24,7 +24,7 @@
 using namespace swift;
 using namespace swift::syntax;
 
-% for node in SYNTAX_NODES:
+% for node in SYNTAX_NODES + PARSEONLY_NODES:
 %   if not node.is_syntax_collection():
 void ${node.name}Ref::validate() const {
 %     if node.requires_validation():
