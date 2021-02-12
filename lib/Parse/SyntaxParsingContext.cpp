@@ -58,7 +58,7 @@ void SyntaxParsingContext::cancelBacktrack() {
 }
 
 size_t SyntaxParsingContext::lookupNode(size_t LexerOffset, SourceLoc Loc) {
-  if (!Enabled)
+  if (!isEnabled())
     return 0;
 
   // Avoid doing lookup for a previous parsed node when we are in backtracking
@@ -205,7 +205,7 @@ ParsedTokenSyntax SyntaxParsingContext::popToken() {
 /// Add Token with Trivia to the parts.
 void SyntaxParsingContext::addToken(Token &Tok, StringRef LeadingTrivia,
                                     StringRef TrailingTrivia) {
-  if (!Enabled)
+  if (!isEnabled())
     return;
 
   ParsedRawSyntaxNode raw;
@@ -219,7 +219,7 @@ void SyntaxParsingContext::addToken(Token &Tok, StringRef LeadingTrivia,
 
 /// Add Syntax to the parts.
 void SyntaxParsingContext::addSyntax(ParsedSyntax &&Node) {
-  if (!Enabled)
+  if (!isEnabled())
     return;
   addRawSyntax(Node.takeRaw());
 }
@@ -241,7 +241,7 @@ void SyntaxParsingContext::createNodeInPlace(SyntaxKind Kind, size_t N,
 void SyntaxParsingContext::createNodeInPlace(SyntaxKind Kind,
                                           SyntaxNodeCreationKind nodeCreateK) {
   assert(isTopOfContextStack());
-  if (!Enabled)
+  if (!isEnabled())
     return;
 
   switch (Kind) {
@@ -280,7 +280,7 @@ void SyntaxParsingContext::collectNodesInPlace(SyntaxKind ColletionKind,
                                          SyntaxNodeCreationKind nodeCreateK) {
   assert(isCollectionKind(ColletionKind));
   assert(isTopOfContextStack());
-  if (!Enabled)
+  if (!isEnabled())
     return;
   auto Parts = getParts();
   auto Count = 0;
@@ -314,7 +314,7 @@ static ParsedRawSyntaxNode finalizeSourceFile(RootContextData &RootData,
 }
 
 OpaqueSyntaxNode SyntaxParsingContext::finalizeRoot() {
-  if (!Enabled)
+  if (!isEnabled())
     return nullptr;
   assert(isTopOfContextStack() && "some sub-contexts are not destructed");
   assert(isRoot() && "only root context can finalize the tree");
@@ -333,7 +333,7 @@ OpaqueSyntaxNode SyntaxParsingContext::finalizeRoot() {
 }
 
 void SyntaxParsingContext::synthesize(tok Kind, SourceLoc Loc) {
-  if (!Enabled)
+  if (!isEnabled())
     return;
 
   ParsedRawSyntaxNode raw;
@@ -366,7 +366,7 @@ SyntaxParsingContext::~SyntaxParsingContext() {
       delete RootDataOrParent.get<RootContextData*>();
   };
 
-  if (!Enabled)
+  if (!isEnabled())
     return;
 
   auto &Storage = getStorage();
@@ -424,7 +424,7 @@ SyntaxParsingContext::~SyntaxParsingContext() {
 
   // Never.
   case AccumulationMode::NotSet:
-    assert(!Enabled && "Cleanup mode must be specified before destruction");
+    assert(!isEnabled() && "Cleanup mode must be specified before destruction");
     break;
   }
 }
