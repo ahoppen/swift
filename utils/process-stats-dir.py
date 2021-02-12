@@ -297,8 +297,8 @@ def compare_stats(args, old_stats, new_stats):
         new = new_stats.get(name, 0)
         (delta, delta_pct) = diff_and_pct(old, new)
         yield OutputRow(name=name,
-                        old=int(old), new=int(new),
-                        delta=int(delta),
+                        old=float(old), new=float(new),
+                        delta=float(delta),
                         delta_pct=delta_pct)
 
 
@@ -309,10 +309,15 @@ REGRESSED = 1
 
 def row_state(row, args):
     delta_pct_over_thresh = abs(row.delta_pct) > args.delta_pct_thresh
-    if (row.name.startswith("time.") or '.time.' in row.name):
+    if (row.name.startswith("time.") or '.time.' in row.name) \
+            and not row.name.endswith('.instr'):
         # Timers are judged as changing if they exceed
         # the percentage _and_ absolute-time thresholds
         delta_usec_over_thresh = abs(row.delta) > args.delta_usec_thresh
+        if delta_pct_over_thresh and delta_usec_over_thresh:
+            return (REGRESSED if row.delta > 0 else IMPROVED)
+    elif row.name.endswith('.instr'):
+        delta_usec_over_thresh = abs(row.delta) > 100000000
         if delta_pct_over_thresh and delta_usec_over_thresh:
             return (REGRESSED if row.delta > 0 else IMPROVED)
     elif delta_pct_over_thresh:
@@ -334,12 +339,12 @@ def write_comparison(args, old_stats, new_stats):
     if args.markdown:
 
         def format_time(v):
-            if abs(v) > 1000000:
-                return "{:.1f}s".format(v / 1000000.0)
-            elif abs(v) > 1000:
-                return "{:.1f}ms".format(v / 1000.0)
+            if abs(v) >= 1:
+                return "{:.1f}s".format(v)
+            elif abs(v) >= 0.001:
+                return "{:.1f}ms".format(v * 1000.0)
             else:
-                return "{:.1f}us".format(v)
+                return "{:.1f}us".format(v * 1000000)
 
         def format_field(field, row):
             if field == 'name':
@@ -356,11 +361,13 @@ def write_comparison(args, old_stats, new_stats):
                         s += " :white_check_mark:"
                 return s
             else:
-                v = int(vars(row)[field])
-                if row.name.startswith('time.'):
+                v = vars(row)[field]
+                if row.name.startswith('time.') and not row.name.endswith('.instr'):
                     return format_time(v)
+                elif row.name.endswith('.instr'):
+                    return "{:,d}".format(int(v / 1000 / 1000))
                 else:
-                    return "{:,d}".format(v)
+                    return "{:,d}".format(int(v))
 
         def format_table(elts):
             out = args.output
@@ -572,7 +579,7 @@ def main():
                         help="Process two dirs-of-stats-dirs, pairwise")
     parser.add_argument("--delta-pct-thresh", type=float, default=0.01,
                         help="Percentage change required to report")
-    parser.add_argument("--delta-usec-thresh", type=int, default=100000,
+    parser.add_argument("--delta-usec-thresh", type=float, default=0.1,
                         help="Absolute delta on times required to report")
     parser.add_argument("--lnt-machine", type=str, default=platform.node(),
                         help="Machine name for LNT submission")
