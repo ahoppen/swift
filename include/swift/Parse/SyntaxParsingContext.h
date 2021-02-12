@@ -62,6 +62,7 @@ enum class SyntaxNodeCreationKind {
 
 constexpr size_t SyntaxAlignInBits = 3;
 
+// TODO: (syntax-parse) remove when/if possible
 /// RAII object which receive RawSyntax parts. On destruction, this constructs
 /// a specified syntax node from received parts and propagate it to the parent
 /// context.
