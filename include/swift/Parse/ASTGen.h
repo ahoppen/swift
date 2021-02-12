@@ -112,6 +112,41 @@ private:
   Expr *generateMagicIdentifierLiteralExpr(const TokenSyntax &Token);
 
   //===--------------------------------------------------------------------===//
+  // MARK: - Types
+public:
+  /// The public entry function to generate an AST type from the \p Type
+  /// libSyntax node.
+  ///
+  /// \p TreeStartLoc must point to the leading trivia of the first token in the
+  /// tree in which \p Type resides. I.e. if \p Type resides in a tree
+  /// representing the entire source file, \p TreeStartLoc must point to the
+  /// first trivia in the file.
+  /// If no type was provided \p MissingTypeDiag is emitted.
+  TypeRepr *generate(const TypeSyntaxRef &Type, SourceLoc TreeStartLoc,
+                     SourceLoc PreviousTokLoc,
+                     Diag<> MissingTypeDiag = diag::expected_type);
+
+private:
+  TypeRepr *generate(const TypeSyntaxRef &Type,
+                     Diag<> MissingTypeDiag = diag::expected_type);
+
+  TypeRepr *generate(const ArrayTypeSyntaxRef &Type);
+  TypeRepr *generate(const DictionaryTypeSyntaxRef &Type);
+public:
+  /// Add a \c TypeRepr occurring at \p Loc whose parsing hasn't been migrated
+  /// to libSyntaxParsing yet. It can later be retrieved from \c ASTGen using
+  /// \c hasType and \c takeType.
+  void addType(TypeRepr *Type, const SourceLoc &Loc);
+
+  /// Check if a \c TypeRepr, whose parsing hasn't been migrated to libSyntax
+  /// yet, has been added to \c Types at the given \p Loc.
+  bool hasType(const SourceLoc &Loc) const;
+
+  /// Given there is a \c TypeRepr, whose parsing hasn't been migrated to
+  /// libSyntax yet, at the given \c Loc.
+  TypeRepr *takeType(const SourceLoc &Loc);
+
+  //===--------------------------------------------------------------------===//
   // MARK: - Miscellaneous
 public:
   /// Copy a numeric literal value into AST-owned memory, stripping underscores
