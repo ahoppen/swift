@@ -935,6 +935,14 @@ public:
     return consumeTokenSyntax();
   }
 
+  /// Parse the specified expected token and return a \c ParsedSyntaxResult that
+  /// is either an error or contains the corresponding \c ParsedTokenSyntax on
+  /// success. On failure if \p SilenceDiag is \c false, emit the specified
+  /// error diagnostic, a note at \p OtherLoc, and return an error.
+  ParsedSyntaxResult<ParsedTokenSyntax>
+  parseMatchingTokenSyntax(tok K, Diag<> ErrorDiag, SourceLoc OtherLoc,
+                           bool SilenceDiag = false);
+
   //===--------------------------------------------------------------------===//
   // Decl Parsing
 
@@ -1259,6 +1267,14 @@ public:
   TypeRepr *applyAttributeToType(TypeRepr *Ty, const TypeAttributes &Attr,
                                  ParamDecl::Specifier Specifier,
                                  SourceLoc SpecifierLoc);
+
+  //===--------------------------------------------------------------------===//
+  // MARK: - Type Parsing using libSyntax
+
+  ParsedSyntaxResult<ParsedTypeSyntax> parseTypeCollectionSyntax();
+
+  ParsedSyntaxResult<ParsedTypeSyntax>
+  parseTypeSyntax(Diag<> MessageID, bool IsSILFuncDecl = false);
 
   //===--------------------------------------------------------------------===//
   // Pattern Parsing
