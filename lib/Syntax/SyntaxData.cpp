@@ -30,7 +30,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
 SyntaxDataRef SyntaxDataRef::getPresentChildRef(
     AbsoluteSyntaxPosition::IndexInParentType Index) const {
   auto AbsoluteRaw = getAbsoluteRawRef().getPresentChildRef(Index);
-  return SyntaxDataRef(AbsoluteRaw, /*Parent=*/this);
+  return SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/this);
 }
 
 Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {

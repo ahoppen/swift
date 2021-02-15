@@ -236,6 +236,13 @@ class AbsoluteRawSyntaxRef {
   const AbsoluteSyntaxInfo Info;
 
 public:
+  AbsoluteRawSyntaxRef(AbsoluteRawSyntaxRef &&Other)
+      : RefCountedRaw(std::move(Other.RefCountedRaw)), UnownedRaw(std::move(Other.UnownedRaw)), Info(std::move(Other.Info)) {
+  }
+  AbsoluteRawSyntaxRef(const AbsoluteRawSyntaxRef &Other)
+      : RefCountedRaw(Other.RefCountedRaw), UnownedRaw(Other.UnownedRaw), Info(Other.Info) {
+  }
+  
   /// Create a reference-counted \c AbsoluteRawSyntaxRef.
   /// \p Raw must not be \c nullptr.
   AbsoluteRawSyntaxRef(const RC<RawSyntax> &Raw, AbsoluteSyntaxInfo Info)

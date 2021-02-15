@@ -102,9 +102,18 @@ class SyntaxDataRef {
 
   /// Create a reference-counted \c SyntaxDataRef. \p AbsoluteRaw must be
   /// reference-counted and \p Parent must be \c nullptr or also ref-counted.
-  SyntaxDataRef(AbsoluteRawSyntaxRef AbsoluteRaw,
+  SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(Parent),
+        UnownedParent(nullptr) {
+    assert(AbsoluteRaw.isRefCounted() &&
+           "If parent is ref-counted, AbsoluteRaw must also be ref-counted");
+    assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
+           "Cannot address a subtree of an unowned tree as ref-counted");
+  }
+  SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw,
+                const RC<RefCountedBox<SyntaxDataRef>> &Parent)
+      : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(Parent),
         UnownedParent(nullptr) {
     assert(AbsoluteRaw.isRefCounted() &&
            "If parent is ref-counted, AbsoluteRaw must also be ref-counted");
@@ -114,8 +123,16 @@ class SyntaxDataRef {
 
   /// Create an unowned \c SyntaxDataRef.
   /// \p AbsoluteRaw must not be reference-counted.
-  SyntaxDataRef(AbsoluteRawSyntaxRef AbsoluteRaw, const SyntaxDataRef *Parent)
+  SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(nullptr),
+        UnownedParent(Parent) {
+    if (Parent != nullptr) {
+      assert(!AbsoluteRaw.isRefCounted() &&
+             "If parent is unowned, AbsoluteRaw must also be unowned");
+    }
+  }
+  SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw, const SyntaxDataRef *Parent)
+      : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(nullptr),
         UnownedParent(Parent) {
     if (Parent != nullptr) {
       assert(!AbsoluteRaw.isRefCounted() &&
@@ -252,8 +269,10 @@ public:
   // MARK: - Creating new SyntaxData
 
   /// Create a \c SyntaxData for a tree's root (i.e. a node without a parent).
-  SyntaxData(AbsoluteRawSyntax AbsoluteRaw, std::nullptr_t Parent)
+  SyntaxData(const AbsoluteRawSyntax &AbsoluteRaw, std::nullptr_t Parent)
       : SyntaxDataRef(AbsoluteRaw, nullptr) {}
+  SyntaxData(AbsoluteRawSyntax &&AbsoluteRaw, std::nullptr_t Parent)
+      : SyntaxDataRef(std::move(AbsoluteRaw), nullptr) {}
 
   /// Cast a \c SyntaxDataRef to a \c SyntaxData. This requires that \c Ref is
   /// known to be reference counted.
