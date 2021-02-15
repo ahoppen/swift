@@ -25,7 +25,7 @@ namespace swift {
 namespace syntax {
 
 /// Memory manager for Syntax nodes.
-class SyntaxArena : public llvm::ThreadSafeRefCountedBase<SyntaxArena> {
+class SyntaxArena : public llvm::RefCountedBase<SyntaxArena> {
   using BumpAllocator =
       llvm::BumpPtrAllocatorImpl<llvm::MallocAllocator, 4096, 4096, 1>;
 

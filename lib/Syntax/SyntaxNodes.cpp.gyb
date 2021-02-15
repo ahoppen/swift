@@ -45,7 +45,7 @@ void ${node.name}Ref::validate() const {
                                  tok::${token_kind}, ${choices});
 %       end
 %       if child.node_choices:
-  if (auto &__Child = raw->getChild(Cursor::${child.name}))
+  if (auto __Child = raw->getChild(Cursor::${child.name}))
     assert(${check_child_condition_raw(child)}(__Child));
 %       end
 %     end

@@ -51,7 +51,7 @@ using llvm::StringRef;
 #ifndef NDEBUG
 #define syntax_assert_child_kind(Raw, Cursor, ExpectedKind)                    \
   do {                                                                         \
-    if (auto &__Child = Raw->getChild(Cursor))                                 \
+    if (auto __Child = Raw->getChildRef(Cursor))                                 \
       assert(__Child->getKind() == ExpectedKind);                              \
   } while (false)
 #else
@@ -62,7 +62,7 @@ using llvm::StringRef;
 #define syntax_assert_child_token(Raw, CursorName, ...)                        \
   do {                                                                         \
     bool __Found = false;                                                      \
-    if (auto &__Token = Raw->getChild(Cursor::CursorName)) {                   \
+    if (auto __Token = Raw->getChildRef(Cursor::CursorName)) {                   \
       assert(__Token->isToken());                                              \
       if (__Token->isPresent()) {                                              \
         for (auto Token : {__VA_ARGS__}) {                                     \
@@ -84,7 +84,7 @@ using llvm::StringRef;
 #define syntax_assert_child_token_text(Raw, CursorName, TokenKind, ...)        \
   do {                                                                         \
     bool __Found = false;                                                      \
-    if (auto &__Child = Raw->getChild(Cursor::CursorName)) {                   \
+    if (auto __Child = Raw->getChild(Cursor::CursorName)) {                   \
       assert(__Child->isToken());                                              \
       if (__Child->isPresent()) {                                              \
         assert(__Child->getTokenKind() == TokenKind);                          \
@@ -160,7 +160,7 @@ class RawSyntax final
   /// An ID of this node that is stable across incremental parses
   SyntaxNodeId NodeId;
 
-  mutable std::atomic<int> RefCount;
+  mutable int RefCount;
 
   /// If this node was allocated using a \c SyntaxArena's bump allocator, a
   /// reference to the arena to keep the underlying memory buffer of this node
@@ -235,7 +235,7 @@ class RawSyntax final
   size_t computeTextLength() {
     size_t TextLength = 0;
     for (size_t I = 0, NumChildren = getNumChildren(); I < NumChildren; ++I) {
-      auto &ChildNode = getChild(I);
+      auto ChildNode = getChildRef(I);
       if (ChildNode && !ChildNode->isMissing()) {
         TextLength += ChildNode->getTextLength();
       }
@@ -249,12 +249,11 @@ public:
   // This is a copy-pased implementation of llvm::ThreadSafeRefCountedBase with
   // the difference that we do not delete the RawSyntax node's memory if the
   // node was allocated within a SyntaxArena and thus doesn't own its memory.
-  void Retain() const { RefCount.fetch_add(1, std::memory_order_relaxed); }
+  void Retain() const { ++RefCount; }
 
   void Release() const {
-    int NewRefCount = RefCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
-    assert(NewRefCount >= 0 && "Reference count was already zero.");
-    if (NewRefCount == 0) {
+    assert(RefCount > 0 && "Reference count is already zero.");
+    if (--RefCount == 0) {
       // The node was allocated inside a SyntaxArena and thus doesn't own its
       // own memory region. Hence we cannot free it. It will be deleted once
       // the last RawSyntax node allocated with it will release its reference
