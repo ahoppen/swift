@@ -37,7 +37,7 @@ namespace swift {
 #undef SWIFT_TYPEID_HEADER
 }
 
-#define BOOST 1
+#define BOOST 2000
 
 void swift::simple_display(llvm::raw_ostream &out,
                            const FingerprintAndMembers &value) {
@@ -56,8 +56,8 @@ ParseMembersRequest::evaluate(Evaluator &evaluator,
     SourceFile *sf = idc->getAsGenericContext()->getParentSourceFile();
     ASTContext &ctx = idc->getDecl()->getASTContext();
     ctx.getSyntaxArena()->reset();
-    auto ExclusiveAccess =
-        WithExcluseiveSyntaxArenaAccessRAII(ctx.getSyntaxArena());
+//    auto ExclusiveAccess =
+//        WithExcluseiveSyntaxArenaAccessRAII(ctx.getSyntaxArena());
     if (!sf) {
       // If there is no parent source file, this is a deserialized or
       // synthesized declaration context, in which case `getMembers()` has all
@@ -184,8 +184,8 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
     assert(SF);
     auto &ctx = SF->getASTContext();
     ctx.getSyntaxArena()->reset();
-    auto ExclusiveAccess =
-        WithExcluseiveSyntaxArenaAccessRAII(ctx.getSyntaxArena());
+//    auto ExclusiveAccess =
+//        WithExcluseiveSyntaxArenaAccessRAII(ctx.getSyntaxArena());
     auto bufferID = SF->getBufferID();
 
     std::shared_ptr<SyntaxTreeCreator> sTreeCreator =

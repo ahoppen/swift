@@ -29,7 +29,7 @@ class RawSyntax;
 /// both the node created by the explicit action and the implicit action.
 /// \c getLibSyntaxNodeFor and \c getExplicitNodeFor can be used to retrieve
 /// the opaque nodes of the underlying actions.
-class HiddenLibSyntaxAction : public SyntaxParseActions {
+class HiddenLibSyntaxAction final : public SyntaxParseActions {
 
   /// The type of the opaque nodes returned by the \c HiddenLibSyntaxAction.
   /// Contains a pointer to the explicit action's opaque node and the opaque
@@ -56,7 +56,14 @@ class HiddenLibSyntaxAction : public SyntaxParseActions {
 
   /// Create a hidden node that contains the given explicit and libSyntax node.
   OpaqueSyntaxNode makeHiddenNode(OpaqueSyntaxNode explicitActionNode,
-                                  OpaqueSyntaxNode libSyntaxNode);
+                                  OpaqueSyntaxNode libSyntaxNode) {
+    if (ExplicitAction == nullptr || ExplicitAction == LibSyntaxAction) {
+      return libSyntaxNode;
+    } else {
+      auto dat = NodeAllocator.Allocate();
+      return new (dat) HiddenNode(explicitActionNode, libSyntaxNode);
+    }
+  }
 
 public:
   /// Create a new HiddenLibSyntaxAction. \c LibSyntaxAction must not be \c
@@ -70,14 +77,81 @@ public:
 
   OpaqueSyntaxNode recordToken(tok tokenKind, StringRef leadingTrivia,
                                StringRef trailingTrivia,
-                               CharSourceRange range) override;
+                               CharSourceRange range) override {
+    
+    OpaqueSyntaxNode explicitActionNode;
+    if (ExplicitAction) {
+      explicitActionNode = ExplicitAction->recordToken(tokenKind, leadingTrivia,
+                                                       trailingTrivia, range);
+    } else {
+      explicitActionNode = nullptr;
+    }
+
+    OpaqueSyntaxNode libSyntaxActionNode;
+    if (ExplicitAction == LibSyntaxAction) {
+      libSyntaxActionNode = explicitActionNode;
+    } else {
+      libSyntaxActionNode = LibSyntaxAction->recordToken(tokenKind, leadingTrivia,
+                                                         trailingTrivia, range);
+    }
+
+    return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
+  }
 
   OpaqueSyntaxNode recordMissingToken(tok tokenKind, SourceLoc loc) override;
 
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
                   const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  CharSourceRange range) override;
+                  CharSourceRange range) override {
+    OpaqueSyntaxNode explicitActionNode;
+    if (ExplicitAction) {
+      if (ExplicitAction == LibSyntaxAction) {
+        explicitActionNode =
+            ExplicitAction->recordRawSyntax(kind, elements, range);
+      } else {
+        SmallVector<OpaqueSyntaxNode, 4> explicitActionElements;
+        explicitActionElements.reserve(elements.size());
+        for (auto element : elements) {
+          OpaqueSyntaxNode explicitActionElement = nullptr;
+          if (element) {
+            explicitActionElement =
+                static_cast<HiddenNode *>(element)->ExplicitActionNode;
+          }
+          explicitActionElements.push_back(explicitActionElement);
+        }
+
+        explicitActionNode =
+            ExplicitAction->recordRawSyntax(kind, explicitActionElements, range);
+      }
+    } else {
+      explicitActionNode = nullptr;
+    }
+
+    OpaqueSyntaxNode libSyntaxActionNode;
+    if (ExplicitAction == LibSyntaxAction) {
+      libSyntaxActionNode = explicitActionNode;
+    } else {
+      if (ExplicitAction == nullptr) {
+        libSyntaxActionNode =
+            LibSyntaxAction->recordRawSyntax(kind, elements, range);
+      } else {
+        SmallVector<OpaqueSyntaxNode, 4> libSyntaxActionElements;
+        libSyntaxActionElements.reserve(elements.size());
+        for (auto element : elements) {
+          OpaqueSyntaxNode libSyntaxActionElement = nullptr;
+          if (element) {
+            libSyntaxActionElement = getLibSyntaxNodeFor(element);
+          }
+          libSyntaxActionElements.push_back(libSyntaxActionElement);
+        }
+        libSyntaxActionNode = LibSyntaxAction->recordRawSyntax(
+            kind, libSyntaxActionElements, range);
+      }
+    }
+
+    return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
+  }
 
   /// Realize the syntax root using the implicit \c LibSyntaxAction.
   Optional<syntax::SourceFileSyntax>
@@ -88,15 +162,117 @@ public:
   OpaqueSyntaxNode makeDeferredToken(tok tokenKind, StringRef leadingTrivia,
                                      StringRef trailingTrivia,
                                      CharSourceRange range,
-                                     bool isMissing) override;
+                                     bool isMissing) override {
+    OpaqueSyntaxNode explicitActionNode;
+    if (ExplicitAction) {
+      explicitActionNode = ExplicitAction->makeDeferredToken(
+          tokenKind, leadingTrivia, trailingTrivia, range, isMissing);
+    } else {
+      explicitActionNode = nullptr;
+    }
+
+    OpaqueSyntaxNode libSyntaxActionNode;
+    if (ExplicitAction == LibSyntaxAction) {
+      libSyntaxActionNode = explicitActionNode;
+    } else {
+      libSyntaxActionNode = LibSyntaxAction->makeDeferredToken(
+          tokenKind, leadingTrivia, trailingTrivia, range, isMissing);
+    }
+
+    return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
+  }
 
   OpaqueSyntaxNode
   makeDeferredLayout(syntax::SyntaxKind k, CharSourceRange Range,
                      bool IsMissing,
-                     const SmallVector<OpaqueSyntaxNode, 4> &children) override;
+                     const SmallVector<OpaqueSyntaxNode, 4> &children) override {
+    OpaqueSyntaxNode explicitActionNode;
+    if (ExplicitAction) {
+      if (ExplicitAction == LibSyntaxAction) {
+        explicitActionNode =
+            ExplicitAction->makeDeferredLayout(k, Range, IsMissing, children);
+      } else {
+        SmallVector<OpaqueSyntaxNode, 4> explicitActionChildren;
+        explicitActionChildren.reserve(children.size());
+        for (auto child : children) {
+          OpaqueSyntaxNode explicitActionChild = nullptr;
+          if (child) {
+            explicitActionChild =
+                static_cast<HiddenNode *>(child)->ExplicitActionNode;
+          }
+          explicitActionChildren.push_back(explicitActionChild);
+        }
 
-  OpaqueSyntaxNode recordDeferredToken(OpaqueSyntaxNode deferred) override;
-  OpaqueSyntaxNode recordDeferredLayout(OpaqueSyntaxNode deferred) override;
+        explicitActionNode = ExplicitAction->makeDeferredLayout(
+            k, Range, IsMissing, explicitActionChildren);
+      }
+    } else {
+      explicitActionNode = nullptr;
+    }
+
+    OpaqueSyntaxNode libSyntaxActionNode;
+    if (ExplicitAction == LibSyntaxAction) {
+      libSyntaxActionNode = explicitActionNode;
+    } else {
+      if (ExplicitAction == nullptr) {
+        libSyntaxActionNode =
+            LibSyntaxAction->makeDeferredLayout(k, Range, IsMissing, children);
+      } else {
+        SmallVector<OpaqueSyntaxNode, 4> libSyntaxActionChildren;
+        libSyntaxActionChildren.reserve(children.size());
+        for (auto child : children) {
+          OpaqueSyntaxNode libSyntaxActionChild = nullptr;
+          if (child) {
+            libSyntaxActionChild = getLibSyntaxNodeFor(child);
+          }
+          libSyntaxActionChildren.push_back(libSyntaxActionChild);
+        }
+        libSyntaxActionNode = LibSyntaxAction->makeDeferredLayout(
+            k, Range, IsMissing, libSyntaxActionChildren);
+      }
+    }
+
+    return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
+  }
+
+  OpaqueSyntaxNode recordDeferredToken(OpaqueSyntaxNode deferred) override {
+    OpaqueSyntaxNode explicitActionNode;
+    if (ExplicitAction) {
+      explicitActionNode =
+          ExplicitAction->recordDeferredToken(getExplicitNodeFor(deferred));
+    } else {
+      explicitActionNode = nullptr;
+    }
+
+    OpaqueSyntaxNode libSyntaxActionNode;
+    if (ExplicitAction == LibSyntaxAction) {
+      libSyntaxActionNode = explicitActionNode;
+    } else {
+      libSyntaxActionNode =
+          LibSyntaxAction->recordDeferredToken(getLibSyntaxNodeFor(deferred));
+    }
+
+    return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
+  }
+  OpaqueSyntaxNode recordDeferredLayout(OpaqueSyntaxNode deferred) override {
+    OpaqueSyntaxNode explicitActionNode;
+    if (ExplicitAction) {
+      explicitActionNode =
+          ExplicitAction->recordDeferredLayout(getExplicitNodeFor(deferred));
+    } else {
+      explicitActionNode = nullptr;
+    }
+
+    OpaqueSyntaxNode libSyntaxActionNode;
+    if (ExplicitAction == LibSyntaxAction) {
+      libSyntaxActionNode = explicitActionNode;
+    } else {
+      libSyntaxActionNode =
+          LibSyntaxAction->recordDeferredLayout(getLibSyntaxNodeFor(deferred));
+    }
+
+    return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
+  }
 
   DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex,
                                     SourceLoc ThisNodeLoc) override;

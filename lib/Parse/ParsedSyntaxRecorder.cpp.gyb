@@ -198,17 +198,6 @@ ParsedSyntaxRecorder::make${node.syntax_kind}(
 % end
 
 ParsedTokenSyntax
-ParsedSyntaxRecorder::makeToken(const Token &Tok, StringRef LeadingTrivia,
-                                StringRef TrailingTrivia,
-                                SyntaxParsingContext &SPCtx)  {
-  if (SPCtx.shouldDefer()) {
-    return ParsedTokenSyntax(SPCtx.getRecorder().makeDeferred(Tok, LeadingTrivia, TrailingTrivia));
-  } else {
-    return ParsedTokenSyntax(SPCtx.getRecorder().recordToken(Tok, LeadingTrivia, TrailingTrivia));
-  }
-}
-
-ParsedTokenSyntax
 ParsedSyntaxRecorder::makeMissingToken(const tok &TokenKind,
                                        SyntaxParsingContext &SPCtx) {
   if (SPCtx.shouldDefer()) {

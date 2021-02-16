@@ -22,12 +22,12 @@
 
 #include "swift/Basic/LLVM.h"
 #include "swift/Parse/ParsedSyntaxNodes.h"
+#include "swift/Parse/ParsedRawSyntaxRecorder.h"
+#include "swift/Parse/SyntaxParsingContext.h"
+
 #include "swift/Syntax/SyntaxKind.h"
 
 namespace swift {
-
-class ParsedRawSyntaxRecorder;
-class SyntaxParsingContext;
 
 struct ParsedSyntaxRecorder final {
 
@@ -85,7 +85,13 @@ public:
 public:
   static ParsedTokenSyntax makeToken(const Token &Tok, StringRef LeadingTrivia,
                                      StringRef TrailingTrivia,
-                                     SyntaxParsingContext &SPCtx);
+                                     SyntaxParsingContext &SPCtx) {
+  if (SPCtx.shouldDefer()) {
+    return ParsedTokenSyntax(SPCtx.getRecorder().makeDeferred(Tok, LeadingTrivia, TrailingTrivia));
+  } else {
+    return ParsedTokenSyntax(SPCtx.getRecorder().recordToken(Tok, LeadingTrivia, TrailingTrivia));
+  }
+}
 
   static ParsedTokenSyntax
   makeMissingToken(const tok &TokenKind, SyntaxParsingContext &SPCtx);
