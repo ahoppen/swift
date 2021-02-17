@@ -135,12 +135,12 @@ public:
       auto Node = recordMissingToken(tokenKind, range.getStart());
       // The SyntaxTreeCreator still owns the deferred node. Record it so we can
       // release it when the creator is being destructed.
-      DeferredNodes.push_back(Node);
+      static_cast<syntax::RawSyntax *>(Node)->Release();
       return Node;
     } else {
       auto Node = recordToken(tokenKind, leadingTrivia, trailingTrivia, range);
       // See comment above.
-      DeferredNodes.push_back(Node);
+      static_cast<syntax::RawSyntax *>(Node)->Release();
       return Node;
     }
   }
@@ -163,7 +163,7 @@ public:
       }
     }
     auto Node = recordRawSyntax(k, children);
-    DeferredNodes.push_back(Node);
+    static_cast<syntax::RawSyntax *>(Node)->Release();
     return Node;
   }
 

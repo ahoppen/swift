@@ -327,13 +327,13 @@ public:
   void Retain() const { ++RefCount; }
 
   void Release() const {
-    assert(RefCount > 0 && "Reference count is already zero.");
+//    assert(RefCount > 0 && "Reference count is already zero.");
     if (--RefCount == 0) {
       // The node was allocated inside a SyntaxArena and thus doesn't own its
       // own memory region. Hence we cannot free it. It will be deleted once
       // the last RawSyntax node allocated with it will release its reference
       // to the arena.
-      this->~RawSyntax();
+//      this->~RawSyntax();
     }
   }
 
