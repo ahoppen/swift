@@ -31,8 +31,7 @@ ParsedRawSyntaxNode
 ParsedRawSyntaxRecorder::recordMissingToken(tok tokenKind, SourceLoc loc) {
   CharSourceRange range{loc, 0};
   OpaqueSyntaxNode n = SPActions->recordMissingToken(tokenKind, loc);
-  return ParsedRawSyntaxNode(/*isMissing=*/true, n,
-                             ParsedRawSyntaxNode::DataKind::Recorded);
+  return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
 ParsedRawSyntaxNode
@@ -40,8 +39,7 @@ ParsedRawSyntaxRecorder::recordEmptyRawSyntaxCollection(SyntaxKind kind,
                                                         SourceLoc loc) {
   CharSourceRange range{loc, 0};
   OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, {}, /*ByteLength=*/0);
-  return ParsedRawSyntaxNode(/*IsMissing=*/false, n,
-                             ParsedRawSyntaxNode::DataKind::Recorded);
+  return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
 ParsedRawSyntaxNode
@@ -49,9 +47,7 @@ ParsedRawSyntaxRecorder::makeDeferredMissing(tok tokKind, SourceLoc loc) {
   OpaqueSyntaxNode Data = SPActions->makeDeferredToken(
       tokKind, /*leadingTrivia=*/StringRef(), /*trailingTrivia=*/StringRef(),
       CharSourceRange(loc, /*ByteLength=*/0), /*isMissing=*/true);
-  return ParsedRawSyntaxNode(
-      loc, /*IsMissing=*/true,
-      Data, ParsedRawSyntaxNode::DataKind::DeferredToken);
+  return ParsedRawSyntaxNode(loc, Data, ParsedRawSyntaxNode::DataKind::DeferredToken);
 }
 
 ParsedRawSyntaxNode
@@ -60,7 +56,7 @@ ParsedRawSyntaxRecorder::getDeferredChild(const ParsedRawSyntaxNode &parent,
   assert(parent.isDeferredLayout());
   auto childInfo = SPActions->getDeferredChild(parent.getData(), childIndex);
   return ParsedRawSyntaxNode(
-      /*IsMissing=*/false, childInfo.Data,
+      childInfo.Data,
       childInfo.SyntaxKind == SyntaxKind::Token
           ? ParsedRawSyntaxNode::DataKind::DeferredToken
           : ParsedRawSyntaxNode::DataKind::DeferredLayout);
@@ -80,6 +76,6 @@ ParsedRawSyntaxRecorder::lookupNode(size_t lexerOffset, SourceLoc loc,
     return ParsedRawSyntaxNode::null();
   }
   CharSourceRange range{loc, unsigned(length)};
-  return ParsedRawSyntaxNode(/*IsMissing=*/false, n,
+  return ParsedRawSyntaxNode(n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }

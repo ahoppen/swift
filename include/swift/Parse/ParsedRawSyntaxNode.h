@@ -19,6 +19,7 @@
 #include "swift/Parse/Token.h"
 #include "swift/Syntax/SyntaxKind.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/ADT/PointerIntPair.h"
 
 namespace swift {
 
@@ -63,21 +64,11 @@ private:
   OpaqueSyntaxNode Data;
 
   DataKind DK;
-  /// Primary used for capturing a deferred missing token.
-  bool IsMissing = false;
-
-  /// Create a deferred layout node.
-  ParsedRawSyntaxNode(OpaqueSyntaxNode Data, DataKind DK)
-      : Data(Data),
-        DK(DK) {
-    assert(DK == DataKind::DeferredLayout);
-  }
 
   /// Create a deferred token node.
-  ParsedRawSyntaxNode(SourceLoc tokLoc,
-                      bool IsMissing, OpaqueSyntaxNode Data, DataKind DK)
+  ParsedRawSyntaxNode(SourceLoc tokLoc, OpaqueSyntaxNode Data, DataKind DK)
       : Data(Data),
-        DK(DK), IsMissing(IsMissing) {
+        DK(DK) {
     assert(DK == DataKind::DeferredToken);
   }
   ParsedRawSyntaxNode(const ParsedRawSyntaxNode &other) = delete;
@@ -90,9 +81,8 @@ public:
 
   /// Create an arbitrary syntax node. If \p is \c Token, \p tokKind must be set
   /// otherwise \p tokKind must be \c NUM_TOKENS.
-  ParsedRawSyntaxNode(bool IsMissing, OpaqueSyntaxNode n, DataKind DK)
-      : Data(n),
-        DK(DK), IsMissing(IsMissing) {
+  ParsedRawSyntaxNode(OpaqueSyntaxNode n, DataKind DK)
+      : Data(n), DK(DK) {
   }
 
 #ifndef NDEBUG
@@ -112,13 +102,12 @@ public:
            "recorded data is being destroyed by assignment");
     Data = std::move(other.Data);
     DK = std::move(other.DK);
-    IsMissing = std::move(other.IsMissing);
     other.reset();
     return *this;
   }
   ParsedRawSyntaxNode(ParsedRawSyntaxNode &&other)
       : Data(std::move(other.Data)),
-        DK(std::move(other.DK)), IsMissing(std::move(other.IsMissing)) {
+        DK(std::move(other.DK)) {
     other.reset();
   }
 
@@ -166,7 +155,7 @@ public:
   bool isDeferredToken() const { return DK == DataKind::DeferredToken; }
 
   /// Primary used for a deferred missing token.
-  bool isMissing() const { return IsMissing; }
+  bool isMissing(SyntaxParseActions *Actions) const;
 
   void reset() { DK = DataKind::Destroyed; }
 
@@ -174,7 +163,6 @@ public:
     ParsedRawSyntaxNode copy;
     copy.Data = Data;
     copy.DK = DK;
-    copy.IsMissing = IsMissing;
     return copy;
   }
 

@@ -35,6 +35,11 @@ syntax::SyntaxKind ParsedRawSyntaxNode::getKind(SyntaxParsingContext *SyntaxCont
   return SyntaxContext->getActions()->getSyntaxKind(Data);
 }
 
+bool ParsedRawSyntaxNode::isMissing(SyntaxParseActions *Actions) const {
+  return Actions->isMissing(Data);
+}
+
+
 void ParsedRawSyntaxNode::dump() const {
   dump(llvm::errs(), /*Indent*/ 0);
   llvm::errs() << '\n';

@@ -317,6 +317,10 @@ private:
   syntax::SyntaxKind getSyntaxKind(OpaqueSyntaxNode node) override {
     llvm_unreachable("");
   }
+  
+  bool isMissing(OpaqueSyntaxNode node) override {
+    llvm_unreachable("");
+  }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override {
     // FIXME: This method should not be called at all.

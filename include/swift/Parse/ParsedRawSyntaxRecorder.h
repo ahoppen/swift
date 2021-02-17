@@ -50,13 +50,11 @@ class ParsedRawSyntaxRecorder final {
     assert(!node.isNull() && !node.isRecorded());
     if (node.isDeferredLayout()) {
       OpaqueSyntaxNode Data = SPActions->recordDeferredLayout(node.getData());
-      return ParsedRawSyntaxNode(node.isMissing(), Data,
-                                 ParsedRawSyntaxNode::DataKind::Recorded);
+      return ParsedRawSyntaxNode(Data, ParsedRawSyntaxNode::DataKind::Recorded);
     } else {
       assert(node.isDeferredToken());
       OpaqueSyntaxNode Data = SPActions->recordDeferredToken(node.getData());
-      return ParsedRawSyntaxNode(node.isMissing(), Data,
-                                 ParsedRawSyntaxNode::DataKind::Recorded);
+      return ParsedRawSyntaxNode(Data, ParsedRawSyntaxNode::DataKind::Recorded);
     }
   }
 
@@ -85,8 +83,7 @@ public:
     CharSourceRange range(offset, length);
     OpaqueSyntaxNode n =
         SPActions->recordToken(tokKind, leadingTrivia, trailingTrivia, range);
-    return ParsedRawSyntaxNode(/*IsMissing=*/false, n,
-                               ParsedRawSyntaxNode::DataKind::Recorded);
+    return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
   }
 
   /// Record a missing token. \p loc can be invalid or an approximate location
@@ -116,8 +113,7 @@ public:
     }
   }
   OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, subnodes, ByteLength);
-  return ParsedRawSyntaxNode(/*IsMissing=*/false, n,
-                             ParsedRawSyntaxNode::DataKind::Recorded);
+  return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
 
@@ -145,8 +141,8 @@ public:
     size_t ByteLength = 0;
     for (auto &node : deferredNodes) {
       // Cached range.
-      if (!node.isNull() && !node.isMissing()) {
-        ByteLength += node.getByteLength(SPActions.get());
+      if (!node.isNull() && !node.isMissing(SPActionsP)) {
+        ByteLength += node.getByteLength(SPActionsP);
       }
       children.push_back(node.getData());
     }
@@ -168,8 +164,7 @@ public:
 
     OpaqueSyntaxNode Data = SPActionsP->makeDeferredToken(
         tok.getKind(), leadingTrivia, trailingTrivia, range, /*isMissing=*/false);
-    return ParsedRawSyntaxNode(tok.getLoc(),
-                               /*IsMissing=*/false, Data,
+    return ParsedRawSyntaxNode(tok.getLoc(), Data,
                                ParsedRawSyntaxNode::DataKind::DeferredToken);
   }
 

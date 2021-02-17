@@ -199,6 +199,11 @@ public:
     syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
     return raw->getKind();
   }
+  
+  bool isMissing(OpaqueSyntaxNode node) override {
+    syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
+    return raw->isMissing();
+  }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override;
 
