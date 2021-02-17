@@ -49,6 +49,7 @@ ParsedRawSyntaxRecorder::makeDeferred(syntax::SyntaxKind k,
   }
   SmallVector<OpaqueSyntaxNode, 4> children;
 
+  // TODO: Modify deferredNodes in place and clear the upper bits
   for (auto &node : deferredNodes) {
     // Cached range.
     children.push_back(node.getData());
