@@ -26,6 +26,7 @@ namespace swift {
 /// represent a non-existent node.
 typedef void *OpaqueSyntaxNode;
 class SyntaxParsingContext;
+class SyntaxParseActions;
 
 /// Represents a raw syntax node formed by the parser.
 ///
@@ -61,9 +62,6 @@ private:
   /// consulted to interpret the data.
   OpaqueSyntaxNode Data;
 
-  /// The range of the entire node, including trivia.
-  CharSourceRange Range;
-
   uint16_t SynKind;
   uint16_t TokKind;
   DataKind DK;
@@ -71,18 +69,18 @@ private:
   bool IsMissing = false;
 
   /// Create a deferred layout node.
-  ParsedRawSyntaxNode(syntax::SyntaxKind k, CharSourceRange Range,
+  ParsedRawSyntaxNode(syntax::SyntaxKind k,
                       OpaqueSyntaxNode Data, DataKind DK)
-      : Data(Data), Range(Range), SynKind(uint16_t(k)),
+      : Data(Data), SynKind(uint16_t(k)),
         TokKind(uint16_t(tok::NUM_TOKENS)), DK(DK) {
     assert(DK == DataKind::DeferredLayout);
     assert(getKind() == k && "Syntax kind with too large value!");
   }
 
   /// Create a deferred token node.
-  ParsedRawSyntaxNode(tok tokKind, SourceLoc tokLoc, CharSourceRange Range,
+  ParsedRawSyntaxNode(tok tokKind, SourceLoc tokLoc,
                       bool IsMissing, OpaqueSyntaxNode Data, DataKind DK)
-      : Data(Data), Range(Range), SynKind(uint16_t(syntax::SyntaxKind::Token)),
+      : Data(Data), SynKind(uint16_t(syntax::SyntaxKind::Token)),
         TokKind(uint16_t(tokKind)), DK(DK), IsMissing(IsMissing) {
     assert(DK == DataKind::DeferredToken);
     assert(getTokenKind() == tokKind && "Token kind is too large value!");
@@ -92,14 +90,14 @@ private:
 
 public:
   ParsedRawSyntaxNode()
-      : Data(nullptr), Range(), SynKind(uint16_t(syntax::SyntaxKind::Unknown)),
+      : Data(nullptr), SynKind(uint16_t(syntax::SyntaxKind::Unknown)),
         TokKind(uint16_t(tok::unknown)), DK(DataKind::Null) {}
 
   /// Create an arbitrary syntax node. If \p is \c Token, \p tokKind must be set
   /// otherwise \p tokKind must be \c NUM_TOKENS.
-  ParsedRawSyntaxNode(syntax::SyntaxKind k, tok tokKind, CharSourceRange r,
+  ParsedRawSyntaxNode(syntax::SyntaxKind k, tok tokKind,
                       bool IsMissing, OpaqueSyntaxNode n, DataKind DK)
-      : Data(n), Range(r), SynKind(uint16_t(k)), TokKind(uint16_t(tokKind)),
+      : Data(n), SynKind(uint16_t(k)), TokKind(uint16_t(tokKind)),
         DK(DK), IsMissing(IsMissing) {
     assert(getKind() == k && "Syntax kind with too large value!");
     assert(getTokenKind() == tokKind && "Token kind with too large value!");
@@ -128,7 +126,6 @@ public:
     assert(ensureDataIsNotRecorded() &&
            "recorded data is being destroyed by assignment");
     Data = std::move(other.Data);
-    Range = std::move(other.Range);
     SynKind = std::move(other.SynKind);
     TokKind = std::move(other.TokKind);
     DK = std::move(other.DK);
@@ -137,7 +134,7 @@ public:
     return *this;
   }
   ParsedRawSyntaxNode(ParsedRawSyntaxNode &&other)
-      : Data(std::move(other.Data)), Range(std::move(other.Range)),
+      : Data(std::move(other.Data)),
         SynKind(std::move(other.SynKind)), TokKind(std::move(other.TokKind)),
         DK(std::move(other.DK)), IsMissing(std::move(other.IsMissing)) {
     other.reset();
@@ -194,7 +191,6 @@ public:
   ParsedRawSyntaxNode unsafeCopy() const {
     ParsedRawSyntaxNode copy;
     copy.Data = Data;
-    copy.Range = Range;
     copy.SynKind = SynKind;
     copy.TokKind = TokKind;
     copy.DK = DK;
@@ -202,7 +198,7 @@ public:
     return copy;
   }
 
-  CharSourceRange getRange() const { return Range; }
+  size_t getByteLength(SyntaxParseActions *Actions) const;
 
   //==========================================================================//
 

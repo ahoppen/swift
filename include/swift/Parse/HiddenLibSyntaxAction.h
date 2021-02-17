@@ -103,12 +103,12 @@ public:
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
                   const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  CharSourceRange range) override {
+                  size_t ByteLength) override {
     OpaqueSyntaxNode explicitActionNode;
     if (ExplicitAction) {
       if (ExplicitAction == LibSyntaxAction) {
         explicitActionNode =
-            ExplicitAction->recordRawSyntax(kind, elements, range);
+            ExplicitAction->recordRawSyntax(kind, elements, ByteLength);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> explicitActionElements;
         explicitActionElements.reserve(elements.size());
@@ -122,7 +122,7 @@ public:
         }
 
         explicitActionNode =
-            ExplicitAction->recordRawSyntax(kind, explicitActionElements, range);
+            ExplicitAction->recordRawSyntax(kind, explicitActionElements, ByteLength);
       }
     } else {
       explicitActionNode = nullptr;
@@ -134,7 +134,7 @@ public:
     } else {
       if (ExplicitAction == nullptr) {
         libSyntaxActionNode =
-            LibSyntaxAction->recordRawSyntax(kind, elements, range);
+            LibSyntaxAction->recordRawSyntax(kind, elements, ByteLength);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> libSyntaxActionElements;
         libSyntaxActionElements.reserve(elements.size());
@@ -146,7 +146,7 @@ public:
           libSyntaxActionElements.push_back(libSyntaxActionElement);
         }
         libSyntaxActionNode = LibSyntaxAction->recordRawSyntax(
-            kind, libSyntaxActionElements, range);
+            kind, libSyntaxActionElements, ByteLength);
       }
     }
 
@@ -183,14 +183,14 @@ public:
   }
 
   OpaqueSyntaxNode
-  makeDeferredLayout(syntax::SyntaxKind k, CharSourceRange Range,
+  makeDeferredLayout(syntax::SyntaxKind k, size_t ByteLength,
                      bool IsMissing,
                      const SmallVector<OpaqueSyntaxNode, 4> &children) override {
     OpaqueSyntaxNode explicitActionNode;
     if (ExplicitAction) {
       if (ExplicitAction == LibSyntaxAction) {
         explicitActionNode =
-            ExplicitAction->makeDeferredLayout(k, Range, IsMissing, children);
+            ExplicitAction->makeDeferredLayout(k, ByteLength, IsMissing, children);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> explicitActionChildren;
         explicitActionChildren.reserve(children.size());
@@ -204,7 +204,7 @@ public:
         }
 
         explicitActionNode = ExplicitAction->makeDeferredLayout(
-            k, Range, IsMissing, explicitActionChildren);
+            k, ByteLength, IsMissing, explicitActionChildren);
       }
     } else {
       explicitActionNode = nullptr;
@@ -216,7 +216,7 @@ public:
     } else {
       if (ExplicitAction == nullptr) {
         libSyntaxActionNode =
-            LibSyntaxAction->makeDeferredLayout(k, Range, IsMissing, children);
+            LibSyntaxAction->makeDeferredLayout(k, ByteLength, IsMissing, children);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> libSyntaxActionChildren;
         libSyntaxActionChildren.reserve(children.size());
@@ -228,7 +228,7 @@ public:
           libSyntaxActionChildren.push_back(libSyntaxActionChild);
         }
         libSyntaxActionNode = LibSyntaxAction->makeDeferredLayout(
-            k, Range, IsMissing, libSyntaxActionChildren);
+            k, ByteLength, IsMissing, libSyntaxActionChildren);
       }
     }
 
@@ -274,8 +274,15 @@ public:
     return makeHiddenNode(explicitActionNode, libSyntaxActionNode);
   }
 
-  DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex,
-                                    SourceLoc ThisNodeLoc) override;
+  DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex) override;
+  
+  size_t getByteLength(OpaqueSyntaxNode node) override {
+    size_t libSyntaxLength = LibSyntaxAction->getByteLength(getLibSyntaxNodeFor(node));
+    if (ExplicitAction) {
+      assert(ExplicitAction->getByteLength(getExplicitNodeFor(node)) == libSyntaxLength);
+    }
+    return libSyntaxLength;
+  }
 
   /// Look a node at the given lexer offset up using the \c ExplicitAction.
   ///

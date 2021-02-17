@@ -23,6 +23,10 @@ ParsedRawSyntaxNode ParsedRawSyntaxNode::getDeferredChild(
   return SyntaxContext->getRecorder().getDeferredChild(*this, ChildIndex);
 }
 
+size_t ParsedRawSyntaxNode::getByteLength(SyntaxParseActions *Actions) const {
+  return Actions->getByteLength(Data);
+}
+
 void ParsedRawSyntaxNode::dump() const {
   dump(llvm::errs(), /*Indent*/ 0);
   llvm::errs() << '\n';

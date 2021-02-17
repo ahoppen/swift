@@ -224,16 +224,17 @@ private:
   OpaqueSyntaxNode
   recordRawSyntax(SyntaxKind kind,
                   const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  CharSourceRange range) override {
-    CRawSyntaxNode node;
-    auto numValue = serialization::getNumericValue(kind);
-    node.kind = numValue;
-    assert(node.kind == numValue && "syntax kind value is too large");
-    node.layout_data.nodes = elements.data();
-    node.layout_data.nodes_count = elements.size();
-    makeCRange(node.range, range);
-    node.present = true;
-    return getNodeHandler()(&node);
+                  size_t ByteLength) override {
+    llvm_unreachable("");
+//    CRawSyntaxNode node;
+//    auto numValue = serialization::getNumericValue(kind);
+//    node.kind = numValue;
+//    assert(node.kind == numValue && "syntax kind value is too large");
+//    node.layout_data.nodes = elements.data();
+//    node.layout_data.nodes_count = elements.size();
+//    makeCRange(node.range, range);
+//    node.present = true;
+//    return getNodeHandler()(&node);
   }
 
   Optional<SourceFileSyntax> realizeSyntaxRoot(OpaqueSyntaxNode root,
@@ -251,9 +252,10 @@ private:
   }
 
   OpaqueSyntaxNode makeDeferredLayout(
-      syntax::SyntaxKind k, CharSourceRange range, bool isMissing,
+      syntax::SyntaxKind k, size_t ByteLength, bool isMissing,
       const SmallVector<OpaqueSyntaxNode, 4> &children) override {
-    return new (ScratchAlloc) DeferredLayoutNode(k, range, isMissing, children);
+    llvm_unreachable("");
+//    return new (ScratchAlloc) DeferredLayoutNode(k, range, isMissing, children);
   }
 
   OpaqueSyntaxNode recordDeferredToken(OpaqueSyntaxNode deferred) override {
@@ -267,41 +269,45 @@ private:
     }
   }
   OpaqueSyntaxNode recordDeferredLayout(OpaqueSyntaxNode deferred) override {
-    auto Data = static_cast<DeferredLayoutNode *>(deferred);
-    assert(!Data->IsToken && "Not a deferred layout?");
-    assert(!Data->IsMissing &&
-           "CLibParseActions can't handle missing layout nodes");
-
-    SmallVector<OpaqueSyntaxNode, 4> subnodes;
-    if (!Data->Children.empty()) {
-      for (auto &subnode : Data->Children) {
-        auto ChildData = static_cast<DeferredNode *>(subnode);
-        if (ChildData == nullptr) {
-          subnodes.push_back(nullptr);
-        } else if (ChildData->IsToken) {
-          subnodes.push_back(recordDeferredToken(subnode));
-        } else {
-          subnodes.push_back(recordDeferredLayout(subnode));
-        }
-      }
-    }
-    return recordRawSyntax(Data->Kind, subnodes, Data->Range);
+    llvm_unreachable("");
+//    auto Data = static_cast<DeferredLayoutNode *>(deferred);
+//    assert(!Data->IsToken && "Not a deferred layout?");
+//    assert(!Data->IsMissing &&
+//           "CLibParseActions can't handle missing layout nodes");
+//
+//    SmallVector<OpaqueSyntaxNode, 4> subnodes;
+//    if (!Data->Children.empty()) {
+//      for (auto &subnode : Data->Children) {
+//        auto ChildData = static_cast<DeferredNode *>(subnode);
+//        if (ChildData == nullptr) {
+//          subnodes.push_back(nullptr);
+//        } else if (ChildData->IsToken) {
+//          subnodes.push_back(recordDeferredToken(subnode));
+//        } else {
+//          subnodes.push_back(recordDeferredLayout(subnode));
+//        }
+//      }
+//    }
+//    return recordRawSyntax(Data->Kind, subnodes, Data->Range);
   }
 
-  DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex,
-                                    SourceLoc ThisNodeLoc) override {
-    auto Data = static_cast<DeferredLayoutNode *>(node);
-    assert(!Data->IsToken && "Not a deferred layout?");
-    auto ChildData = static_cast<DeferredNode *>(Data->Children[ChildIndex]);
-    if (ChildData->IsToken) {
-      auto TokenData = static_cast<DeferredTokenNode *>(ChildData);
-      return DeferredNodeInfo(ChildData, ChildData->Range, SyntaxKind::Token,
-                              TokenData->TokenKind, TokenData->IsMissing);
-    } else {
-      auto LayoutData = static_cast<DeferredLayoutNode *>(ChildData);
-      return DeferredNodeInfo(ChildData, ChildData->Range, LayoutData->Kind,
-                              tok::NUM_TOKENS, LayoutData->IsMissing);
-    }
+  DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex) override {
+    llvm_unreachable("");
+//    auto Data = static_cast<DeferredLayoutNode *>(node);
+//    assert(!Data->IsToken && "Not a deferred layout?");
+//    auto ChildData = static_cast<DeferredNode *>(Data->Children[ChildIndex]);
+//    if (ChildData->IsToken) {
+//      auto TokenData = static_cast<DeferredTokenNode *>(ChildData);
+//      return DeferredNodeInfo(ChildData, ChildData->Range, SyntaxKind::Token,
+//                              TokenData->TokenKind, TokenData->IsMissing);
+//    } else {
+//      auto LayoutData = static_cast<DeferredLayoutNode *>(ChildData);
+//      return DeferredNodeInfo(ChildData, ChildData->Range, LayoutData->Kind,
+//                              tok::NUM_TOKENS, LayoutData->IsMissing);
+//    }
+  }
+  size_t getByteLength(OpaqueSyntaxNode node) override {
+    llvm_unreachable("");
   }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override {

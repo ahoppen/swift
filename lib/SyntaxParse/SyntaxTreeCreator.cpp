@@ -124,20 +124,14 @@ SyntaxTreeCreator::recordMissingToken(tok kind, SourceLoc loc) {
 }
 
 SyntaxParseActions::DeferredNodeInfo
-SyntaxTreeCreator::getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex,
-                                    SourceLoc ThisNodeLoc) {
+SyntaxTreeCreator::getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex) {
   RawSyntax *raw = static_cast<RawSyntax *>(node);
-  SourceLoc StartLoc = ThisNodeLoc;
-  for (size_t i = 0; i < ChildIndex; ++i) {
-    StartLoc = StartLoc.getAdvancedLoc(raw->getChildRef(i)->getTextLength());
-  }
   RawSyntax *Child = raw->getChildRef(ChildIndex);
-  CharSourceRange Range(StartLoc, Child->getTextLength());
   if (Child->isToken()) {
-    return DeferredNodeInfo(Child, Range, SyntaxKind::Token,
+    return DeferredNodeInfo(Child, SyntaxKind::Token,
                             Child->getTokenKind(), Child->isMissing());
   } else {
-    return DeferredNodeInfo(Child, Range, Child->getKind(), tok::NUM_TOKENS,
+    return DeferredNodeInfo(Child, Child->getKind(), tok::NUM_TOKENS,
                             Child->isMissing());
   }
 }

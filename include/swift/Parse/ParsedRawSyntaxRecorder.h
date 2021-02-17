@@ -51,13 +51,13 @@ class ParsedRawSyntaxRecorder final {
     if (node.isDeferredLayout()) {
       OpaqueSyntaxNode Data = SPActions->recordDeferredLayout(node.getData());
       return ParsedRawSyntaxNode(node.getKind(), node.getTokenKind(),
-                                 node.getRange(), node.isMissing(), Data,
+                                 node.isMissing(), Data,
                                  ParsedRawSyntaxNode::DataKind::Recorded);
     } else {
       assert(node.isDeferredToken());
       OpaqueSyntaxNode Data = SPActions->recordDeferredToken(node.getData());
       return ParsedRawSyntaxNode(node.getKind(), node.getTokenKind(),
-                                 node.getRange(), node.isMissing(), Data,
+                                 node.isMissing(), Data,
                                  ParsedRawSyntaxNode::DataKind::Recorded);
     }
   }
@@ -68,6 +68,10 @@ public:
       SPActionsP = SPActions.get();
     }
 
+  SyntaxParseActions *getActions() const {
+    return SPActionsP;
+  }
+  
   ParsedRawSyntaxNode recordToken(const Token &tok, StringRef leadingTrivia,
                                   StringRef trailingTrivia) {
     return recordToken(tok.getKind(), tok.getRange(), leadingTrivia,
@@ -83,7 +87,7 @@ public:
     CharSourceRange range(offset, length);
     OpaqueSyntaxNode n =
         SPActions->recordToken(tokKind, leadingTrivia, trailingTrivia, range);
-    return ParsedRawSyntaxNode(syntax::SyntaxKind::Token, tokKind, range,
+    return ParsedRawSyntaxNode(syntax::SyntaxKind::Token, tokKind,
                                /*IsMissing=*/false, n,
                                ParsedRawSyntaxNode::DataKind::Recorded);
   }
@@ -97,38 +101,25 @@ public:
   /// ParsedRawSyntaxNode object.
   ParsedRawSyntaxNode recordRawSyntax(syntax::SyntaxKind kind,
                                       MutableArrayRef<ParsedRawSyntaxNode> elements) {
-#ifndef NDEBUG
-  ParsedRawSyntaxRecorder::verifyElementRanges(elements);
-#endif
-  CharSourceRange range;
   SmallVector<OpaqueSyntaxNode, 4> subnodes;
+  size_t ByteLength = 0;
   if (!elements.empty()) {
-    SourceLoc offset;
-    unsigned length = 0;
     for (auto &subnode : elements) {
-      CharSourceRange localRange;
       if (subnode.isNull()) {
         subnodes.push_back(nullptr);
       } else if (subnode.isRecorded()) {
-        localRange = subnode.getRange();
+        ByteLength += subnode.getByteLength(SPActions.get());
         subnodes.push_back(subnode.takeData());
       } else {
         assert(subnode.isDeferredLayout() || subnode.isDeferredToken());
-        localRange = subnode.getRange();
+        ByteLength += subnode.getByteLength(SPActions.get());
         auto recorded = recordDeferredNode(subnode);
         subnodes.push_back(recorded.takeData());
       }
-
-      if (localRange.isValid()) {
-        if (offset.isInvalid())
-          offset = localRange.getStart();
-        length += localRange.getByteLength();
-      }
     }
-    range = CharSourceRange{offset, length};
   }
-  OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, subnodes, range);
-  return ParsedRawSyntaxNode(kind, tok::NUM_TOKENS, range, /*IsMissing=*/false, n,
+  OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, subnodes, ByteLength);
+  return ParsedRawSyntaxNode(kind, tok::NUM_TOKENS, /*IsMissing=*/false, n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
@@ -146,35 +137,25 @@ public:
                SyntaxParsingContext &ctx) {
     assert(k != syntax::SyntaxKind::Token &&
            "Use makeDeferredToken to create deferred tokens");
-    CharSourceRange range;
     if (deferredNodes.empty()) {
       OpaqueSyntaxNode Data =
-          SPActions->makeDeferredLayout(k, range, /*IsMissing=*/false, {});
-      return ParsedRawSyntaxNode(k, range, Data,
+          SPActions->makeDeferredLayout(k, /*ByteLength=*/0, /*IsMissing=*/false, {});
+      return ParsedRawSyntaxNode(k, Data,
                                  ParsedRawSyntaxNode::DataKind::DeferredLayout);
     }
     SmallVector<OpaqueSyntaxNode, 4> children;
 
-  #ifndef NDEBUG
-    ParsedRawSyntaxRecorder::verifyElementRanges(deferredNodes);
-  #endif
+    size_t ByteLength = 0;
     for (auto &node : deferredNodes) {
       // Cached range.
       if (!node.isNull() && !node.isMissing()) {
-        auto nodeRange = node.getRange();
-        if (nodeRange.isValid()) {
-          if (range.isInvalid())
-            range = nodeRange;
-          else
-            range.widen(nodeRange);
-        }
+        ByteLength += node.getByteLength(SPActions.get());
       }
-
       children.push_back(node.getData());
     }
     OpaqueSyntaxNode Data =
-        SPActions->makeDeferredLayout(k, range, /*IsMissing=*/false, children);
-    return ParsedRawSyntaxNode(k, range, Data,
+        SPActions->makeDeferredLayout(k, ByteLength, /*IsMissing=*/false, children);
+    return ParsedRawSyntaxNode(k, Data,
                                ParsedRawSyntaxNode::DataKind::DeferredLayout);
   }
 
@@ -190,7 +171,7 @@ public:
 
     OpaqueSyntaxNode Data = SPActionsP->makeDeferredToken(
         tok.getKind(), leadingTrivia, trailingTrivia, range, /*isMissing=*/false);
-    return ParsedRawSyntaxNode(tok.getKind(), tok.getLoc(), range,
+    return ParsedRawSyntaxNode(tok.getKind(), tok.getLoc(),
                                /*IsMissing=*/false, Data,
                                ParsedRawSyntaxNode::DataKind::DeferredToken);
   }
@@ -209,9 +190,6 @@ public:
   ParsedRawSyntaxNode lookupNode(size_t lexerOffset, SourceLoc loc,
                                  syntax::SyntaxKind kind);
 
-  #ifndef NDEBUG
-  static void verifyElementRanges(ArrayRef<ParsedRawSyntaxNode> elements);
-  #endif
 };
 
 } // end namespace swift

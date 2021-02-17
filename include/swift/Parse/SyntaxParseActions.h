@@ -47,18 +47,17 @@ public:
   /// \c ParsedRawSyntaxNode being on a higher level than \c SyntaxParseActions.
   struct DeferredNodeInfo {
     OpaqueSyntaxNode Data;
-    CharSourceRange Range;
     syntax::SyntaxKind SyntaxKind;
     tok TokenKind;
     bool IsMissing;
 
     DeferredNodeInfo()
-        : Data(nullptr), Range(), SyntaxKind(), TokenKind(), IsMissing(true) {}
+        : Data(nullptr), SyntaxKind(), TokenKind(), IsMissing(true) {}
 
-    DeferredNodeInfo(OpaqueSyntaxNode Data, CharSourceRange Range,
+    DeferredNodeInfo(OpaqueSyntaxNode Data,
                      syntax::SyntaxKind SyntaxKind, tok TokenKind,
                      bool IsMissing)
-        : Data(Data), Range(Range), SyntaxKind(SyntaxKind),
+        : Data(Data), SyntaxKind(SyntaxKind),
           TokenKind(TokenKind), IsMissing(IsMissing) {}
   };
 
@@ -78,7 +77,7 @@ public:
   virtual OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
                   const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  CharSourceRange range) = 0;
+                  size_t ByteLength) = 0;
 
   /// Create a deferred token node that may or may not be recorded later using
   /// \c recordDeferredToken. The \c SyntaxParseAction is responsible for
@@ -93,7 +92,7 @@ public:
   /// \c recordDeferredLayout. The \c SyntaxParseAction is responsible for
   /// keeping the deferred token alive until it is destructed.
   virtual OpaqueSyntaxNode
-  makeDeferredLayout(syntax::SyntaxKind k, CharSourceRange Range,
+  makeDeferredLayout(syntax::SyntaxKind k, size_t ByteLength,
                      bool IsMissing,
                      const SmallVector<OpaqueSyntaxNode, 4> &children) = 0;
 
@@ -115,8 +114,9 @@ public:
   /// SyntaxTreeCreator in which the \c RawSyntax nodes do not keep track of
   /// their absolute position.
   virtual DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node,
-                                            size_t ChildIndex,
-                                            SourceLoc ThisNodeLoc) = 0;
+                                            size_t ChildIndex) = 0;
+  
+  virtual size_t getByteLength(OpaqueSyntaxNode node) = 0;
 
   /// Attempt to realize an opaque raw syntax node for a source file into a
   /// SourceFileSyntax node. This will return \c None if the parsing action

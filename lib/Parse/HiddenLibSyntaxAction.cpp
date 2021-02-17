@@ -62,11 +62,11 @@ void HiddenLibSyntaxAction::discardRecordedNode(OpaqueSyntaxNode opaqueN) {
 }
 
 SyntaxParseActions::DeferredNodeInfo HiddenLibSyntaxAction::getDeferredChild(
-    OpaqueSyntaxNode node, size_t ChildIndex, SourceLoc ThisNodeLoc) {
+    OpaqueSyntaxNode node, size_t ChildIndex) {
   Optional<DeferredNodeInfo> explicitActionNodeInfo;
   if (ExplicitAction) {
     explicitActionNodeInfo = ExplicitAction->getDeferredChild(
-        getExplicitNodeFor(node), ChildIndex, ThisNodeLoc);
+        getExplicitNodeFor(node), ChildIndex);
   } else {
     explicitActionNodeInfo = None;
   }
@@ -76,14 +76,11 @@ SyntaxParseActions::DeferredNodeInfo HiddenLibSyntaxAction::getDeferredChild(
     libSyntaxActionNodeInfo = *explicitActionNodeInfo;
   } else {
     libSyntaxActionNodeInfo = LibSyntaxAction->getDeferredChild(
-        getLibSyntaxNodeFor(node), ChildIndex, ThisNodeLoc);
+        getLibSyntaxNodeFor(node), ChildIndex);
   }
 #ifndef NDEBUG
   if (explicitActionNodeInfo) {
     // For the purpose of ParsedRawSyntaxNodes we don't differentiate between invalid and empty ranges.
-    bool explicitRangeEmpty = !explicitActionNodeInfo->Range.isValid() || explicitActionNodeInfo->Range.getByteLength() == 0;
-    bool libSyntaxRangeEmpty = !libSyntaxActionNodeInfo.Range.isValid() || libSyntaxActionNodeInfo.Range.getByteLength() == 0;
-    assert(explicitRangeEmpty == libSyntaxRangeEmpty || (explicitActionNodeInfo->Range == libSyntaxActionNodeInfo.Range));
     assert(explicitActionNodeInfo->SyntaxKind == libSyntaxActionNodeInfo.SyntaxKind);
     assert(explicitActionNodeInfo->TokenKind == libSyntaxActionNodeInfo.TokenKind);
     assert(explicitActionNodeInfo->IsMissing == libSyntaxActionNodeInfo.IsMissing);
@@ -93,7 +90,7 @@ SyntaxParseActions::DeferredNodeInfo HiddenLibSyntaxAction::getDeferredChild(
       explicitActionNodeInfo ? explicitActionNodeInfo->Data : nullptr,
       libSyntaxActionNodeInfo.Data);
   return DeferredNodeInfo(
-      Data, libSyntaxActionNodeInfo.Range, libSyntaxActionNodeInfo.SyntaxKind,
+      Data, libSyntaxActionNodeInfo.SyntaxKind,
       libSyntaxActionNodeInfo.TokenKind, libSyntaxActionNodeInfo.IsMissing);
 }
 

@@ -106,15 +106,14 @@ public:
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
                   const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  CharSourceRange range) override {
+                  size_t ByteLength) override {
     SmallVector<RC<syntax::RawSyntax>, 16> parts;
     parts.reserve(elements.size());
     for (OpaqueSyntaxNode opaqueN : elements) {
       parts.push_back(transferOpaqueNode(opaqueN));
     }
-    size_t TextLength = range.isValid() ? range.getByteLength() : 0;
     auto raw =
-    syntax::RawSyntax::make(kind, parts, TextLength, syntax::SourcePresence::Present, Arena);
+    syntax::RawSyntax::make(kind, parts, ByteLength, syntax::SourcePresence::Present, Arena);
     OpaqueSyntaxNode opaqueN = raw.get();
     raw.resetWithoutRelease();
     return opaqueN;
@@ -146,7 +145,7 @@ public:
   }
 
   OpaqueSyntaxNode
-  makeDeferredLayout(syntax::SyntaxKind k, CharSourceRange Range,
+  makeDeferredLayout(syntax::SyntaxKind k, size_t ByteLength,
                      bool IsMissing,
                      const SmallVector<OpaqueSyntaxNode, 4> &children) override{
     // Also see comment in makeDeferredToken
@@ -162,7 +161,7 @@ public:
         static_cast<syntax::RawSyntax *>(child)->Retain();
       }
     }
-    auto Node = recordRawSyntax(k, children, Range);
+    auto Node = recordRawSyntax(k, children, ByteLength);
     DeferredNodes.push_back(Node);
     return Node;
   }
@@ -184,8 +183,11 @@ public:
     return deferred;
   }
 
-  DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex,
-                                    SourceLoc ThisNodeLoc) override;
+  DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex) override;
+  size_t getByteLength(OpaqueSyntaxNode node) override {
+    syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
+    return raw->getTextLength();
+  }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override;
 
