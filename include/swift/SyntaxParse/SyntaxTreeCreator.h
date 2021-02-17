@@ -207,6 +207,18 @@ public:
   }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override;
+  
+  syntax::RawSyntax *getLibSyntaxNodeFor(OpaqueSyntaxNode node) override {
+    return static_cast<syntax::RawSyntax *>(node);
+  }
+  
+  OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) override {
+    return node;
+  }
+  
+  std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction(std::shared_ptr<SyntaxParseActions> sharedThis) override {
+    return std::static_pointer_cast<SyntaxTreeCreator>(sharedThis);
+  }
 
   std::pair<size_t, OpaqueSyntaxNode>
   lookupNode(size_t lexerOffset, syntax::SyntaxKind kind) override;

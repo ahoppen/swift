@@ -188,19 +188,11 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
 //        WithExcluseiveSyntaxArenaAccessRAII(ctx.getSyntaxArena());
     auto bufferID = SF->getBufferID();
 
-    std::shared_ptr<SyntaxTreeCreator> sTreeCreator =
+    std::shared_ptr<SyntaxTreeCreator> spActions =
         std::make_shared<SyntaxTreeCreator>(ctx.SourceMgr, *bufferID,
                                             SF->SyntaxParsingCache,
                                             ctx.getSyntaxArena());
-    std::shared_ptr<HiddenLibSyntaxAction> spActions;
-    if (SF->shouldBuildSyntaxTree()) {
-      spActions =
-          std::make_shared<HiddenLibSyntaxAction>(sTreeCreator, sTreeCreator);
-    } else {
-      spActions =
-          std::make_shared<HiddenLibSyntaxAction>(nullptr, sTreeCreator);
-    }
-
+    
     // If we've been asked to silence warnings, do so now. This is needed for
     // secondary files, which can be parsed multiple times.
     auto &diags = ctx.Diags;
@@ -245,18 +237,11 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
   if (!bufferID)
     return {};
 
-  std::shared_ptr<SyntaxTreeCreator> sTreeCreator =
+  std::shared_ptr<SyntaxTreeCreator> spActions =
       std::make_shared<SyntaxTreeCreator>(ctx.SourceMgr, *bufferID,
                                           SF->SyntaxParsingCache,
                                           ctx.getSyntaxArena());
-  std::shared_ptr<HiddenLibSyntaxAction> spActions;
-  if (SF->shouldBuildSyntaxTree()) {
-    spActions =
-        std::make_shared<HiddenLibSyntaxAction>(sTreeCreator, sTreeCreator);
-  } else {
-    spActions = std::make_shared<HiddenLibSyntaxAction>(nullptr, sTreeCreator);
-  }
-
+  
   // If we've been asked to silence warnings, do so now. This is needed for
   // secondary files, which can be parsed multiple times.
   auto &diags = ctx.Diags;

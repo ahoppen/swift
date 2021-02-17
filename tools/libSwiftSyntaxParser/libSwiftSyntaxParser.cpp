@@ -324,6 +324,21 @@ private:
   void discardRecordedNode(OpaqueSyntaxNode node) override {
     // FIXME: This method should not be called at all.
   }
+  
+  syntax::RawSyntax *getLibSyntaxNodeFor(OpaqueSyntaxNode node) override {
+    llvm_unreachable("does not produce libSyntax nodes");
+  }
+
+  /// Returns the node created by explicit syntax action from the specified
+  /// node that has been created by this action.
+  OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) override {
+    return node;
+  }
+
+  /// Returns the underlying libSyntax \c SyntaxTreeCreator.
+  std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction(std::shared_ptr<SyntaxParseActions> sharedThis) override {
+    llvm_unreachable("does not have a libsyntaxaction");
+  }
 
   std::pair<size_t, OpaqueSyntaxNode>
   lookupNode(size_t lexerOffset, SyntaxKind kind) override {

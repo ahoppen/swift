@@ -26,12 +26,12 @@ namespace swift {
 /// HiddenLibSyntaxAction (based on provided OpaqueSyntaxNode) or by recording
 /// them with ParsedRawSyntaxRecorder.
 class LibSyntaxGenerator {
-  std::shared_ptr<HiddenLibSyntaxAction> Actions;
+  std::shared_ptr<SyntaxParseActions> Actions;
   ParsedRawSyntaxRecorder Recorder;
 
 public:
-  explicit LibSyntaxGenerator(std::shared_ptr<HiddenLibSyntaxAction> spActions)
-      : Actions(std::move(spActions)), Recorder(Actions->getLibSyntaxAction()) {
+  explicit LibSyntaxGenerator(std::shared_ptr<SyntaxParseActions> spActions)
+      : Actions(std::move(spActions)), Recorder(Actions->getLibSyntaxAction(Actions)) {
   }
 
   /// Create a \c TokenSyntax from the raw data.

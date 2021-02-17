@@ -62,6 +62,7 @@ namespace swift {
   enum class SourceFileKind;
   class SourceManager;
   class HiddenLibSyntaxAction;
+  class SyntaxParseActions;
   class SyntaxParsingCache;
   struct TBDGenOptions;
   class Token;
@@ -278,7 +279,7 @@ namespace swift {
     ParserUnit(SourceManager &SM, SourceFileKind SFKind, unsigned BufferID,
                const LangOptions &LangOpts, const TypeCheckerOptions &TyOpts,
                StringRef ModuleName,
-               std::shared_ptr<HiddenLibSyntaxAction> spActions = nullptr,
+               std::shared_ptr<SyntaxParseActions> spActions = nullptr,
                SyntaxParsingCache *SyntaxCache = nullptr);
     ParserUnit(SourceManager &SM, SourceFileKind SFKind, unsigned BufferID);
     ParserUnit(SourceManager &SM, SourceFileKind SFKind, unsigned BufferID,

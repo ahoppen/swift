@@ -696,18 +696,10 @@ public:
     RC<SyntaxArena> syntaxArena{new syntax::SyntaxArena()};
     SynTreeCreator = std::make_shared<SyntaxTreeCreator>(
         SM, BufferID, CompInv.getMainFileSyntaxParsingCache(), syntaxArena);
-    std::shared_ptr<HiddenLibSyntaxAction> hiddenAction;
-    if (CompInv.getLangOptions().BuildSyntaxTree) {
-      hiddenAction = std::make_shared<HiddenLibSyntaxAction>(SynTreeCreator,
-                                                             SynTreeCreator);
-    } else {
-      hiddenAction =
-          std::make_shared<HiddenLibSyntaxAction>(nullptr, SynTreeCreator);
-    }
 
     Parser.reset(new ParserUnit(
         SM, SourceFileKind::Main, BufferID, CompInv.getLangOptions(),
-        CompInv.getTypeCheckerOptions(), CompInv.getModuleName(), hiddenAction,
+        CompInv.getTypeCheckerOptions(), CompInv.getModuleName(), SynTreeCreator,
         CompInv.getMainFileSyntaxParsingCache()));
 
     registerParseRequestFunctions(Parser->getParser().Context.evaluator);

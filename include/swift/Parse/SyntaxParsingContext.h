@@ -108,7 +108,7 @@ public:
 
     RootContextData(SourceFile &SF, DiagnosticEngine &Diags,
                     SourceManager &SourceMgr, unsigned BufferID,
-                    std::shared_ptr<HiddenLibSyntaxAction> spActions)
+                    std::shared_ptr<SyntaxParseActions> spActions)
         : SF(SF), Diags(Diags), SourceMgr(SourceMgr), BufferID(BufferID),
           Recorder(spActions), LibSyntaxCreator(spActions) {}
   };
@@ -203,7 +203,7 @@ public:
   /// Construct root context.
   SyntaxParsingContext(SyntaxParsingContext *&CtxtHolder, SourceFile &SF,
                        unsigned BufferID,
-                       std::shared_ptr<HiddenLibSyntaxAction> SPActions);
+                       std::shared_ptr<SyntaxParseActions> SPActions);
 
   /// Designated constructor for child context.
   SyntaxParsingContext(SyntaxParsingContext *&CtxtHolder)

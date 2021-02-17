@@ -324,14 +324,14 @@ public:
 
   /// Returns the libSyntax node from the specified node that has been created
   /// by this action.
-  syntax::RawSyntax *getLibSyntaxNodeFor(OpaqueSyntaxNode node);
+  syntax::RawSyntax *getLibSyntaxNodeFor(OpaqueSyntaxNode node) override;
 
   /// Returns the node created by explicit syntax action from the specified
   /// node that has been created by this action.
-  OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node);
+  OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) override;
 
   /// Returns the underlying libSyntax \c SyntaxTreeCreator.
-  std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction() {
+  std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction(std::shared_ptr<SyntaxParseActions> sharedThis) override {
     return LibSyntaxAction;
   }
 };

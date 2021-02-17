@@ -29,10 +29,12 @@ class ParsedTriviaPiece;
 class SourceFile;
 class SourceLoc;
 enum class tok;
+class SyntaxTreeCreator;
 
 namespace syntax {
 class SourceFileSyntax;
 enum class SyntaxKind;
+class RawSyntax;
 }
 
 typedef void *OpaqueSyntaxNode;
@@ -133,6 +135,11 @@ public:
   /// result SourceFile syntax. This method is a temporary workaround, and
   /// should be removed when we fully migrate to libSyntax parsing.
   virtual void discardRecordedNode(OpaqueSyntaxNode node) = 0;
+  
+  virtual syntax::RawSyntax *getLibSyntaxNodeFor(OpaqueSyntaxNode node) = 0;
+  virtual OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) = 0;
+  
+  virtual std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction(std::shared_ptr<SyntaxParseActions> sharedThis) = 0;
 
   /// Used for incremental re-parsing.
   virtual std::pair<size_t, OpaqueSyntaxNode>
