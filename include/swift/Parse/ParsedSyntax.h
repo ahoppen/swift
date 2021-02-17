@@ -27,19 +27,19 @@ public:
 
   const ParsedRawSyntaxNode &getRaw() const { return RawNode; }
   ParsedRawSyntaxNode &&takeRaw() { return std::move(RawNode); }
-  syntax::SyntaxKind getKind() const { return RawNode.getKind(); }
+  syntax::SyntaxKind getKind(SyntaxParsingContext *SyntaxContext) const { return RawNode.getKind(SyntaxContext); }
 
   /// Returns true if the syntax node is of the given type.
   template <typename T>
-  bool is() const {
-    return T::classof(this);
+  bool is(SyntaxParsingContext *SC) const {
+    return T::classof(this, SC);
   }
 
   /// Cast this Syntax node to a more specific type, asserting it's of the
   /// right kind.
   template <typename T>
-  T castTo() && {
-    assert(is<T>() && "castTo<T>() node of incompatible type!");
+  T castTo(SyntaxParsingContext *SC) && {
+    assert(is<T>(SC) && "castTo<T>() node of incompatible type!");
     return T(std::move(RawNode));
   }
 
@@ -47,7 +47,7 @@ public:
     return true;
   }
 
-  static bool classof(const ParsedSyntax *S) {
+  static bool classof(const ParsedSyntax *S, SyntaxParsingContext *SC) {
     // Trivially true.
     return true;
   }
@@ -58,16 +58,12 @@ public:
   explicit ParsedTokenSyntax(ParsedRawSyntaxNode &&rawNode)
     : ParsedSyntax(std::move(rawNode)) {}
 
-//  tok getTokenKind() const {
-//    return getRaw().getTokenKind();
-//  }
-
   static bool kindof(syntax::SyntaxKind Kind) {
     return isTokenKind(Kind);
   }
 
-  static bool classof(const ParsedSyntax *S) {
-    return kindof(S->getKind());
+  static bool classof(const ParsedSyntax *S, SyntaxParsingContext *SC) {
+    return kindof(S->getKind(SC));
   }
 };
 
@@ -83,8 +79,8 @@ public:
     return Kind == CollectionKind;
   }
 
-  static bool classof(const ParsedSyntax *S) {
-    return kindof(S->getKind());
+  static bool classof(const ParsedSyntax *S, SyntaxParsingContext *SC) {
+    return kindof(S->getKind(SC));
   }
 };
 

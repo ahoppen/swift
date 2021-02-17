@@ -369,9 +369,9 @@ ParserResult<TypeRepr> Parser::parseTypeSIL(Diag<> MessageID,
                                                          *SyntaxContext));
 
       auto InputNode(std::move(*SyntaxContext->popIf<ParsedTypeSyntax>()));
-      if (InputNode.is<ParsedTupleTypeSyntax>()) {
+      if (InputNode.is<ParsedTupleTypeSyntax>(SyntaxContext)) {
         Builder.useArguments(
-            std::move(InputNode).castTo<ParsedTupleTypeSyntax>());
+            std::move(InputNode).castTo<ParsedTupleTypeSyntax>(SyntaxContext));
       } else {
         auto argument = ParsedSyntaxRecorder::makeTupleTypeElement(
             std::move(InputNode), /*TrailingComma=*/None, *SyntaxContext);
@@ -2198,8 +2198,8 @@ Parser::parseTypeSyntaxNonSIL(Diag<> MessageID) {
 
   builder.useReturnType(returnTypeResult.take());
 
-  if (argType.is<ParsedTupleTypeSyntax>()) {
-    builder.useArguments(std::move(argType).castTo<ParsedTupleTypeSyntax>());
+  if (argType.is<ParsedTupleTypeSyntax>(SyntaxContext)) {
+    builder.useArguments(std::move(argType).castTo<ParsedTupleTypeSyntax>(SyntaxContext));
   } else {
     auto argument = ParsedSyntaxRecorder::makeTupleTypeElement(
         std::move(argType), /*TrailingComma=*/None, *SyntaxContext);

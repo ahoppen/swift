@@ -62,24 +62,21 @@ private:
   /// consulted to interpret the data.
   OpaqueSyntaxNode Data;
 
-  uint16_t SynKind;
   DataKind DK;
   /// Primary used for capturing a deferred missing token.
   bool IsMissing = false;
 
   /// Create a deferred layout node.
-  ParsedRawSyntaxNode(syntax::SyntaxKind k,
-                      OpaqueSyntaxNode Data, DataKind DK)
-      : Data(Data), SynKind(uint16_t(k)),
+  ParsedRawSyntaxNode(OpaqueSyntaxNode Data, DataKind DK)
+      : Data(Data),
         DK(DK) {
     assert(DK == DataKind::DeferredLayout);
-    assert(getKind() == k && "Syntax kind with too large value!");
   }
 
   /// Create a deferred token node.
   ParsedRawSyntaxNode(SourceLoc tokLoc,
                       bool IsMissing, OpaqueSyntaxNode Data, DataKind DK)
-      : Data(Data), SynKind(uint16_t(syntax::SyntaxKind::Token)),
+      : Data(Data),
         DK(DK), IsMissing(IsMissing) {
     assert(DK == DataKind::DeferredToken);
   }
@@ -88,16 +85,14 @@ private:
 
 public:
   ParsedRawSyntaxNode()
-      : Data(nullptr), SynKind(uint16_t(syntax::SyntaxKind::Unknown)),
+      : Data(nullptr),
         DK(DataKind::Null) {}
 
   /// Create an arbitrary syntax node. If \p is \c Token, \p tokKind must be set
   /// otherwise \p tokKind must be \c NUM_TOKENS.
-  ParsedRawSyntaxNode(syntax::SyntaxKind k,
-                      bool IsMissing, OpaqueSyntaxNode n, DataKind DK)
-      : Data(n), SynKind(uint16_t(k)),
+  ParsedRawSyntaxNode(bool IsMissing, OpaqueSyntaxNode n, DataKind DK)
+      : Data(n),
         DK(DK), IsMissing(IsMissing) {
-    assert(getKind() == k && "Syntax kind with too large value!");
   }
 
 #ifndef NDEBUG
@@ -116,7 +111,6 @@ public:
     assert(ensureDataIsNotRecorded() &&
            "recorded data is being destroyed by assignment");
     Data = std::move(other.Data);
-    SynKind = std::move(other.SynKind);
     DK = std::move(other.DK);
     IsMissing = std::move(other.IsMissing);
     other.reset();
@@ -124,7 +118,6 @@ public:
   }
   ParsedRawSyntaxNode(ParsedRawSyntaxNode &&other)
       : Data(std::move(other.Data)),
-        SynKind(std::move(other.SynKind)),
         DK(std::move(other.DK)), IsMissing(std::move(other.IsMissing)) {
     other.reset();
   }
@@ -133,7 +126,7 @@ public:
     assert(ensureDataIsNotRecorded() && "recorded data is being destructed");
   }
 
-  syntax::SyntaxKind getKind() const { return syntax::SyntaxKind(SynKind); }
+  syntax::SyntaxKind getKind(SyntaxParsingContext *SyntaxContext) const;
   tok getTokenKind(SyntaxParsingContext *SyntaxContext) const;
 
   /// Retrieve the opaque data of this node. This does not transfer ownership
@@ -157,8 +150,8 @@ public:
   getDeferredChild(size_t ChildIndex,
                    const SyntaxParsingContext *SyntaxContext) const;
 
-  bool isToken() const {
-    return getKind() == syntax::SyntaxKind::Token;
+  bool isToken(SyntaxParsingContext *SyntaxContext) const {
+    return getKind(SyntaxContext) == syntax::SyntaxKind::Token;
   }
   bool isToken(tok tokKind, SyntaxParsingContext *SyntaxContext) const {
     return getTokenKind(SyntaxContext) == tokKind;
@@ -180,7 +173,6 @@ public:
   ParsedRawSyntaxNode unsafeCopy() const {
     ParsedRawSyntaxNode copy;
     copy.Data = Data;
-    copy.SynKind = SynKind;
     copy.DK = DK;
     copy.IsMissing = IsMissing;
     return copy;

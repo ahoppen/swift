@@ -63,7 +63,7 @@ bool ParsedSyntaxRecorder::formExactLayoutFor(SyntaxParsingContext *SyntaxContex
     return true;
 % elif node.is_syntax_collection():
     for (auto &E : Elements) {
-      if (!SyntaxFactory::canServeAsCollectionMemberRaw(SyntaxKind::${node.syntax_kind}, E.getKind()))
+      if (!SyntaxFactory::canServeAsCollectionMemberRaw(SyntaxKind::${node.syntax_kind}, E.getKind(SyntaxContext)))
         return false;
     }
     receiver(Kind, Elements);

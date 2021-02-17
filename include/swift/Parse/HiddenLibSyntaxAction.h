@@ -291,6 +291,14 @@ public:
     }
     return libSyntaxTokKind;
   }
+  
+  syntax::SyntaxKind getSyntaxKind(OpaqueSyntaxNode node) override {
+    auto libSyntaxTokKind = LibSyntaxAction->getSyntaxKind(getLibSyntaxNodeFor(node));
+    if (ExplicitAction) {
+      assert(ExplicitAction->getSyntaxKind(getExplicitNodeFor(node)) == libSyntaxTokKind);
+    }
+    return libSyntaxTokKind;
+  }
 
   /// Look a node at the given lexer offset up using the \c ExplicitAction.
   ///

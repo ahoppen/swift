@@ -92,14 +92,14 @@ def check_parsed_child_condition_raw(child):
     result = '[](const ParsedRawSyntaxNode &Raw, SyntaxParsingContext *SyntaxContext) {\n'
     result += ' // check %s\n' % child.name
     if child.token_choices:
-        result += 'if (!Raw.isToken()) return false;\n'
+        result += 'if (!Raw.isToken(SyntaxContext)) return false;\n'
         result += 'auto TokKind = Raw.getTokenKind(SyntaxContext);\n'
         tok_checks = []
         for choice in child.token_choices:
             tok_checks.append("TokKind == tok::%s" % choice.kind)
         result += 'return %s;\n' % (' || '.join(tok_checks))
     elif child.text_choices:
-        result += 'return Raw.isToken();\n'
+        result += 'return Raw.isToken(SyntaxContext);\n'
     elif child.node_choices:
         node_checks = []
         for choice in child.node_choices:
@@ -107,7 +107,7 @@ def check_parsed_child_condition_raw(child):
                 check_parsed_child_condition_raw(choice) + '(Raw, SyntaxContext)')
         result += 'return %s;\n' % ((' || ').join(node_checks))
     else:
-        result += 'return Parsed%s::kindof(Raw.getKind());' % child.type_name
+        result += 'return Parsed%s::kindof(Raw.getKind(SyntaxContext));' % child.type_name
     result += '}'
     return result
 

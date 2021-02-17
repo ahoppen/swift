@@ -119,6 +119,7 @@ public:
   virtual size_t getByteLength(OpaqueSyntaxNode node) = 0;
   
   virtual tok getTokenKind(OpaqueSyntaxNode node) = 0;
+  virtual syntax::SyntaxKind getSyntaxKind(OpaqueSyntaxNode node) = 0;
 
   /// Attempt to realize an opaque raw syntax node for a source file into a
   /// SourceFileSyntax node. This will return \c None if the parsing action

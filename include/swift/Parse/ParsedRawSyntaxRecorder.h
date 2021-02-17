@@ -50,14 +50,12 @@ class ParsedRawSyntaxRecorder final {
     assert(!node.isNull() && !node.isRecorded());
     if (node.isDeferredLayout()) {
       OpaqueSyntaxNode Data = SPActions->recordDeferredLayout(node.getData());
-      return ParsedRawSyntaxNode(node.getKind(),
-                                 node.isMissing(), Data,
+      return ParsedRawSyntaxNode(node.isMissing(), Data,
                                  ParsedRawSyntaxNode::DataKind::Recorded);
     } else {
       assert(node.isDeferredToken());
       OpaqueSyntaxNode Data = SPActions->recordDeferredToken(node.getData());
-      return ParsedRawSyntaxNode(node.getKind(),
-                                 node.isMissing(), Data,
+      return ParsedRawSyntaxNode(node.isMissing(), Data,
                                  ParsedRawSyntaxNode::DataKind::Recorded);
     }
   }
@@ -87,8 +85,7 @@ public:
     CharSourceRange range(offset, length);
     OpaqueSyntaxNode n =
         SPActions->recordToken(tokKind, leadingTrivia, trailingTrivia, range);
-    return ParsedRawSyntaxNode(syntax::SyntaxKind::Token,
-                               /*IsMissing=*/false, n,
+    return ParsedRawSyntaxNode(/*IsMissing=*/false, n,
                                ParsedRawSyntaxNode::DataKind::Recorded);
   }
 
@@ -119,7 +116,7 @@ public:
     }
   }
   OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, subnodes, ByteLength);
-  return ParsedRawSyntaxNode(kind, /*IsMissing=*/false, n,
+  return ParsedRawSyntaxNode(/*IsMissing=*/false, n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
@@ -140,7 +137,7 @@ public:
     if (deferredNodes.empty()) {
       OpaqueSyntaxNode Data =
           SPActions->makeDeferredLayout(k, /*ByteLength=*/0, /*IsMissing=*/false, {});
-      return ParsedRawSyntaxNode(k, Data,
+      return ParsedRawSyntaxNode(Data,
                                  ParsedRawSyntaxNode::DataKind::DeferredLayout);
     }
     SmallVector<OpaqueSyntaxNode, 4> children;
@@ -155,7 +152,7 @@ public:
     }
     OpaqueSyntaxNode Data =
         SPActions->makeDeferredLayout(k, ByteLength, /*IsMissing=*/false, children);
-    return ParsedRawSyntaxNode(k, Data,
+    return ParsedRawSyntaxNode(Data,
                                ParsedRawSyntaxNode::DataKind::DeferredLayout);
   }
 

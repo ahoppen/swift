@@ -31,6 +31,10 @@ tok ParsedRawSyntaxNode::getTokenKind(SyntaxParsingContext *SyntaxContext) const
   return SyntaxContext->getActions()->getTokenKind(Data);
 }
 
+syntax::SyntaxKind ParsedRawSyntaxNode::getKind(SyntaxParsingContext *SyntaxContext) const {
+  return SyntaxContext->getActions()->getSyntaxKind(Data);
+}
+
 void ParsedRawSyntaxNode::dump() const {
   dump(llvm::errs(), /*Indent*/ 0);
   llvm::errs() << '\n';
@@ -46,21 +50,13 @@ void ParsedRawSyntaxNode::dump(llvm::raw_ostream &OS, unsigned Indent) const {
       OS << "<NULL>";
       break;
     case DataKind::Recorded:
-      dumpSyntaxKind(OS, getKind());
       OS << " [recorded] ";
-      if (isToken()) {
-        OS << "<token>";
-      } else {
-        OS << "<layout>";
-      }
       break;
     case DataKind::DeferredLayout:
-      dumpSyntaxKind(OS, getKind());
       OS << " [deferred]";
       OS << "<layout>";
       break;
     case DataKind::DeferredToken:
-      dumpSyntaxKind(OS, getKind());
       OS << " [deferred] ";
       OS << "<token>";
       break;

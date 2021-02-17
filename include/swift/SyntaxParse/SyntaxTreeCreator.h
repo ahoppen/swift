@@ -194,6 +194,11 @@ public:
     syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
     return raw->getTokenKind();
   }
+  
+  syntax::SyntaxKind getSyntaxKind(OpaqueSyntaxNode node) override {
+    syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
+    return raw->getKind();
+  }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override;
 

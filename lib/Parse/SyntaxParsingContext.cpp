@@ -129,7 +129,7 @@ SyntaxParsingContext::bridgeAs(SyntaxContextKind Kind,
                                MutableArrayRef<ParsedRawSyntaxNode> Parts) {
   if (Parts.size() == 1) {
     auto &RawNode = Parts.front();
-    SyntaxKind RawNodeKind = RawNode.getKind();
+    SyntaxKind RawNodeKind = RawNode.getKind(this);
     switch (Kind) {
     case SyntaxContextKind::Stmt:
       if (!isStmtKind(RawNodeKind))
@@ -285,7 +285,7 @@ void SyntaxParsingContext::collectNodesInPlace(SyntaxKind ColletionKind,
   auto Parts = getParts();
   auto Count = 0;
   for (auto I = Parts.rbegin(), End = Parts.rend(); I != End; ++I) {
-    if (!SyntaxFactory::canServeAsCollectionMemberRaw(ColletionKind, I->getKind()))
+    if (!SyntaxFactory::canServeAsCollectionMemberRaw(ColletionKind, I->getKind(this)))
       break;
     ++Count;
   }
@@ -304,8 +304,8 @@ static ParsedRawSyntaxNode finalizeSourceFile(RootContextData &RootData,
   Parts = Parts.drop_back();
 
 
-  assert(llvm::all_of(Parts, [](const ParsedRawSyntaxNode& node) {
-    return node.getKind() == SyntaxKind::CodeBlockItem;
+  assert(llvm::all_of(Parts, [&](const ParsedRawSyntaxNode& node) {
+    return node.getKind(SyntaxContext) == SyntaxKind::CodeBlockItem;
   }) && "all top level element must be 'CodeBlockItem'");
 
   Layout[0] = Recorder.recordRawSyntax(SyntaxKind::CodeBlockItemList, Parts);

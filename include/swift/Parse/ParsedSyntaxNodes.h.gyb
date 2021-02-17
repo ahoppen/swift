@@ -86,8 +86,8 @@ public:
 %   end
   }
 
-  static bool classof(const ParsedSyntax *S) {
-    return kindof(S->getKind());
+  static bool classof(const ParsedSyntax *S, SyntaxParsingContext *SC) {
+    return kindof(S->getKind(SC));
   }
 };
 

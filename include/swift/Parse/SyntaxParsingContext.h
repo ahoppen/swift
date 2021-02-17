@@ -293,7 +293,7 @@ public:
   template <typename SyntaxNode>
   bool isTopNode() {
     auto parts = getParts();
-    return (!parts.empty() && SyntaxNode::kindof(parts.back().getKind()));
+    return (!parts.empty() && SyntaxNode::kindof(parts.back().getKind(this)));
   }
 
   /// Creates a parsed libSyntax node from the top node of the parsing context's
@@ -309,7 +309,7 @@ public:
     auto &Storage = getStorage();
     if (Storage.size() <= Offset)
       return llvm::None;
-    if (!SyntaxNode::kindof(Storage.back().getKind()))
+    if (!SyntaxNode::kindof(Storage.back().getKind(this)))
       return llvm::None;
     auto rawNode = std::move(Storage.back());
     Storage.pop_back();
