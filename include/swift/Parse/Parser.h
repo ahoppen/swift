@@ -90,7 +90,7 @@ namespace swift {
 class ConsumeTokenReceiver {
 public:
   /// This is called when a token is consumed.
-  virtual void receive(Token Tok) {}
+  virtual void receive(const Token &Tok) {}
 
   /// This is called to update the kind of a token whose start location is Loc.
   virtual void registerTokenKindChange(SourceLoc Loc, tok NewKind) {};
@@ -507,7 +507,7 @@ public:
       std::vector<Token> delayedTokens;
       DelayedTokenReceiver(ConsumeTokenReceiver *&receiver):
         savedConsumer(receiver, this) {}
-      void receive(Token tok) override {
+      void receive(const Token &tok) override {
         delayedTokens.push_back(tok);
       }
       Optional<std::vector<Token>> finalize() override {
