@@ -31,7 +31,7 @@ ParsedRawSyntaxNode
 ParsedRawSyntaxRecorder::recordMissingToken(tok tokenKind, SourceLoc loc) {
   CharSourceRange range{loc, 0};
   OpaqueSyntaxNode n = SPActions->recordMissingToken(tokenKind, loc);
-  return ParsedRawSyntaxNode(SyntaxKind::Token, tokenKind,
+  return ParsedRawSyntaxNode(SyntaxKind::Token,
                              /*isMissing=*/true, n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }
@@ -41,7 +41,7 @@ ParsedRawSyntaxRecorder::recordEmptyRawSyntaxCollection(SyntaxKind kind,
                                                         SourceLoc loc) {
   CharSourceRange range{loc, 0};
   OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, {}, /*ByteLength=*/0);
-  return ParsedRawSyntaxNode(kind, tok::NUM_TOKENS, /*IsMissing=*/false, n,
+  return ParsedRawSyntaxNode(kind, /*IsMissing=*/false, n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
@@ -51,7 +51,7 @@ ParsedRawSyntaxRecorder::makeDeferredMissing(tok tokKind, SourceLoc loc) {
       tokKind, /*leadingTrivia=*/StringRef(), /*trailingTrivia=*/StringRef(),
       CharSourceRange(loc, /*ByteLength=*/0), /*isMissing=*/true);
   return ParsedRawSyntaxNode(
-      tokKind, loc, /*IsMissing=*/true,
+      loc, /*IsMissing=*/true,
       Data, ParsedRawSyntaxNode::DataKind::DeferredToken);
 }
 
@@ -61,7 +61,7 @@ ParsedRawSyntaxRecorder::getDeferredChild(const ParsedRawSyntaxNode &parent,
   assert(parent.isDeferredLayout());
   auto childInfo = SPActions->getDeferredChild(parent.getData(), childIndex);
   return ParsedRawSyntaxNode(
-      childInfo.SyntaxKind, childInfo.TokenKind,
+      childInfo.SyntaxKind,
       /*IsMissing=*/false, childInfo.Data,
       childInfo.SyntaxKind == SyntaxKind::Token
           ? ParsedRawSyntaxNode::DataKind::DeferredToken
@@ -82,6 +82,6 @@ ParsedRawSyntaxRecorder::lookupNode(size_t lexerOffset, SourceLoc loc,
     return ParsedRawSyntaxNode::null();
   }
   CharSourceRange range{loc, unsigned(length)};
-  return ParsedRawSyntaxNode(kind, tok::NUM_TOKENS, /*IsMissing=*/false, n,
+  return ParsedRawSyntaxNode(kind, /*IsMissing=*/false, n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }

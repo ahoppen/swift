@@ -283,6 +283,14 @@ public:
     }
     return libSyntaxLength;
   }
+  
+  tok getTokenKind(OpaqueSyntaxNode node) override {
+    tok libSyntaxTokKind = LibSyntaxAction->getTokenKind(getLibSyntaxNodeFor(node));
+    if (ExplicitAction) {
+      assert(ExplicitAction->getTokenKind(getExplicitNodeFor(node)) == libSyntaxTokKind);
+    }
+    return libSyntaxTokKind;
+  }
 
   /// Look a node at the given lexer offset up using the \c ExplicitAction.
   ///

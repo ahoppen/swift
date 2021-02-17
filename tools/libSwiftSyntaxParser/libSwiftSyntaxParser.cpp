@@ -309,6 +309,10 @@ private:
   size_t getByteLength(OpaqueSyntaxNode node) override {
     llvm_unreachable("");
   }
+  
+  tok getTokenKind(OpaqueSyntaxNode node) override {
+    llvm_unreachable("");
+  }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override {
     // FIXME: This method should not be called at all.

@@ -50,13 +50,13 @@ class ParsedRawSyntaxRecorder final {
     assert(!node.isNull() && !node.isRecorded());
     if (node.isDeferredLayout()) {
       OpaqueSyntaxNode Data = SPActions->recordDeferredLayout(node.getData());
-      return ParsedRawSyntaxNode(node.getKind(), node.getTokenKind(),
+      return ParsedRawSyntaxNode(node.getKind(),
                                  node.isMissing(), Data,
                                  ParsedRawSyntaxNode::DataKind::Recorded);
     } else {
       assert(node.isDeferredToken());
       OpaqueSyntaxNode Data = SPActions->recordDeferredToken(node.getData());
-      return ParsedRawSyntaxNode(node.getKind(), node.getTokenKind(),
+      return ParsedRawSyntaxNode(node.getKind(),
                                  node.isMissing(), Data,
                                  ParsedRawSyntaxNode::DataKind::Recorded);
     }
@@ -87,7 +87,7 @@ public:
     CharSourceRange range(offset, length);
     OpaqueSyntaxNode n =
         SPActions->recordToken(tokKind, leadingTrivia, trailingTrivia, range);
-    return ParsedRawSyntaxNode(syntax::SyntaxKind::Token, tokKind,
+    return ParsedRawSyntaxNode(syntax::SyntaxKind::Token,
                                /*IsMissing=*/false, n,
                                ParsedRawSyntaxNode::DataKind::Recorded);
   }
@@ -119,7 +119,7 @@ public:
     }
   }
   OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, subnodes, ByteLength);
-  return ParsedRawSyntaxNode(kind, tok::NUM_TOKENS, /*IsMissing=*/false, n,
+  return ParsedRawSyntaxNode(kind, /*IsMissing=*/false, n,
                              ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
@@ -171,7 +171,7 @@ public:
 
     OpaqueSyntaxNode Data = SPActionsP->makeDeferredToken(
         tok.getKind(), leadingTrivia, trailingTrivia, range, /*isMissing=*/false);
-    return ParsedRawSyntaxNode(tok.getKind(), tok.getLoc(),
+    return ParsedRawSyntaxNode(tok.getLoc(),
                                /*IsMissing=*/false, Data,
                                ParsedRawSyntaxNode::DataKind::DeferredToken);
   }

@@ -184,9 +184,15 @@ public:
   }
 
   DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node, size_t ChildIndex) override;
+  
   size_t getByteLength(OpaqueSyntaxNode node) override {
     syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
     return raw->getTextLength();
+  }
+  
+  tok getTokenKind(OpaqueSyntaxNode node) override {
+    syntax::RawSyntax *raw = static_cast<syntax::RawSyntax *>(node);
+    return raw->getTokenKind();
   }
 
   void discardRecordedNode(OpaqueSyntaxNode node) override;

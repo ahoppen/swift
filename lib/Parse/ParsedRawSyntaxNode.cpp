@@ -27,6 +27,10 @@ size_t ParsedRawSyntaxNode::getByteLength(SyntaxParseActions *Actions) const {
   return Actions->getByteLength(Data);
 }
 
+tok ParsedRawSyntaxNode::getTokenKind(SyntaxParsingContext *SyntaxContext) const {
+  return SyntaxContext->getActions()->getTokenKind(Data);
+}
+
 void ParsedRawSyntaxNode::dump() const {
   dump(llvm::errs(), /*Indent*/ 0);
   llvm::errs() << '\n';
@@ -45,7 +49,7 @@ void ParsedRawSyntaxNode::dump(llvm::raw_ostream &OS, unsigned Indent) const {
       dumpSyntaxKind(OS, getKind());
       OS << " [recorded] ";
       if (isToken()) {
-        dumpTokenKind(OS, getTokenKind());
+        OS << "<token>";
       } else {
         OS << "<layout>";
       }
@@ -58,7 +62,7 @@ void ParsedRawSyntaxNode::dump(llvm::raw_ostream &OS, unsigned Indent) const {
     case DataKind::DeferredToken:
       dumpSyntaxKind(OS, getKind());
       OS << " [deferred] ";
-      dumpTokenKind(OS, getTokenKind());
+      OS << "<token>";
       break;
     case DataKind::Destroyed:
       OS << " [destroyed] ";

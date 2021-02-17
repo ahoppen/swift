@@ -110,7 +110,8 @@ public:
   ///
   /// \returns true if the layout could be formed, false otherwise.
   static bool
-  formExactLayoutFor(syntax::SyntaxKind kind,
+  formExactLayoutFor(SyntaxParsingContext *SyntaxContext,
+                     syntax::SyntaxKind kind,
                      MutableArrayRef<ParsedRawSyntaxNode> elements,
                      function_ref<void(syntax::SyntaxKind,
                                        MutableArrayRef<ParsedRawSyntaxNode>)>

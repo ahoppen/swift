@@ -58,9 +58,9 @@ public:
   explicit ParsedTokenSyntax(ParsedRawSyntaxNode &&rawNode)
     : ParsedSyntax(std::move(rawNode)) {}
 
-  tok getTokenKind() const {
-    return getRaw().getTokenKind();
-  }
+//  tok getTokenKind() const {
+//    return getRaw().getTokenKind();
+//  }
 
   static bool kindof(syntax::SyntaxKind Kind) {
     return isTokenKind(Kind);
