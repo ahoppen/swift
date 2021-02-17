@@ -104,15 +104,17 @@ public:
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
                   const SmallVector<OpaqueSyntaxNode, 4> &elements) override {
-    SmallVector<RC<syntax::RawSyntax>, 16> parts;
-    parts.reserve(elements.size());
+//    SmallVector<RC<syntax::RawSyntax>, 16> parts;
+//    parts.reserve(elements.size());
     size_t ByteLength = 0;
     for (OpaqueSyntaxNode opaqueN : elements) {
       if (opaqueN != nullptr) {
         ByteLength += static_cast<syntax::RawSyntax *>(opaqueN)->getTextLength();
+//        static_cast<syntax::RawSyntax *>(opaqueN)->Release();
       }
-      parts.push_back(transferOpaqueNode(opaqueN));
+//      parts.push_back(transferOpaqueNode(opaqueN));
     }
+    ArrayRef<RC<syntax::RawSyntax>> parts(reinterpret_cast<const RC<syntax::RawSyntax> *>(elements.data()), elements.size());
     auto raw =
     syntax::RawSyntax::make(kind, parts, ByteLength, syntax::SourcePresence::Present, Arena);
     OpaqueSyntaxNode opaqueN = raw.get();
