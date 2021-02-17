@@ -223,8 +223,7 @@ private:
 
   OpaqueSyntaxNode
   recordRawSyntax(SyntaxKind kind,
-                  const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  size_t ByteLength) override {
+                  const SmallVector<OpaqueSyntaxNode, 4> &elements) override {
     llvm_unreachable("");
 //    CRawSyntaxNode node;
 //    auto numValue = serialization::getNumericValue(kind);
@@ -252,7 +251,7 @@ private:
   }
 
   OpaqueSyntaxNode makeDeferredLayout(
-      syntax::SyntaxKind k, size_t ByteLength, bool isMissing,
+      syntax::SyntaxKind k, bool isMissing,
       const SmallVector<OpaqueSyntaxNode, 4> &children) override {
     llvm_unreachable("");
 //    return new (ScratchAlloc) DeferredLayoutNode(k, range, isMissing, children);

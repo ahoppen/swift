@@ -27,6 +27,38 @@
 using namespace swift;
 using namespace swift::syntax;
 
+ParsedRawSyntaxNode ParsedRawSyntaxRecorder::makeDeferred(Token tok, StringRef leadingTrivia,
+                                 StringRef trailingTrivia) {
+  OpaqueSyntaxNode Data = SPActionsP->makeDeferredToken(
+      tok.getKind(), leadingTrivia, trailingTrivia, tok.getRange(), /*isMissing=*/false);
+  return ParsedRawSyntaxNode(tok.getLoc(), Data,
+                             ParsedRawSyntaxNode::DataKind::DeferredToken);
+}
+
+ParsedRawSyntaxNode
+ParsedRawSyntaxRecorder::makeDeferred(syntax::SyntaxKind k,
+             MutableArrayRef<ParsedRawSyntaxNode> deferredNodes,
+             SyntaxParsingContext &ctx) {
+  assert(k != syntax::SyntaxKind::Token &&
+         "Use makeDeferredToken to create deferred tokens");
+  if (deferredNodes.empty()) {
+    OpaqueSyntaxNode Data =
+        SPActions->makeDeferredLayout(k, /*IsMissing=*/false, {});
+    return ParsedRawSyntaxNode(Data,
+                               ParsedRawSyntaxNode::DataKind::DeferredLayout);
+  }
+  SmallVector<OpaqueSyntaxNode, 4> children;
+
+  for (auto &node : deferredNodes) {
+    // Cached range.
+    children.push_back(node.getData());
+  }
+  OpaqueSyntaxNode Data =
+      SPActions->makeDeferredLayout(k, /*IsMissing=*/false, children);
+  return ParsedRawSyntaxNode(Data,
+                             ParsedRawSyntaxNode::DataKind::DeferredLayout);
+}
+
 ParsedRawSyntaxNode
 ParsedRawSyntaxRecorder::recordMissingToken(tok tokenKind, SourceLoc loc) {
   CharSourceRange range{loc, 0};
@@ -38,7 +70,7 @@ ParsedRawSyntaxNode
 ParsedRawSyntaxRecorder::recordEmptyRawSyntaxCollection(SyntaxKind kind,
                                                         SourceLoc loc) {
   CharSourceRange range{loc, 0};
-  OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, {}, /*ByteLength=*/0);
+  OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, {});
   return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
 }
 

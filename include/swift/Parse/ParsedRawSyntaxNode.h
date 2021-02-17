@@ -50,8 +50,6 @@ public:
     Recorded,
     DeferredLayout,
     DeferredToken,
-    /// The node has been destroyed because it has been moved somewhere else.
-    Destroyed,
   };
 
 private:
@@ -61,28 +59,28 @@ private:
   /// can be data required to record a deferred node or the deferred node
   /// itself. The \c SyntaxParseActions that created this node need to be
   /// consulted to interpret the data.
-  OpaqueSyntaxNode Data;
-
-  DataKind DK;
+  llvm::PointerIntPair<OpaqueSyntaxNode, 2, DataKind> DataAndKind;
 
   /// Create a deferred token node.
   ParsedRawSyntaxNode(SourceLoc tokLoc, OpaqueSyntaxNode Data, DataKind DK)
-      : Data(Data),
-        DK(DK) {
+  : DataAndKind(Data, DK) {
     assert(DK == DataKind::DeferredToken);
   }
   ParsedRawSyntaxNode(const ParsedRawSyntaxNode &other) = delete;
   ParsedRawSyntaxNode &operator=(const ParsedRawSyntaxNode &other) = delete;
 
+  DataKind getDataKind() const {
+    return DataAndKind.getInt();
+  }
+  
 public:
   ParsedRawSyntaxNode()
-      : Data(nullptr),
-        DK(DataKind::Null) {}
+      : DataAndKind(nullptr, DataKind::Null) {}
 
   /// Create an arbitrary syntax node. If \p is \c Token, \p tokKind must be set
   /// otherwise \p tokKind must be \c NUM_TOKENS.
   ParsedRawSyntaxNode(OpaqueSyntaxNode n, DataKind DK)
-      : Data(n), DK(DK) {
+      : DataAndKind(n, DK) {
   }
 
 #ifndef NDEBUG
@@ -100,14 +98,12 @@ public:
   ParsedRawSyntaxNode &operator=(ParsedRawSyntaxNode &&other) {
     assert(ensureDataIsNotRecorded() &&
            "recorded data is being destroyed by assignment");
-    Data = std::move(other.Data);
-    DK = std::move(other.DK);
+    DataAndKind = std::move(other.DataAndKind);
     other.reset();
     return *this;
   }
   ParsedRawSyntaxNode(ParsedRawSyntaxNode &&other)
-      : Data(std::move(other.Data)),
-        DK(std::move(other.DK)) {
+      : DataAndKind(std::move(other.DataAndKind)) {
     other.reset();
   }
 
@@ -121,11 +117,11 @@ public:
   /// Retrieve the opaque data of this node. This does not transfer ownership
   /// of the data. If the data is being consumed, use \p takeData to reset this
   /// node and supress any warnings about recorded nodes being destructed.
-  OpaqueSyntaxNode getData() const { return Data; }
+  OpaqueSyntaxNode getData() const { return DataAndKind.getPointer(); }
 
   /// Return the data of this node and reset it.
   OpaqueSyntaxNode takeData() {
-    OpaqueSyntaxNode Data = this->Data;
+    OpaqueSyntaxNode Data = this->getData();
     reset();
     return Data;
   }
@@ -147,22 +143,21 @@ public:
   }
 
   bool isNull() const {
-    return DK == DataKind::Null;
+    return getDataKind() == DataKind::Null;
   }
 
-  bool isRecorded() const { return DK == DataKind::Recorded; }
-  bool isDeferredLayout() const { return DK == DataKind::DeferredLayout; }
-  bool isDeferredToken() const { return DK == DataKind::DeferredToken; }
+  bool isRecorded() const { return getDataKind() == DataKind::Recorded; }
+  bool isDeferredLayout() const { return getDataKind() == DataKind::DeferredLayout; }
+  bool isDeferredToken() const { return getDataKind() == DataKind::DeferredToken; }
 
   /// Primary used for a deferred missing token.
   bool isMissing(SyntaxParseActions *Actions) const;
 
-  void reset() { DK = DataKind::Destroyed; }
+  void reset() { DataAndKind.setPointerAndInt(nullptr, DataKind::Null); }
 
   ParsedRawSyntaxNode unsafeCopy() const {
     ParsedRawSyntaxNode copy;
-    copy.Data = Data;
-    copy.DK = DK;
+    copy.DataAndKind = DataAndKind;
     return copy;
   }
 

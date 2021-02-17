@@ -24,19 +24,19 @@ ParsedRawSyntaxNode ParsedRawSyntaxNode::getDeferredChild(
 }
 
 size_t ParsedRawSyntaxNode::getByteLength(SyntaxParseActions *Actions) const {
-  return Actions->getByteLength(Data);
+  return Actions->getByteLength(getData());
 }
 
 tok ParsedRawSyntaxNode::getTokenKind(SyntaxParsingContext *SyntaxContext) const {
-  return SyntaxContext->getActions()->getTokenKind(Data);
+  return SyntaxContext->getActions()->getTokenKind(getData());
 }
 
 syntax::SyntaxKind ParsedRawSyntaxNode::getKind(SyntaxParsingContext *SyntaxContext) const {
-  return SyntaxContext->getActions()->getSyntaxKind(Data);
+  return SyntaxContext->getActions()->getSyntaxKind(getData());
 }
 
 bool ParsedRawSyntaxNode::isMissing(SyntaxParseActions *Actions) const {
-  return Actions->isMissing(Data);
+  return Actions->isMissing(getData());
 }
 
 
@@ -50,7 +50,7 @@ void ParsedRawSyntaxNode::dump(llvm::raw_ostream &OS, unsigned Indent) const {
     OS << ' ';
   OS << '(';
 
-  switch (DK) {
+  switch (getDataKind()) {
     case DataKind::Null:
       OS << "<NULL>";
       break;
@@ -65,8 +65,6 @@ void ParsedRawSyntaxNode::dump(llvm::raw_ostream &OS, unsigned Indent) const {
       OS << " [deferred] ";
       OS << "<token>";
       break;
-    case DataKind::Destroyed:
-      OS << " [destroyed] ";
   }
   OS << ')';
 }

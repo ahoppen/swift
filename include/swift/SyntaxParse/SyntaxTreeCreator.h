@@ -78,22 +78,20 @@ public:
   OpaqueSyntaxNode recordToken(tok tokenKind, StringRef leadingTrivia,
                                StringRef trailingTrivia,
                                CharSourceRange range) override {
-    unsigned tokLength =
-        range.getByteLength() - leadingTrivia.size() - trailingTrivia.size();
-    auto leadingTriviaStartOffset =
-        SM.getLocOffsetInBuffer(range.getStart(), BufferID);
-    auto tokStartOffset = leadingTriviaStartOffset + leadingTrivia.size();
-    auto trailingTriviaStartOffset = tokStartOffset + tokLength;
+    auto tokStartOffset = SM.getLocOffsetInBuffer(range.getStart(), BufferID);
+    auto leadingTriviaStartOffset = tokStartOffset - leadingTrivia.size();
+    auto trailingTriviaStartOffset = tokStartOffset + range.getByteLength();
 
     // Get StringRefs of the token's texts that point into the syntax arena's
     // buffer.
     StringRef leadingTriviaText =
         ArenaSourceBuffer.substr(leadingTriviaStartOffset, leadingTrivia.size());
-    StringRef tokenText = ArenaSourceBuffer.substr(tokStartOffset, tokLength);
+    StringRef tokenText = ArenaSourceBuffer.substr(tokStartOffset, range.getByteLength());
     StringRef trailingTriviaText = ArenaSourceBuffer.substr(
         trailingTriviaStartOffset, trailingTrivia.size());
 
-    auto raw = syntax::RawSyntax::make(tokenKind, tokenText, range.getByteLength(),
+    size_t TextLength = leadingTrivia.size() + range.getByteLength() + trailingTrivia.size();
+    auto raw = syntax::RawSyntax::make(tokenKind, tokenText, TextLength,
                                leadingTriviaText, trailingTriviaText,
                                        syntax::SourcePresence::Present, Arena);
     OpaqueSyntaxNode opaqueN = raw.get();
@@ -105,11 +103,14 @@ public:
 
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
-                  const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  size_t ByteLength) override {
+                  const SmallVector<OpaqueSyntaxNode, 4> &elements) override {
     SmallVector<RC<syntax::RawSyntax>, 16> parts;
     parts.reserve(elements.size());
+    size_t ByteLength = 0;
     for (OpaqueSyntaxNode opaqueN : elements) {
+      if (opaqueN != nullptr) {
+        ByteLength += static_cast<syntax::RawSyntax *>(opaqueN)->getTextLength();
+      }
       parts.push_back(transferOpaqueNode(opaqueN));
     }
     auto raw =
@@ -145,7 +146,7 @@ public:
   }
 
   OpaqueSyntaxNode
-  makeDeferredLayout(syntax::SyntaxKind k, size_t ByteLength,
+  makeDeferredLayout(syntax::SyntaxKind k,
                      bool IsMissing,
                      const SmallVector<OpaqueSyntaxNode, 4> &children) override{
     // Also see comment in makeDeferredToken
@@ -161,7 +162,7 @@ public:
         static_cast<syntax::RawSyntax *>(child)->Retain();
       }
     }
-    auto Node = recordRawSyntax(k, children, ByteLength);
+    auto Node = recordRawSyntax(k, children);
     DeferredNodes.push_back(Node);
     return Node;
   }

@@ -102,13 +102,12 @@ public:
 
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
-                  const SmallVector<OpaqueSyntaxNode, 4> &elements,
-                  size_t ByteLength) override {
+                  const SmallVector<OpaqueSyntaxNode, 4> &elements) override {
     OpaqueSyntaxNode explicitActionNode;
     if (ExplicitAction) {
       if (ExplicitAction == LibSyntaxAction) {
         explicitActionNode =
-            ExplicitAction->recordRawSyntax(kind, elements, ByteLength);
+            ExplicitAction->recordRawSyntax(kind, elements);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> explicitActionElements;
         explicitActionElements.reserve(elements.size());
@@ -122,7 +121,7 @@ public:
         }
 
         explicitActionNode =
-            ExplicitAction->recordRawSyntax(kind, explicitActionElements, ByteLength);
+            ExplicitAction->recordRawSyntax(kind, explicitActionElements);
       }
     } else {
       explicitActionNode = nullptr;
@@ -134,7 +133,7 @@ public:
     } else {
       if (ExplicitAction == nullptr) {
         libSyntaxActionNode =
-            LibSyntaxAction->recordRawSyntax(kind, elements, ByteLength);
+            LibSyntaxAction->recordRawSyntax(kind, elements);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> libSyntaxActionElements;
         libSyntaxActionElements.reserve(elements.size());
@@ -146,7 +145,7 @@ public:
           libSyntaxActionElements.push_back(libSyntaxActionElement);
         }
         libSyntaxActionNode = LibSyntaxAction->recordRawSyntax(
-            kind, libSyntaxActionElements, ByteLength);
+            kind, libSyntaxActionElements);
       }
     }
 
@@ -183,14 +182,14 @@ public:
   }
 
   OpaqueSyntaxNode
-  makeDeferredLayout(syntax::SyntaxKind k, size_t ByteLength,
+  makeDeferredLayout(syntax::SyntaxKind k,
                      bool IsMissing,
                      const SmallVector<OpaqueSyntaxNode, 4> &children) override {
     OpaqueSyntaxNode explicitActionNode;
     if (ExplicitAction) {
       if (ExplicitAction == LibSyntaxAction) {
         explicitActionNode =
-            ExplicitAction->makeDeferredLayout(k, ByteLength, IsMissing, children);
+            ExplicitAction->makeDeferredLayout(k, IsMissing, children);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> explicitActionChildren;
         explicitActionChildren.reserve(children.size());
@@ -204,7 +203,7 @@ public:
         }
 
         explicitActionNode = ExplicitAction->makeDeferredLayout(
-            k, ByteLength, IsMissing, explicitActionChildren);
+            k, IsMissing, explicitActionChildren);
       }
     } else {
       explicitActionNode = nullptr;
@@ -216,7 +215,7 @@ public:
     } else {
       if (ExplicitAction == nullptr) {
         libSyntaxActionNode =
-            LibSyntaxAction->makeDeferredLayout(k, ByteLength, IsMissing, children);
+            LibSyntaxAction->makeDeferredLayout(k, IsMissing, children);
       } else {
         SmallVector<OpaqueSyntaxNode, 4> libSyntaxActionChildren;
         libSyntaxActionChildren.reserve(children.size());
@@ -228,7 +227,7 @@ public:
           libSyntaxActionChildren.push_back(libSyntaxActionChild);
         }
         libSyntaxActionNode = LibSyntaxAction->makeDeferredLayout(
-            k, ByteLength, IsMissing, libSyntaxActionChildren);
+            k, IsMissing, libSyntaxActionChildren);
       }
     }
 

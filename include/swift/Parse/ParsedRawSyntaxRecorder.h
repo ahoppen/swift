@@ -77,12 +77,8 @@ public:
   ParsedRawSyntaxNode recordToken(tok tokKind, CharSourceRange tokRange,
                                   StringRef leadingTrivia,
                                   StringRef trailingTrivia) {
-    SourceLoc offset = tokRange.getStart().getAdvancedLoc(-leadingTrivia.size());
-    unsigned length =
-        leadingTrivia.size() + tokRange.getByteLength() + trailingTrivia.size();
-    CharSourceRange range(offset, length);
     OpaqueSyntaxNode n =
-        SPActions->recordToken(tokKind, leadingTrivia, trailingTrivia, range);
+        SPActionsP->recordToken(tokKind, leadingTrivia, trailingTrivia, tokRange);
     return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
   }
 
@@ -96,23 +92,20 @@ public:
   ParsedRawSyntaxNode recordRawSyntax(syntax::SyntaxKind kind,
                                       MutableArrayRef<ParsedRawSyntaxNode> elements) {
   SmallVector<OpaqueSyntaxNode, 4> subnodes;
-  size_t ByteLength = 0;
   if (!elements.empty()) {
     for (auto &subnode : elements) {
       if (subnode.isNull()) {
         subnodes.push_back(nullptr);
       } else if (subnode.isRecorded()) {
-        ByteLength += subnode.getByteLength(SPActions.get());
         subnodes.push_back(subnode.takeData());
       } else {
         assert(subnode.isDeferredLayout() || subnode.isDeferredToken());
-        ByteLength += subnode.getByteLength(SPActions.get());
         auto recorded = recordDeferredNode(subnode);
         subnodes.push_back(recorded.takeData());
       }
     }
   }
-  OpaqueSyntaxNode n = SPActions->recordRawSyntax(kind, subnodes, ByteLength);
+  OpaqueSyntaxNode n = SPActionsP->recordRawSyntax(kind, subnodes);
   return ParsedRawSyntaxNode(n, ParsedRawSyntaxNode::DataKind::Recorded);
 }
 
@@ -127,46 +120,11 @@ public:
   ParsedRawSyntaxNode
   makeDeferred(syntax::SyntaxKind k,
                MutableArrayRef<ParsedRawSyntaxNode> deferredNodes,
-               SyntaxParsingContext &ctx) {
-    assert(k != syntax::SyntaxKind::Token &&
-           "Use makeDeferredToken to create deferred tokens");
-    if (deferredNodes.empty()) {
-      OpaqueSyntaxNode Data =
-          SPActions->makeDeferredLayout(k, /*ByteLength=*/0, /*IsMissing=*/false, {});
-      return ParsedRawSyntaxNode(Data,
-                                 ParsedRawSyntaxNode::DataKind::DeferredLayout);
-    }
-    SmallVector<OpaqueSyntaxNode, 4> children;
-
-    size_t ByteLength = 0;
-    for (auto &node : deferredNodes) {
-      // Cached range.
-      if (!node.isNull() && !node.isMissing(SPActionsP)) {
-        ByteLength += node.getByteLength(SPActionsP);
-      }
-      children.push_back(node.getData());
-    }
-    OpaqueSyntaxNode Data =
-        SPActions->makeDeferredLayout(k, ByteLength, /*IsMissing=*/false, children);
-    return ParsedRawSyntaxNode(Data,
-                               ParsedRawSyntaxNode::DataKind::DeferredLayout);
-  }
+               SyntaxParsingContext &ctx);
 
   /// Create a deferred token node.
   ParsedRawSyntaxNode makeDeferred(Token tok, StringRef leadingTrivia,
-                                   StringRef trailingTrivia) {
-    // Compute the range that includes the token and its trivia.
-    SourceLoc rangeBegin =
-        tok.getRange().getStart().getAdvancedLoc(-leadingTrivia.size());
-    unsigned rangeLen = leadingTrivia.size() + tok.getRange().getByteLength() +
-                        trailingTrivia.size();
-    auto range = CharSourceRange(rangeBegin, rangeLen);
-
-    OpaqueSyntaxNode Data = SPActionsP->makeDeferredToken(
-        tok.getKind(), leadingTrivia, trailingTrivia, range, /*isMissing=*/false);
-    return ParsedRawSyntaxNode(tok.getLoc(), Data,
-                               ParsedRawSyntaxNode::DataKind::DeferredToken);
-  }
+                                   StringRef trailingTrivia);
 
   /// Form a deferred missing token node.
   ParsedRawSyntaxNode makeDeferredMissing(tok tokKind, SourceLoc loc);
