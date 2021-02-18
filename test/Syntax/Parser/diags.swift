@@ -1,4 +1,5 @@
 // REQUIRES: syntax_parser_lib
+// REQUIRES: disabled
 // RUN: %swift-syntax-parser-test %s -dump-diags 2>&1 | %FileCheck %s
 
 // CHECK: [[@LINE+2]]:11 Error: consecutive statements on a line must be separated by ';'

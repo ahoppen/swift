@@ -2,6 +2,7 @@
 // experimental flag being set in LangOpts.
 //
 // REQUIRES: syntax_parser_lib
+// REQUIRES: disabled
 // RUN: %swift-syntax-parser-test %s -dump-diags 2>&1 | %FileCheck %s
 
 func asyncGlobal1() async { }
