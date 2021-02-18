@@ -41,7 +41,7 @@ public:
     // deferred nodes. We can thus simply return the node that has already been
     // created. Don't transfer ownership to the caller, however, since it is
     // just creating a new view into the syntax tree.
-    RC<RawSyntax> Raw(Actions->getLibSyntaxNodeFor(Node.getData()));
+    RawSyntax *Raw = Actions->getLibSyntaxNodeFor(Node.getData());
     return makeRoot<TokenSyntax>(Raw);
   }
 
@@ -53,7 +53,7 @@ public:
     // deferred nodes. We can thus simply return the node that has already been
     // created. Don't transfer ownership to the caller, however, since it is
     // just creating a new view into the syntax tree.
-    RC<RawSyntax> Raw(Actions->getLibSyntaxNodeFor(Node.getData()));
+    RawSyntax *Raw = Actions->getLibSyntaxNodeFor(Node.getData());
     return makeRoot<SyntaxNode>(Raw);
   }
 

@@ -2118,7 +2118,7 @@ bool isKeywordPossibleDeclStart(const Token &Tok);
 
 /// Lex and return a vector of `TokenSyntax` tokens, which include
 /// leading and trailing trivia.
-std::vector<std::pair<RC<syntax::RawSyntax>, syntax::AbsoluteOffsetPosition>>
+std::vector<std::pair<syntax::RawSyntax *, syntax::AbsoluteOffsetPosition>>
 tokenizeWithTrivia(const LangOptions &LangOpts, const SourceManager &SM,
                    unsigned BufferID, const RC<SyntaxArena> &Arena,
                    unsigned Offset = 0, unsigned EndOffset = 0,

@@ -88,16 +88,16 @@ template <> struct SequenceTraits<std::vector<swift::TriviaPiece>> {
 };
 
 /// Deserialization traits for RawSyntax list.
-template <> struct SequenceTraits<std::vector<swift::RC<swift::RawSyntax>>> {
-  static size_t size(IO &in, std::vector<swift::RC<swift::RawSyntax>> &seq) {
+template <> struct SequenceTraits<std::vector<swift::RawSyntax *>> {
+  static size_t size(IO &in, std::vector<swift::RawSyntax *> &seq) {
     return seq.size();
   }
-  static swift::RC<swift::RawSyntax> &
-  element(IO &in, std::vector<swift::RC<swift::RawSyntax>> &seq, size_t index) {
+  static swift::RawSyntax *&
+  element(IO &in, std::vector<swift::RawSyntax *> &seq, size_t index) {
     if (seq.size() <= index) {
       seq.resize(index + 1);
     }
-    return const_cast<swift::RC<swift::RawSyntax> &>(seq[index]);
+    return const_cast<swift::RawSyntax *&>(seq[index]);
   }
 };
 
@@ -132,7 +132,7 @@ template <> struct MappingTraits<TokenDescription> {
   }
 };
 
-/// Deserialization traits for RC<RawSyntax>.
+/// Deserialization traits for RawSyntax *.
 /// First it will check whether the node is null.
 /// Then this will be different depending if the raw syntax node is a Token or
 /// not. Token nodes will always have this structure:
@@ -153,8 +153,8 @@ template <> struct MappingTraits<TokenDescription> {
 /// }
 /// ```
 
-template <> struct MappingTraits<swift::RC<swift::RawSyntax>> {
-  static void mapping(IO &in, swift::RC<swift::RawSyntax> &value) {
+template <> struct MappingTraits<swift::RawSyntax *> {
+  static void mapping(IO &in, swift::RawSyntax *&value) {
     TokenDescription description;
     auto input = static_cast<SyntaxInput *>(&in);
     /// Check whether this is null
@@ -183,7 +183,7 @@ template <> struct MappingTraits<swift::RC<swift::RawSyntax>> {
     } else {
       swift::SyntaxKind kind;
       in.mapRequired("kind", kind);
-      std::vector<swift::RC<swift::RawSyntax>> layout;
+      std::vector<swift::RawSyntax *> layout;
       in.mapRequired("layout", layout);
       swift::SourcePresence presence;
       in.mapRequired("presence", presence);
@@ -211,7 +211,7 @@ public:
   SyntaxDeserializer(llvm::StringRef InputContent, RC<SyntaxArena> Arena = SyntaxArena::make()) : Input(InputContent, Arena) {}
   SyntaxDeserializer(llvm::MemoryBufferRef buffer, RC<SyntaxArena> Arena = SyntaxArena::make()) : Input(buffer, Arena) {}
   llvm::Optional<swift::SourceFileSyntax> getSourceFileSyntax() {
-    swift::RC<swift::RawSyntax> raw;
+    swift::RawSyntax *raw;
     Input >> raw;
     return swift::makeRoot<swift::SourceFileSyntax>(raw);
   }

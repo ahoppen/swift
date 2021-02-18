@@ -57,7 +57,7 @@ def check_child_condition_raw(child):
     Generates a C++ closure to check whether a given raw syntax node can
     satisfy the requirements of child.
     """
-    result = '[](const RC<RawSyntax> &Raw) {\n'
+    result = '[](RawSyntax *Raw) {\n'
     result += ' // check %s\n' % child.name
     if child.token_choices:
         result += 'if (!Raw->isToken()) return false;\n'

@@ -19,16 +19,6 @@
 #include "swift/Syntax/RawSyntax.h"
 #include "swift/Basic/SourceManager.h"
 
-namespace {
-static swift::RC<swift::syntax::RawSyntax> transferOpaqueNode(swift::OpaqueSyntaxNode opaqueN) {
-  if (!opaqueN)
-    return nullptr;
-  swift::RC<swift::syntax::RawSyntax> raw{(swift::syntax::RawSyntax *)opaqueN};
-  raw->Release(); // -1 since it's transfer of ownership.
-  return raw;
-}
-}
-
 namespace swift {
   class SourceManager;
   class SyntaxParsingCache;
@@ -94,8 +84,7 @@ public:
     auto raw = syntax::RawSyntax::make(tokenKind, tokenText, TextLength,
                                leadingTriviaText, trailingTriviaText,
                                        syntax::SourcePresence::Present, Arena);
-    OpaqueSyntaxNode opaqueN = raw.get();
-    raw.resetWithoutRelease();
+    OpaqueSyntaxNode opaqueN = raw;
     return opaqueN;
   }
 
@@ -114,11 +103,10 @@ public:
       }
 //      parts.push_back(transferOpaqueNode(opaqueN));
     }
-    ArrayRef<RC<syntax::RawSyntax>> parts(reinterpret_cast<const RC<syntax::RawSyntax> *>(elements.data()), elements.size());
+    ArrayRef<syntax::RawSyntax *> parts(reinterpret_cast<syntax::RawSyntax *const*>(elements.data()), elements.size());
     auto raw =
     syntax::RawSyntax::make(kind, parts, ByteLength, syntax::SourcePresence::Present, Arena);
-    OpaqueSyntaxNode opaqueN = raw.get();
-    raw.resetWithoutRelease();
+    OpaqueSyntaxNode opaqueN = raw;
     return opaqueN;
   }
 
@@ -135,14 +123,9 @@ public:
     // being recorded, it is acceptable.
     if (isMissing) {
       auto Node = recordMissingToken(tokenKind, range.getStart());
-      // The SyntaxTreeCreator still owns the deferred node. Record it so we can
-      // release it when the creator is being destructed.
-      static_cast<syntax::RawSyntax *>(Node)->Release();
       return Node;
     } else {
       auto Node = recordToken(tokenKind, leadingTrivia, trailingTrivia, range);
-      // See comment above.
-      static_cast<syntax::RawSyntax *>(Node)->Release();
       return Node;
     }
   }
@@ -152,37 +135,14 @@ public:
                      bool IsMissing,
                      const SmallVector<OpaqueSyntaxNode, 4> &children) override{
     // Also see comment in makeDeferredToken
-
-    for (auto child : children) {
-      if (child != nullptr) {
-        // With the deferred layout being created all of the child nodes are now
-        // being owned through the newly created deferred layout node.
-        // Technically, we should remove the child nodes from DeferredNodes.
-        // However, finding it in the vector is fairly expensive. Instead, we
-        // issue a Retain call that cancels with the Release call that will be
-        // issued once the creator is being destructed.
-        static_cast<syntax::RawSyntax *>(child)->Retain();
-      }
-    }
     auto Node = recordRawSyntax(k, children);
-    static_cast<syntax::RawSyntax *>(Node)->Release();
     return Node;
   }
 
   OpaqueSyntaxNode recordDeferredToken(OpaqueSyntaxNode deferred) override {
-    // The deferred node is currently being owned by the SyntaxTreeCreator and
-    // will be released when the creator is being destructed. We now pass
-    // ownership to whoever owns the recorded node. Technically, we should thus
-    // remove the node from DeferredNodes. However, finding it in the vector is
-    // fairly expensive. Instead, we issue a Retain call that cancels with the
-    // Release call that will be issued once the creator is being destructed.
-    // Also see comment in makeDeferredToken.
-    static_cast<syntax::RawSyntax *>(deferred)->Retain();
     return deferred;
   }
   OpaqueSyntaxNode recordDeferredLayout(OpaqueSyntaxNode deferred) override {
-    // Also see comment in recordDeferredToken
-    static_cast<syntax::RawSyntax *>(deferred)->Retain();
     return deferred;
   }
 

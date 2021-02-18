@@ -37,4 +37,4 @@ target_link_libraries(swiftParse PRIVATE
   swiftSyntax
   swiftSyntaxParse)
 
-add_dependencies(swiftParse swift-parse-syntax-generated-headers)
+add_dependencies(swiftParse swift-parse-syntax-generated-headers swift-syntax-generated-headers)

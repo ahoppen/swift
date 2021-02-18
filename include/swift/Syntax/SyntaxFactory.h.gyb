@@ -61,8 +61,8 @@ struct SyntaxFactory {
       const RC<SyntaxArena> &Arena = SyntaxArena::make()
   );
 
-  static RC<RawSyntax> createRaw(SyntaxKind Kind,
-      llvm::ArrayRef<RC<RawSyntax>> Elements,
+  static RawSyntax *createRaw(SyntaxKind Kind,
+      llvm::ArrayRef<RawSyntax *> Elements,
       const RC<SyntaxArena> &Arena = SyntaxArena::make()
   );
 
@@ -190,7 +190,7 @@ struct SyntaxFactory {
   /// Whether a raw node `Member` can serve as a member in a syntax collection
   /// of the given syntax collection kind.
   static bool canServeAsCollectionMemberRaw(SyntaxKind CollectionKind,
-                                            const RC<RawSyntax> &Member);
+                                            RawSyntax *Member);
 
   /// Whether a node `Member` can serve as a member in a syntax collection of
   /// the given syntax collection kind.

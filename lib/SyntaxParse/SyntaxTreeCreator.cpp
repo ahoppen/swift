@@ -45,11 +45,6 @@ SyntaxTreeCreator::SyntaxTreeCreator(SourceManager &SM, unsigned bufferID,
 }
 
 SyntaxTreeCreator::~SyntaxTreeCreator() {
-  // Release all deferred nodes that are being kept alive by this
-  for (auto node : DeferredNodes) {
-    static_cast<RawSyntax *>(node)->Release();
-  }
-  Arena.reset();
 }
 
 namespace {
@@ -102,7 +97,7 @@ public:
 Optional<SourceFileSyntax>
 SyntaxTreeCreator::realizeSyntaxRoot(OpaqueSyntaxNode rootN,
                                      const SourceFile &SF) {
-  auto raw = transferOpaqueNode(rootN);
+  auto raw = static_cast<RawSyntax *>(rootN);
   auto rootNode = makeRoot<SourceFileSyntax>(raw);
 
   // Verify the tree if specified.
@@ -118,9 +113,7 @@ SyntaxTreeCreator::realizeSyntaxRoot(OpaqueSyntaxNode rootN,
 OpaqueSyntaxNode
 SyntaxTreeCreator::recordMissingToken(tok kind, SourceLoc loc) {
   auto raw = RawSyntax::missing(kind, getTokenText(kind), Arena);
-  OpaqueSyntaxNode opaqueN = raw.get();
-  raw.resetWithoutRelease();
-  return opaqueN;
+  return raw;
 }
 
 SyntaxParseActions::DeferredNodeInfo
@@ -143,15 +136,10 @@ SyntaxTreeCreator::lookupNode(size_t lexerOffset, syntax::SyntaxKind kind) {
   auto cacheLookup = SyntaxCache->lookUp(lexerOffset, kind);
   if (!cacheLookup)
     return {0, nullptr};
-  RC<RawSyntax> raw = cacheLookup->getRaw();
-  OpaqueSyntaxNode opaqueN = raw.get();
+  RawSyntax *raw = cacheLookup->getRaw();
   size_t length = raw->getTextLength();
-  raw.resetWithoutRelease();
-  return {length, opaqueN};
+  return {length, raw};
 }
 
 void SyntaxTreeCreator::discardRecordedNode(OpaqueSyntaxNode opaqueN) {
-  if (!opaqueN)
-    return;
-  static_cast<RawSyntax *>(opaqueN)->Release();
 }

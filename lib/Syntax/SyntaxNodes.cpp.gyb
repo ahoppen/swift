@@ -99,7 +99,7 @@ ${child.type_name} ${node.name}::get${child.name}() const {
 %         raise Exception("'collection_element_name' should be set for '%s' of '%s'" % (child.name, node.name))
 %       end
 ${node.name} ${node.name}::add${child_elt}(${child_elt_type} ${child_elt}) {
-  RC<RawSyntax> raw = getRaw()->getChild(Cursor::${child.name});
+  RawSyntax *raw = getRaw()->getChild(Cursor::${child.name});
   if (raw)
     raw = raw->append(${child_elt}.getRaw());
   else
@@ -111,7 +111,7 @@ ${node.name} ${node.name}::add${child_elt}(${child_elt_type} ${child_elt}) {
 
 ${node.name} ${node.name}::with${child.name}(
   llvm::Optional<${child.type_name}> New${child.type_name}) {
-  RC<RawSyntax> raw;
+  RawSyntax *raw;
   if (New${child.type_name}.hasValue()) {
     raw = New${child.type_name}->getRaw();
   } else {

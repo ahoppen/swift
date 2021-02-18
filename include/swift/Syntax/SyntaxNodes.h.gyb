@@ -130,6 +130,7 @@ public:
 /// ${line}
 %     end
 ///
+
 /// This node is an unsafe reference that requires parents to always outlive
 /// their child nodes. See doc comment on \c SyntaxDataRef for more details.
 class ${node.name}Ref ${qualifier} : public ${node.base_type}Ref {

@@ -292,7 +292,7 @@ struct ByteBasedSourceRangeSet {
 int getTokensFromFile(
     unsigned BufferID, LangOptions &LangOpts, SourceManager &SourceMgr,
     const RC<SyntaxArena> &Arena, swift::DiagnosticEngine &Diags,
-    std::vector<std::pair<RC<syntax::RawSyntax>,
+    std::vector<std::pair<syntax::RawSyntax *,
                           syntax::AbsoluteOffsetPosition>> &Tokens) {
   Tokens = tokenizeWithTrivia(LangOpts, SourceMgr, BufferID, Arena,
                               /*Offset=*/0, /*EndOffset=*/0,
@@ -304,7 +304,7 @@ int getTokensFromFile(
     const StringRef InputFilename, LangOptions &LangOpts,
     SourceManager &SourceMgr, const RC<SyntaxArena> &Arena,
     DiagnosticEngine &Diags, unsigned int &OutBufferID,
-    std::vector<std::pair<RC<syntax::RawSyntax>,
+    std::vector<std::pair<syntax::RawSyntax *,
                           syntax::AbsoluteOffsetPosition>> &Tokens) {
   auto Buffer = llvm::MemoryBuffer::getFile(InputFilename);
   if (!Buffer) {
@@ -673,7 +673,7 @@ int doFullLexRoundTrip(const StringRef InputFilename) {
 
   unsigned int BufferID;
   RC<SyntaxArena> Arena = SyntaxArena::make();
-  std::vector<std::pair<RC<syntax::RawSyntax>, syntax::AbsoluteOffsetPosition>>
+  std::vector<std::pair<syntax::RawSyntax *, syntax::AbsoluteOffsetPosition>>
       Tokens;
   if (getTokensFromFile(InputFilename, LangOpts, SourceMgr, Arena, Diags, BufferID,
                         Tokens) == EXIT_FAILURE) {
@@ -696,7 +696,7 @@ int doDumpRawTokenSyntax(const StringRef InputFile) {
 
   unsigned int BufferID;
   RC<SyntaxArena> Arena = SyntaxArena::make();
-  std::vector<std::pair<RC<syntax::RawSyntax>, syntax::AbsoluteOffsetPosition>>
+  std::vector<std::pair<syntax::RawSyntax *, syntax::AbsoluteOffsetPosition>>
       Tokens;
   if (getTokensFromFile(InputFile, LangOpts, SourceMgr, Arena, Diags, BufferID,
                         Tokens) == EXIT_FAILURE) {
@@ -738,7 +738,7 @@ int doSerializeRawTree(const char *MainExecutablePath,
     }
 
     auto SerializeTree = [&ReusedNodeIds](llvm::raw_ostream &os,
-                                          RC<RawSyntax> Root,
+                                          RawSyntax *Root,
                                           SyntaxParsingCache *SyntaxCache) {
       swift::json::Output::UserInfoMap JsonUserInfo;
       JsonUserInfo[swift::json::OmitNodesUserInfoKey] = &ReusedNodeIds;

@@ -165,11 +165,12 @@ struct SyntaxPrintOptions {
 
 typedef unsigned SyntaxNodeId;
 
+
 /// RawSyntax - the strictly immutable, shared backing nodes for all syntax.
 ///
 /// This is implementation detail - do not expose it in public API.
 class RawSyntax final
-    : private llvm::TrailingObjects<RawSyntax, RC<RawSyntax>> {
+    : private llvm::TrailingObjects<RawSyntax, RawSyntax*> {
   friend TrailingObjects;
 
   /// The ID that shall be used for the next node that is created and does not
@@ -178,8 +179,6 @@ class RawSyntax final
 
   /// An ID of this node that is stable across incremental parses
   SyntaxNodeId NodeId;
-
-  mutable int RefCount;
 
   /// If this node was allocated using a \c SyntaxArena's bump allocator, a
   /// reference to the arena to keep the underlying memory buffer of this node
@@ -227,7 +226,7 @@ class RawSyntax final
     } Token;
   } Bits;
 
-  size_t numTrailingObjects(OverloadToken<RC<RawSyntax>>) const {
+  size_t numTrailingObjects(OverloadToken<RawSyntax *>) const {
     return isToken() ? 0 : Bits.Layout.NumChildren;
   }
 
@@ -237,10 +236,10 @@ class RawSyntax final
   /// underlying storage.
   /// If \p NodeId is \c None, the next free NodeId is used, if it is passed,
   /// the caller needs to assure that the node ID has not been used yet.
-  RawSyntax(SyntaxKind Kind, ArrayRef<RC<RawSyntax>> Layout, size_t TextLength,
+  RawSyntax(SyntaxKind Kind, ArrayRef<RawSyntax *> Layout, size_t TextLength,
             SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
-      : RefCount(0), Arena(Arena),
+      : Arena(Arena),
       Bits({{unsigned(TextLength), unsigned(Presence), false}}) {
   assert(Arena && "RawSyntax nodes must always be allocated in an arena");
   assert(Kind != SyntaxKind::Token &&
@@ -266,7 +265,7 @@ class RawSyntax final
 
   // Initialize layout data.
   std::uninitialized_copy(Layout.begin(), Layout.end(),
-                          getTrailingObjects<RC<RawSyntax>>());
+                          getTrailingObjects<RawSyntax *>());
 }
       
   /// Constructor for creating token nodes
@@ -278,7 +277,7 @@ class RawSyntax final
             StringRef LeadingTrivia, StringRef TrailingTrivia,
             SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
-      : RefCount(0), Arena(Arena),
+      : Arena(Arena),
         Bits({{unsigned(TextLength), unsigned(Presence), true}}) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
     copyToArenaIfNecessary(LeadingTrivia, Arena);
@@ -322,22 +321,6 @@ class RawSyntax final
 public:
   ~RawSyntax();
 
-  // This is a copy-pased implementation of llvm::ThreadSafeRefCountedBase with
-  // the difference that we do not delete the RawSyntax node's memory if the
-  // node was allocated within a SyntaxArena and thus doesn't own its memory.
-  void Retain() const { ++RefCount; }
-
-  void Release() const {
-//    assert(RefCount > 0 && "Reference count is already zero.");
-    if (--RefCount == 0) {
-      // The node was allocated inside a SyntaxArena and thus doesn't own its
-      // own memory region. Hence we cannot free it. It will be deleted once
-      // the last RawSyntax node allocated with it will release its reference
-      // to the arena.
-//      this->~RawSyntax();
-    }
-  }
-
   SyntaxArena *getArena() const {
     return Arena;
   }
@@ -346,19 +329,18 @@ public:
   /// @{
 
   /// Make a raw "layout" syntax node.
-  static RC<RawSyntax> make(SyntaxKind Kind, ArrayRef<RC<RawSyntax>> Layout,
+  static RawSyntax *make(SyntaxKind Kind, ArrayRef<RawSyntax *> Layout,
                             size_t TextLength, SourcePresence Presence,
                             const RC<SyntaxArena> &Arena,
                             llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
-    auto size = totalSizeToAlloc<RC<RawSyntax>>(Layout.size());
+    auto size = totalSizeToAlloc<RawSyntax *>(Layout.size());
     void *data = Arena->Allocate(size, alignof(RawSyntax));
-    return RC<RawSyntax>(
-        new (data) RawSyntax(Kind, Layout, TextLength, Presence, Arena.get(), NodeId));
+    return new (data) RawSyntax(Kind, Layout, TextLength, Presence, Arena.get(), NodeId);
   }
 
-  static RC<RawSyntax>
-  makeAndCalcLength(SyntaxKind Kind, ArrayRef<RC<RawSyntax>> Layout,
+  static RawSyntax *
+  makeAndCalcLength(SyntaxKind Kind, ArrayRef<RawSyntax *> Layout,
                     SourcePresence Presence,
                     const RC<SyntaxArena> &Arena = SyntaxArena::make(),
                     llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
@@ -372,21 +354,20 @@ public:
   }
 
   /// Make a raw "token" syntax node.
-  static RC<RawSyntax> make(tok TokKind, StringRef Text, size_t TextLength,
+  static RawSyntax * make(tok TokKind, StringRef Text, size_t TextLength,
                             StringRef LeadingTrivia, StringRef TrailingTrivia,
                             SourcePresence Presence,
                             const RC<SyntaxArena> &Arena,
                             llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
-    auto size = totalSizeToAlloc<RC<RawSyntax>>(0);
+    auto size = totalSizeToAlloc<RawSyntax *>(0);
     void *data = Arena->Allocate(size, alignof(RawSyntax));
-    return RC<RawSyntax>(new (data)
-                             RawSyntax(TokKind, Text, TextLength, LeadingTrivia,
-                                       TrailingTrivia, Presence, Arena.get(), NodeId));
+    return new (data) RawSyntax(TokKind, Text, TextLength, LeadingTrivia,
+                                       TrailingTrivia, Presence, Arena.get(), NodeId);
   }
 
   /// Make a raw "token" syntax node that was allocated in \p Arena.
-  static RC<RawSyntax>
+  static RawSyntax *
   makeAndCalcLength(tok TokKind, StringRef Text, StringRef LeadingTrivia,
                     StringRef TrailingTrivia, SourcePresence Presence,
                     const RC<SyntaxArena> &Arena = SyntaxArena::make(),
@@ -402,13 +383,13 @@ public:
   }
 
   /// Make a missing raw "layout" syntax node.
-  static RC<RawSyntax>
+  static RawSyntax *
   missing(SyntaxKind Kind, const RC<SyntaxArena> &Arena = SyntaxArena::make()) {
     return make(Kind, {}, /*TextLength=*/0, SourcePresence::Missing, Arena);
   }
 
   /// Make a missing raw "token" syntax node.
-  static RC<RawSyntax>
+  static RawSyntax *
   missing(tok TokKind, StringRef Text,
           const RC<SyntaxArena> &Arena = SyntaxArena::make()) {
     return make(TokKind, Text, /*TextLength=*/0, {}, {},
@@ -523,14 +504,14 @@ public:
 
   /// Return a new token like this one, but with the given leading
   /// trivia instead.
-  RC<RawSyntax> withLeadingTrivia(StringRef NewLeadingTrivia) const {
+  RawSyntax *withLeadingTrivia(StringRef NewLeadingTrivia) const {
     return makeAndCalcLength(getTokenKind(), getTokenText(), NewLeadingTrivia,
                              getTrailingTrivia(), getPresence());
   }
 
   /// Return a new token like this one, but with the given trailing
   /// trivia instead.
-  RC<RawSyntax> withTrailingTrivia(StringRef NewTrailingTrivia) const {
+  RawSyntax *withTrailingTrivia(StringRef NewTrailingTrivia) const {
     return makeAndCalcLength(getTokenKind(), getTokenText(), getLeadingTrivia(),
                              NewTrailingTrivia, getPresence());
   }
@@ -541,10 +522,10 @@ public:
   /// @{
 
   /// Get the child nodes.
-  ArrayRef<RC<RawSyntax>> getLayout() const {
+  ArrayRef<RawSyntax *> getLayout() const {
     if (isToken())
       return {};
-    return {getTrailingObjects<RC<RawSyntax>>(), Bits.Layout.NumChildren};
+    return {getTrailingObjects<RawSyntax *>(), Bits.Layout.NumChildren};
   }
 
   size_t getNumChildren() const {
@@ -555,7 +536,7 @@ public:
 
   /// Get a child based on a particular node's "Cursor", indicating
   /// the position of the terms in the production of the Swift grammar.
-  const RC<RawSyntax> &getChild(CursorIndex Index) const {
+  RawSyntax *getChild(CursorIndex Index) const {
     return getLayout()[Index];
   }
 
@@ -567,7 +548,7 @@ public:
   /// e.g. keeping the \c SyntaxArena alive in which the child lives or keeping
   /// \c this node alive, which maintains a strong reference to the child.
   RawSyntax *getChildRef(CursorIndex Index) const {
-    return getLayout()[Index].get();
+    return getLayout()[Index];
   }
 
   /// Return the number of bytes this node takes when spelled out in the source
@@ -581,12 +562,12 @@ public:
 
   /// Return a new raw syntax node with the given new layout element appended
   /// to the end of the node's layout.
-  RC<RawSyntax> append(RC<RawSyntax> NewLayoutElement) const;
+  RawSyntax *append(RawSyntax *NewLayoutElement) const;
 
   /// Return a new raw syntax node with the given new layout element replacing
   /// another at some cursor position.
-  RC<RawSyntax> replacingChild(CursorIndex Index,
-                               RC<RawSyntax> NewLayoutElement) const;
+  RawSyntax *replacingChild(CursorIndex Index,
+                               RawSyntax *NewLayoutElement) const;
 
   /// @}
 

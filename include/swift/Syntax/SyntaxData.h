@@ -107,8 +107,6 @@ class SyntaxDataRef {
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(Parent),
         UnownedParent(nullptr), Arena(AbsoluteRaw.getRawRef()->getArena()) {
-    assert(AbsoluteRaw.isRefCounted() &&
-           "If parent is ref-counted, AbsoluteRaw must also be ref-counted");
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
            "Cannot address a subtree of an unowned tree as ref-counted");
   }
@@ -116,8 +114,6 @@ class SyntaxDataRef {
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(Parent),
         UnownedParent(nullptr), Arena(AbsoluteRaw.getRawRef()->getArena()) {
-    assert(AbsoluteRaw.isRefCounted() &&
-           "If parent is ref-counted, AbsoluteRaw must also be ref-counted");
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
            "Cannot address a subtree of an unowned tree as ref-counted");
   }
@@ -127,29 +123,17 @@ class SyntaxDataRef {
   SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(nullptr),
         UnownedParent(Parent), Arena(AbsoluteRaw.getRawRef()->getArena()) {
-    if (Parent != nullptr) {
-      assert(!AbsoluteRaw.isRefCounted() &&
-             "If parent is unowned, AbsoluteRaw must also be unowned");
-    }
   }
   SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(nullptr),
         UnownedParent(Parent), Arena(AbsoluteRaw.getRawRef()->getArena()) {
-    if (Parent != nullptr) {
-      assert(!AbsoluteRaw.isRefCounted() &&
-             "If parent is unowned, AbsoluteRaw must also be unowned");
-    }
   }
 
 public:
   // MARK: - Retrieving underlying storage
 
   bool isRefCounted() const {
-    bool IsRefCounted = (UnownedParent == nullptr);
-    assert(IsRefCounted == getAbsoluteRawRef().isRefCounted() &&
-           "Either both AbsoluteRawSyntax and the parent reference should be "
-           "reference-counted or none of them");
-    return IsRefCounted;
+    return UnownedParent == nullptr;
   }
 
   const AbsoluteRawSyntaxRef &getAbsoluteRawRef() const { return AbsoluteRaw; }
@@ -289,7 +273,7 @@ public:
   }
 
   /// Returns the raw syntax node for this syntax node.
-  RC<RawSyntax> getRaw() const { return getAbsoluteRaw().getRaw(); }
+  RawSyntax *getRaw() const { return getAbsoluteRaw().getRaw(); }
 
   // MARK: - Retrieving related nodes
 
@@ -333,12 +317,12 @@ public:
 
   /// With a new \c RawSyntax node, create a new node from this one and
   /// recursively rebuild the parental chain up to the root.
-  SyntaxData replacingSelf(const RC<RawSyntax> &NewRaw) const;
+  SyntaxData replacingSelf(RawSyntax *NewRaw) const;
 
   /// Replace a child in the raw syntax and recursively rebuild the
   /// parental chain up to the root.
   template <typename CursorType>
-  SyntaxData replacingChild(const RC<RawSyntax> &RawChild,
+  SyntaxData replacingChild(RawSyntax *RawChild,
                             CursorType ChildCursor) const {
     auto NewRaw = getRaw()->replacingChild(ChildCursor, RawChild);
     return replacingSelf(NewRaw);

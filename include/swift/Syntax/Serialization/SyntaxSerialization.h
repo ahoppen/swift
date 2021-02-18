@@ -90,13 +90,13 @@ struct ArrayTraits<ArrayRef<syntax::TriviaPiece>> {
 
 /// Serialization traits for RawSyntax list.
 template<>
-struct ArrayTraits<ArrayRef<RC<syntax::RawSyntax>>> {
-  static size_t size(Output &out, ArrayRef<RC<syntax::RawSyntax>> &seq) {
+struct ArrayTraits<ArrayRef<syntax::RawSyntax *>> {
+  static size_t size(Output &out, ArrayRef<syntax::RawSyntax *> &seq) {
     return seq.size();
   }
-  static RC<syntax::RawSyntax> &
-  element(Output &out, ArrayRef<RC<syntax::RawSyntax>> &seq, size_t index) {
-    return const_cast<RC<syntax::RawSyntax> &>(seq[index]);
+  static syntax::RawSyntax *&
+  element(Output &out, ArrayRef<syntax::RawSyntax *> &seq, size_t index) {
+    return const_cast<syntax::RawSyntax *&>(seq[index]);
   }
 };
 
@@ -128,7 +128,7 @@ struct ObjectTraits<TokenDescription> {
   }
 };
 
-/// Serialization traits for RC<RawSyntax>.
+/// Serialization traits for RawSyntax *.
 /// This will be different depending if the raw syntax node is a Token or not.
 /// Token nodes will always have this structure:
 /// ```
@@ -190,12 +190,12 @@ struct ObjectTraits<syntax::RawSyntax> {
 };
 
 template<>
-struct NullableTraits<RC<syntax::RawSyntax>> {
+struct NullableTraits<syntax::RawSyntax *> {
   using value_type = syntax::RawSyntax;
-  static bool isNull(RC<syntax::RawSyntax> &value) {
+  static bool isNull(syntax::RawSyntax *&value) {
     return value == nullptr;
   }
-  static syntax::RawSyntax &get(RC<syntax::RawSyntax> &value) {
+  static syntax::RawSyntax &get(syntax::RawSyntax *&value) {
     return *value;
   }
 };

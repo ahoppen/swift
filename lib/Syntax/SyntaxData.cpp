@@ -197,7 +197,7 @@ Optional<SyntaxData> SyntaxData::getLastToken() const {
   return None;
 }
 
-SyntaxData SyntaxData::replacingSelf(const RC<RawSyntax> &NewRaw) const {
+SyntaxData SyntaxData::replacingSelf(RawSyntax *NewRaw) const {
   if (hasParent()) {
     auto NewRoot = getParent()->replacingChild(NewRaw, getIndexInParent());
     auto NewSelf = getAbsoluteRaw().replacingSelf(

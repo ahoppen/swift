@@ -34,7 +34,7 @@ class SyntaxArena;
 %     child_count = len(node.children)
 class ${node.name}Builder {
   RC<SyntaxArena> Arena;
-  RC<RawSyntax> Layout[${child_count}] = {
+  RawSyntax *Layout[${child_count}] = {
 %     for child in node.children:
     nullptr,
 %     end

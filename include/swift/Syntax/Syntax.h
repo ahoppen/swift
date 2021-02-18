@@ -40,7 +40,7 @@ struct SyntaxVisitor;
 class SourceFileSyntax;
 class TokenSyntax;
 
-template <typename SyntaxNode> SyntaxNode makeRoot(RC<RawSyntax> Raw) {
+template <typename SyntaxNode> SyntaxNode makeRoot(RawSyntax *Raw) {
   auto Data = SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr);
   return SyntaxNode(Data);
 }
@@ -271,7 +271,7 @@ public:
   SyntaxData getData() const { return SyntaxData(getDataRef()); }
 
   /// Get the shared raw syntax.
-  RC<RawSyntax> getRaw() const { return getData().getRaw(); }
+  RawSyntax *getRaw() const { return getData().getRaw(); }
 
   /// Get the \p N -th child of this piece of syntax.
   llvm::Optional<Syntax> getChild(const size_t N) const;

@@ -50,7 +50,7 @@ TokenSyntax SyntaxFactory::makeToken(tok Kind, StringRef Text,
 UnknownSyntax
 SyntaxFactory::makeUnknownSyntax(llvm::ArrayRef<TokenSyntax> Tokens,
                                  const RC<SyntaxArena> &Arena) {
-  std::vector<RC<RawSyntax>> Layout;
+  std::vector<RawSyntax *> Layout;
   Layout.reserve(Tokens.size());
   for (auto &Token : Tokens) {
     Layout.push_back(Token.getRaw());
@@ -111,7 +111,7 @@ bool SyntaxFactory::canServeAsCollectionMemberRaw(SyntaxKind CollectionKind,
 }
 
 bool SyntaxFactory::canServeAsCollectionMemberRaw(SyntaxKind CollectionKind,
-                                                  const RC<RawSyntax> &Member) {
+                                                  RawSyntax *Member) {
   return canServeAsCollectionMemberRaw(CollectionKind, Member->getKind());
 }
 
@@ -120,15 +120,15 @@ canServeAsCollectionMember(SyntaxKind CollectionKind, Syntax Member) {
   return canServeAsCollectionMemberRaw(CollectionKind, Member.getRaw());
 }
 
-RC<RawSyntax> SyntaxFactory::createRaw(SyntaxKind Kind,
-                                       llvm::ArrayRef<RC<RawSyntax>> Elements,
+RawSyntax *SyntaxFactory::createRaw(SyntaxKind Kind,
+                                       llvm::ArrayRef<RawSyntax *> Elements,
                                        const RC<SyntaxArena> &Arena) {
   switch (Kind) {
 % for node in SYNTAX_NODES + PARSEONLY_NODES:
   case SyntaxKind::${node.syntax_kind}: {
 % if node.children:
 %   child_count = len(node.children)
-    RC<RawSyntax> Layout[${child_count}];
+    RawSyntax *Layout[${child_count}];
     unsigned I = 0;
 %   for (child_idx, child) in enumerate(node.children):
     // child[${child_idx}] ${child.name}
@@ -168,7 +168,7 @@ RC<RawSyntax> SyntaxFactory::createRaw(SyntaxKind Kind,
 Optional<Syntax> SyntaxFactory::createSyntax(SyntaxKind Kind,
                                              llvm::ArrayRef<Syntax> Elements,
                                              const RC<SyntaxArena> &Arena) {
-  std::vector<RC<RawSyntax>> Layout;
+  std::vector<RawSyntax *> Layout;
   Layout.reserve(Elements.size());
   for (auto &E : Elements)
     Layout.emplace_back(E.getRaw());
@@ -207,7 +207,7 @@ ${node.name}
 SyntaxFactory::make${node.syntax_kind}(
     const std::vector<${node.collection_element_type}> &elements,
     const RC<SyntaxArena> &Arena) {
-  std::vector<RC<RawSyntax>> layout;
+  std::vector<RawSyntax *> layout;
   layout.reserve(elements.size());
   for (auto &element : elements) {
     layout.push_back(element.getRaw());

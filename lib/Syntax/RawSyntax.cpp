@@ -91,10 +91,6 @@ Trivia lexTrivia(StringRef TriviaStr) {
 unsigned RawSyntax::NextFreeNodeId = 1;
 
 RawSyntax::~RawSyntax() {
-  if (!isToken()) {
-    for (auto &child : getLayout())
-      child.~RC<RawSyntax>();
-  }
 }
 
 Trivia RawSyntax::getLeadingTriviaPieces() const {
@@ -105,9 +101,9 @@ Trivia RawSyntax::getTrailingTriviaPieces() const {
   return lexTrivia(getTrailingTrivia());
 }
 
-RC<RawSyntax> RawSyntax::append(RC<RawSyntax> NewLayoutElement) const {
+RawSyntax *RawSyntax::append(RawSyntax *NewLayoutElement) const {
   auto Layout = getLayout();
-  std::vector<RC<RawSyntax>> NewLayout;
+  std::vector<RawSyntax *> NewLayout;
   NewLayout.reserve(Layout.size() + 1);
   std::copy(Layout.begin(), Layout.end(), std::back_inserter(NewLayout));
   NewLayout.push_back(NewLayoutElement);
@@ -115,10 +111,10 @@ RC<RawSyntax> RawSyntax::append(RC<RawSyntax> NewLayoutElement) const {
                                       SourcePresence::Present);
 }
 
-RC<RawSyntax> RawSyntax::replacingChild(CursorIndex Index,
-                                        RC<RawSyntax> NewLayoutElement) const {
+RawSyntax *RawSyntax::replacingChild(CursorIndex Index,
+                                     RawSyntax *NewLayoutElement) const {
   auto Layout = getLayout();
-  std::vector<RC<RawSyntax>> NewLayout;
+  std::vector<RawSyntax *> NewLayout;
   NewLayout.reserve(Layout.size());
 
   std::copy(Layout.begin(), Layout.begin() + Index,

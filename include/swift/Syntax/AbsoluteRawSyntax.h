@@ -32,11 +32,11 @@ public:
 
   /// Assuming that this index points to the start of \p Raw, advance it so that
   /// it points to the next sibling of \p Raw.
-  SyntaxIndexInTree advancedBy(const RC<RawSyntax> &Raw) const;
+  SyntaxIndexInTree advancedBy(RawSyntax *Raw) const;
 
   /// Assuming that this index points to the next sibling of \p Raw, reverse it
   /// so that it points to the start of \p Raw.
-  SyntaxIndexInTree reversedBy(const RC<RawSyntax> &Raw) const;
+  SyntaxIndexInTree reversedBy(RawSyntax *Raw) const;
 
   /// Advance this index to point to its first immediate child.
   SyntaxIndexInTree advancedToFirstChild() const;
@@ -84,14 +84,14 @@ public:
 
   /// Assuming that this identifier points to the start of \p Raw, advance it so
   /// that it points to the next sibling of \p Raw.
-  SyntaxIdentifier advancedBy(const RC<RawSyntax> &Raw) const {
+  SyntaxIdentifier advancedBy(RawSyntax *Raw) const {
     auto NewIndexInTree = IndexInTree.advancedBy(Raw);
     return SyntaxIdentifier(RootId, NewIndexInTree);
   }
 
   /// Assuming that this identifier points to the next sibling of \p Raw,
   /// reverse it so that it points to the start of \p Raw.
-  SyntaxIdentifier reversedBy(const RC<RawSyntax> &Raw) const {
+  SyntaxIdentifier reversedBy(RawSyntax *Raw) const {
     auto NewIndexInTree = IndexInTree.reversedBy(Raw);
     return SyntaxIdentifier(RootId, NewIndexInTree);
   }
@@ -138,11 +138,11 @@ public:
 
   /// Assuming that this position points to the start of \p Raw, advance it so
   /// that it points to the next sibling of \p Raw.
-  AbsoluteSyntaxPosition advancedBy(const RC<RawSyntax> &Raw) const;
+  AbsoluteSyntaxPosition advancedBy(RawSyntax *Raw) const;
 
   /// Assuming that this position points to the next sibling of \p Raw, reverse
   /// it so that it points to the start of \p Raw.
-  AbsoluteSyntaxPosition reversedBy(const RC<RawSyntax> &Raw) const;
+  AbsoluteSyntaxPosition reversedBy(RawSyntax *Raw) const;
 
   /// Get the position of the node's first immediate child.
   AbsoluteSyntaxPosition advancedToFirstChild() const {
@@ -189,7 +189,7 @@ public:
 
   /// Assuming that this info points to the start of \p Raw, advance it so
   /// that it points to the next sibling of \p Raw.
-  AbsoluteSyntaxInfo advancedBy(const RC<RawSyntax> &Raw) const {
+  AbsoluteSyntaxInfo advancedBy(RawSyntax *Raw) const {
     auto NewNodeId = NodeId.advancedBy(Raw);
     auto NewPosition = Position.advancedBy(Raw);
     return AbsoluteSyntaxInfo(NewPosition, NewNodeId);
@@ -197,7 +197,7 @@ public:
 
   /// Assuming that this info points to the next sibling of \p Raw, reverse
   /// it so that it points to the start of \p Raw.
-  AbsoluteSyntaxInfo reversedBy(const RC<RawSyntax> &Raw) const {
+  AbsoluteSyntaxInfo reversedBy(RawSyntax *Raw) const {
     auto NewNodeId = NodeId.reversedBy(Raw);
     auto NewPosition = Position.reversedBy(Raw);
     return AbsoluteSyntaxInfo(NewPosition, NewNodeId);
@@ -230,43 +230,28 @@ class AbsoluteRawSyntaxRef {
   /// (for safe access) or unowned (for faster access if it can be guaranteed
   /// that the raw syntax stays alive). Only one of the two following fields can
   /// be non-null at a time.
-  const RC<RawSyntax> RefCountedRaw;
-  const RawSyntax *UnownedRaw;
+  RawSyntax *Raw;
 
   const AbsoluteSyntaxInfo Info;
 
 public:
   AbsoluteRawSyntaxRef(AbsoluteRawSyntaxRef &&Other)
-      : RefCountedRaw(std::move(Other.RefCountedRaw)), UnownedRaw(std::move(Other.UnownedRaw)), Info(std::move(Other.Info)) {
+      : Raw(std::move(Other.Raw)), Info(std::move(Other.Info)) {
   }
   AbsoluteRawSyntaxRef(const AbsoluteRawSyntaxRef &Other)
-      : RefCountedRaw(Other.RefCountedRaw), UnownedRaw(Other.UnownedRaw), Info(Other.Info) {
+      : Raw(Other.Raw), Info(Other.Info) {
   }
   
   /// Create a reference-counted \c AbsoluteRawSyntaxRef.
   /// \p Raw must not be \c nullptr.
-  AbsoluteRawSyntaxRef(const RC<RawSyntax> &Raw, AbsoluteSyntaxInfo Info)
-      : RefCountedRaw(Raw), UnownedRaw(nullptr), Info(Info) {
+  AbsoluteRawSyntaxRef(RawSyntax *Raw, AbsoluteSyntaxInfo Info)
+      : Raw(Raw), Info(Info) {
     assert(Raw != nullptr && "AbsoluteRawSyntax must have a RawSyntax");
   }
-
-  /// Create an unowned \c AbsoluteRawSyntaxRef. \p Raw must not be \c nullptr.
-  AbsoluteRawSyntaxRef(const RawSyntax *Raw, AbsoluteSyntaxInfo Info)
-      : RefCountedRaw(nullptr), UnownedRaw(Raw), Info(Info) {
-    assert(Raw != nullptr && "AbsoluteRawSyntax must have a RawSyntax");
-  }
-
-  /// Whether the \c RawSyntax that provides this node's data is stored
-  /// reference-counted or not.
-  bool isRefCounted() const { return UnownedRaw == nullptr; }
 
   /// Get a reference to the \c RawSyntax of this node.
   const RawSyntax *getRawRef() const {
-    if (UnownedRaw) {
-      return UnownedRaw;
-    } else {
-      return RefCountedRaw.get();
-    }
+    return Raw;
   }
 
   AbsoluteSyntaxInfo getInfo() const { return Info; }
@@ -300,26 +285,23 @@ public:
 
 class AbsoluteRawSyntax : public AbsoluteRawSyntaxRef {
 public:
-  AbsoluteRawSyntax(const RC<RawSyntax> &Raw, AbsoluteSyntaxInfo Info)
+  AbsoluteRawSyntax(RawSyntax *Raw, AbsoluteSyntaxInfo Info)
       : AbsoluteRawSyntaxRef(Raw, Info) {}
 
   /// Cast a \c AbsoluteRawSyntaxRef to a \c AbsoluteRawSyntax. This requires
   /// that \p Raw is known to be ref-counted at runtime.
   explicit AbsoluteRawSyntax(const AbsoluteRawSyntaxRef &Raw)
-      : AbsoluteRawSyntaxRef(Raw.RefCountedRaw, Raw.Info) {
-    assert(Raw.isRefCounted());
+      : AbsoluteRawSyntaxRef(Raw.Raw, Raw.Info) {
   }
 
   /// Construct a \c AbsoluteRawSyntax for a \c RawSyntax node that represents
   /// the syntax tree's root.
-  static AbsoluteRawSyntax forRoot(const RC<RawSyntax> &Raw) {
+  static AbsoluteRawSyntax forRoot(RawSyntax *Raw) {
     return AbsoluteRawSyntax(Raw, AbsoluteSyntaxInfo::forRoot());
   }
 
-  const RC<RawSyntax> &getRaw() const {
-    assert(isRefCounted() &&
-           "AbsoluteRawSyntax should only ever contain ref-counted RawSyntax");
-    return RefCountedRaw;
+  RawSyntax *getRaw() const {
+    return Raw;
   }
 
   /// Construct a new \c AbsoluteRawSyntax node that has the same info as the
@@ -327,7 +309,7 @@ public:
   ///  - the \p NewRaw as the backing storage
   ///  - the \p NewRootId as the RootId
   AbsoluteRawSyntax
-  replacingSelf(const RC<RawSyntax> &NewRaw,
+  replacingSelf(RawSyntax *NewRaw,
                 SyntaxIdentifier::RootIdType NewRootId) const {
     SyntaxIdentifier NewNodeId(NewRootId, Info.getNodeId().getIndexInTree());
     AbsoluteSyntaxInfo NewInfo(Info.getPosition(), NewNodeId);
