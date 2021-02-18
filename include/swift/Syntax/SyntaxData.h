@@ -106,14 +106,14 @@ class SyntaxDataRef {
   SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(Parent),
-        UnownedParent(nullptr), Arena(AbsoluteRaw.getRaw()->getArena()) {
+        UnownedParent(nullptr), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
            "Cannot address a subtree of an unowned tree as ref-counted");
   }
   SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(Parent),
-        UnownedParent(nullptr), Arena(AbsoluteRaw.getRaw()->getArena()) {
+        UnownedParent(nullptr), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
            "Cannot address a subtree of an unowned tree as ref-counted");
   }
@@ -122,11 +122,11 @@ class SyntaxDataRef {
   /// \p AbsoluteRaw must not be reference-counted.
   SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(nullptr),
-        UnownedParent(Parent), Arena(AbsoluteRaw.getRaw()->getArena()) {
+        UnownedParent(Parent), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
   }
   SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(nullptr),
-        UnownedParent(Parent), Arena(AbsoluteRaw.getRaw()->getArena()) {
+        UnownedParent(Parent), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
   }
 
 public:
