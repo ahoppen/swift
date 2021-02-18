@@ -291,10 +291,10 @@ struct ByteBasedSourceRangeSet {
 
 int getTokensFromFile(
     unsigned BufferID, LangOptions &LangOpts, SourceManager &SourceMgr,
-    swift::DiagnosticEngine &Diags,
+    const RC<SyntaxArena> &Arena, swift::DiagnosticEngine &Diags,
     std::vector<std::pair<RC<syntax::RawSyntax>,
                           syntax::AbsoluteOffsetPosition>> &Tokens) {
-  Tokens = tokenizeWithTrivia(LangOpts, SourceMgr, BufferID,
+  Tokens = tokenizeWithTrivia(LangOpts, SourceMgr, BufferID, Arena,
                               /*Offset=*/0, /*EndOffset=*/0,
                               &Diags);
   return EXIT_SUCCESS;
@@ -302,8 +302,8 @@ int getTokensFromFile(
 
 int getTokensFromFile(
     const StringRef InputFilename, LangOptions &LangOpts,
-    SourceManager &SourceMgr, DiagnosticEngine &Diags,
-    unsigned int &OutBufferID,
+    SourceManager &SourceMgr, const RC<SyntaxArena> &Arena,
+    DiagnosticEngine &Diags, unsigned int &OutBufferID,
     std::vector<std::pair<RC<syntax::RawSyntax>,
                           syntax::AbsoluteOffsetPosition>> &Tokens) {
   auto Buffer = llvm::MemoryBuffer::getFile(InputFilename);
@@ -314,7 +314,7 @@ int getTokensFromFile(
   }
 
   OutBufferID = SourceMgr.addNewSourceBuffer(std::move(Buffer.get()));
-  return getTokensFromFile(OutBufferID, LangOpts, SourceMgr, Diags, Tokens);
+  return getTokensFromFile(OutBufferID, LangOpts, SourceMgr, Arena, Diags, Tokens);
 }
 
 void anchorForGetMainExecutable() {}
@@ -672,9 +672,10 @@ int doFullLexRoundTrip(const StringRef InputFilename) {
   Diags.addConsumer(DiagPrinter);
 
   unsigned int BufferID;
+  RC<SyntaxArena> Arena = SyntaxArena::make();
   std::vector<std::pair<RC<syntax::RawSyntax>, syntax::AbsoluteOffsetPosition>>
       Tokens;
-  if (getTokensFromFile(InputFilename, LangOpts, SourceMgr, Diags, BufferID,
+  if (getTokensFromFile(InputFilename, LangOpts, SourceMgr, Arena, Diags, BufferID,
                         Tokens) == EXIT_FAILURE) {
     return EXIT_FAILURE;
   }
@@ -694,9 +695,10 @@ int doDumpRawTokenSyntax(const StringRef InputFile) {
   Diags.addConsumer(DiagPrinter);
 
   unsigned int BufferID;
+  RC<SyntaxArena> Arena = SyntaxArena::make();
   std::vector<std::pair<RC<syntax::RawSyntax>, syntax::AbsoluteOffsetPosition>>
       Tokens;
-  if (getTokensFromFile(InputFile, LangOpts, SourceMgr, Diags, BufferID,
+  if (getTokensFromFile(InputFile, LangOpts, SourceMgr, Arena, Diags, BufferID,
                         Tokens) == EXIT_FAILURE) {
     return EXIT_FAILURE;
   }

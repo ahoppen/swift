@@ -20,6 +20,7 @@
 #include "swift/Syntax/References.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 namespace swift {
 namespace syntax {
@@ -31,6 +32,8 @@ class SyntaxArena : public llvm::RefCountedBase<SyntaxArena> {
 
   SyntaxArena(const SyntaxArena &) = delete;
   void operator=(const SyntaxArena &) = delete;
+
+  llvm::SmallPtrSet<SyntaxArena *, 4> ChildArenas;
 
   BumpAllocator Allocator;
 
@@ -44,6 +47,12 @@ class SyntaxArena : public llvm::RefCountedBase<SyntaxArena> {
 public:
   SyntaxArena() {}
 
+  ~SyntaxArena() {
+//    for (SyntaxArena *ChildArena : ChildArenas) {
+//      ChildArena->Release();
+//    }
+  }
+
   static RC<SyntaxArena> make() { return RC<SyntaxArena>(new SyntaxArena()); }
 
   void setHotUseMemoryRegion(const void *Start, const void *End) {
@@ -51,6 +60,14 @@ public:
            "The hot use memory region should be in the Arena's bump allocator");
     HotUseMemoryRegionStart = Start;
     HotUseMemoryRegionEnd = End;
+  }
+
+  void addChildArena(SyntaxArena *Arena) {
+    if (Arena == this) {
+      return;
+    }
+    Arena->Retain();
+    ChildArenas.insert(Arena);
   }
 
   BumpAllocator &getAllocator() { return Allocator; }

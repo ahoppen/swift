@@ -184,7 +184,7 @@ class RawSyntax final
   /// If this node was allocated using a \c SyntaxArena's bump allocator, a
   /// reference to the arena to keep the underlying memory buffer of this node
   /// alive. If this is a \c nullptr, the node owns its own memory buffer.
-  RC<SyntaxArena> Arena;
+  SyntaxArena *Arena;
 
   union {
     struct {
@@ -238,7 +238,7 @@ class RawSyntax final
   /// If \p NodeId is \c None, the next free NodeId is used, if it is passed,
   /// the caller needs to assure that the node ID has not been used yet.
   RawSyntax(SyntaxKind Kind, ArrayRef<RC<RawSyntax>> Layout, size_t TextLength,
-            SourcePresence Presence, const RC<SyntaxArena> &Arena,
+            SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
       : RefCount(0), Arena(Arena),
       Bits({{unsigned(TextLength), unsigned(Presence), false}}) {
@@ -250,6 +250,7 @@ class RawSyntax final
   for (auto Child : Layout) {
     if (Child) {
       TotalSubNodeCount += Child->getTotalSubNodeCount() + 1;
+      Arena->addChildArena(Child->Arena);
     }
   }
 
@@ -275,7 +276,7 @@ class RawSyntax final
   /// the caller needs to assure that the NodeId has not been used yet.
   RawSyntax(tok TokKind, StringRef Text, size_t TextLength,
             StringRef LeadingTrivia, StringRef TrailingTrivia,
-            SourcePresence Presence, const RC<SyntaxArena> &Arena,
+            SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
       : RefCount(0), Arena(Arena),
         Bits({{unsigned(TextLength), unsigned(Presence), true}}) {
@@ -337,19 +338,23 @@ public:
     }
   }
 
+  SyntaxArena *getArena() const {
+    return Arena;
+  }
+
   /// \name Factory methods.
   /// @{
 
   /// Make a raw "layout" syntax node.
   static RC<RawSyntax> make(SyntaxKind Kind, ArrayRef<RC<RawSyntax>> Layout,
                             size_t TextLength, SourcePresence Presence,
-                            const RC<SyntaxArena> &Arena = SyntaxArena::make(),
+                            const RC<SyntaxArena> &Arena,
                             llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
     auto size = totalSizeToAlloc<RC<RawSyntax>>(Layout.size());
     void *data = Arena->Allocate(size, alignof(RawSyntax));
     return RC<RawSyntax>(
-        new (data) RawSyntax(Kind, Layout, TextLength, Presence, Arena, NodeId));
+        new (data) RawSyntax(Kind, Layout, TextLength, Presence, Arena.get(), NodeId));
   }
 
   static RC<RawSyntax>
@@ -370,14 +375,14 @@ public:
   static RC<RawSyntax> make(tok TokKind, StringRef Text, size_t TextLength,
                             StringRef LeadingTrivia, StringRef TrailingTrivia,
                             SourcePresence Presence,
-                            const RC<SyntaxArena> &Arena = SyntaxArena::make(),
+                            const RC<SyntaxArena> &Arena,
                             llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
     auto size = totalSizeToAlloc<RC<RawSyntax>>(0);
     void *data = Arena->Allocate(size, alignof(RawSyntax));
     return RC<RawSyntax>(new (data)
                              RawSyntax(TokKind, Text, TextLength, LeadingTrivia,
-                                       TrailingTrivia, Presence, Arena, NodeId));
+                                       TrailingTrivia, Presence, Arena.get(), NodeId));
   }
 
   /// Make a raw "token" syntax node that was allocated in \p Arena.

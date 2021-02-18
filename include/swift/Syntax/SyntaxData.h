@@ -99,13 +99,14 @@ class SyntaxDataRef {
   /// the node does not have a parent.
   const RC<RefCountedBox<SyntaxDataRef>> RefCountedParent;
   const SyntaxDataRef *UnownedParent;
+  const RC<SyntaxArena> Arena;
 
   /// Create a reference-counted \c SyntaxDataRef. \p AbsoluteRaw must be
   /// reference-counted and \p Parent must be \c nullptr or also ref-counted.
   SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(Parent),
-        UnownedParent(nullptr) {
+        UnownedParent(nullptr), Arena(AbsoluteRaw.getRawRef()->getArena()) {
     assert(AbsoluteRaw.isRefCounted() &&
            "If parent is ref-counted, AbsoluteRaw must also be ref-counted");
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
@@ -114,7 +115,7 @@ class SyntaxDataRef {
   SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(Parent),
-        UnownedParent(nullptr) {
+        UnownedParent(nullptr), Arena(AbsoluteRaw.getRawRef()->getArena()) {
     assert(AbsoluteRaw.isRefCounted() &&
            "If parent is ref-counted, AbsoluteRaw must also be ref-counted");
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
@@ -125,7 +126,7 @@ class SyntaxDataRef {
   /// \p AbsoluteRaw must not be reference-counted.
   SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(nullptr),
-        UnownedParent(Parent) {
+        UnownedParent(Parent), Arena(AbsoluteRaw.getRawRef()->getArena()) {
     if (Parent != nullptr) {
       assert(!AbsoluteRaw.isRefCounted() &&
              "If parent is unowned, AbsoluteRaw must also be unowned");
@@ -133,7 +134,7 @@ class SyntaxDataRef {
   }
   SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(nullptr),
-        UnownedParent(Parent) {
+        UnownedParent(Parent), Arena(AbsoluteRaw.getRawRef()->getArena()) {
     if (Parent != nullptr) {
       assert(!AbsoluteRaw.isRefCounted() &&
              "If parent is unowned, AbsoluteRaw must also be unowned");

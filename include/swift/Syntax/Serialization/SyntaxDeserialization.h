@@ -25,8 +25,23 @@
 #include "llvm/Support/YAMLTraits.h"
 #include <forward_list>
 
+namespace swift {
+namespace json {
+class SyntaxInput : public llvm::yaml::Input {
+public:
+  RC<SyntaxArena> Arena;
+
+  SyntaxInput(llvm::StringRef InputContent, const RC<SyntaxArena> &Arena) : llvm::yaml::Input(InputContent), Arena(Arena) {}
+  SyntaxInput(llvm::MemoryBufferRef buffer, const RC<SyntaxArena> &Arena) : llvm::yaml::Input(buffer), Arena(Arena) {}
+
+};
+}
+}
+
 namespace llvm {
 namespace yaml {
+
+using swift::json::SyntaxInput;
 
 /// Deserialization traits for SourcePresence.
 template <> struct ScalarEnumerationTraits<swift::SourcePresence> {
@@ -141,7 +156,7 @@ template <> struct MappingTraits<TokenDescription> {
 template <> struct MappingTraits<swift::RC<swift::RawSyntax>> {
   static void mapping(IO &in, swift::RC<swift::RawSyntax> &value) {
     TokenDescription description;
-    auto input = static_cast<Input *>(&in);
+    auto input = static_cast<SyntaxInput *>(&in);
     /// Check whether this is null
     if (input->getCurrentNode()->getType() != Node::NodeKind::NK_Mapping) {
       return;
@@ -164,7 +179,7 @@ template <> struct MappingTraits<swift::RC<swift::RawSyntax>> {
       unsigned nodeId = std::atoi(nodeIdString.data());
       value = swift::RawSyntax::makeAndCalcLength(
           tokenKind, text, leadingTrivia, trailingTrivia, presence,
-          swift::SyntaxArena::make(), nodeId);
+          input->Arena, nodeId);
     } else {
       swift::SyntaxKind kind;
       in.mapRequired("kind", kind);
@@ -179,7 +194,7 @@ template <> struct MappingTraits<swift::RC<swift::RawSyntax>> {
       in.mapRequired("id", nodeIdString);
       unsigned nodeId = std::atoi(nodeIdString.data());
       value = swift::RawSyntax::makeAndCalcLength(
-          kind, layout, presence, swift::SyntaxArena::make(), nodeId);
+          kind, layout, presence, input->Arena, nodeId);
     }
   }
 };
@@ -190,11 +205,11 @@ template <> struct MappingTraits<swift::RC<swift::RawSyntax>> {
 namespace swift {
 namespace json {
 class SyntaxDeserializer {
-  llvm::yaml::Input Input;
+  SyntaxInput Input;
 
 public:
-  SyntaxDeserializer(llvm::StringRef InputContent) : Input(InputContent) {}
-  SyntaxDeserializer(llvm::MemoryBufferRef buffer) : Input(buffer) {}
+  SyntaxDeserializer(llvm::StringRef InputContent, RC<SyntaxArena> Arena = SyntaxArena::make()) : Input(InputContent, Arena) {}
+  SyntaxDeserializer(llvm::MemoryBufferRef buffer, RC<SyntaxArena> Arena = SyntaxArena::make()) : Input(buffer, Arena) {}
   llvm::Optional<swift::SourceFileSyntax> getSourceFileSyntax() {
     swift::RC<swift::RawSyntax> raw;
     Input >> raw;

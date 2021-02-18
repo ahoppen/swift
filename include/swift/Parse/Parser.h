@@ -2120,8 +2120,9 @@ bool isKeywordPossibleDeclStart(const Token &Tok);
 /// leading and trailing trivia.
 std::vector<std::pair<RC<syntax::RawSyntax>, syntax::AbsoluteOffsetPosition>>
 tokenizeWithTrivia(const LangOptions &LangOpts, const SourceManager &SM,
-                   unsigned BufferID, unsigned Offset = 0,
-                   unsigned EndOffset = 0, DiagnosticEngine *Diags = nullptr);
+                   unsigned BufferID, const RC<SyntaxArena> &Arena,
+                   unsigned Offset = 0, unsigned EndOffset = 0,
+                   DiagnosticEngine *Diags = nullptr);
 } // end namespace swift
 
 #endif
