@@ -23,13 +23,13 @@
 
 % for node in SYNTAX_NODES + PARSEONLY_NODES:
 %   if is_visitable(node):
-void swift::syntax::SyntaxVisitor::visit(${node.name} node) {
+void swift::syntax::SyntaxVisitor::visit(const ${node.name} &node) {
   visitChildren(node);
 }
 %   end
 % end
 
-void swift::syntax::SyntaxVisitor::visit(Syntax node) {
+void swift::syntax::SyntaxVisitor::visit(const Syntax &node) {
   visitPre(node);
   SWIFT_DEFER { visitPost(node); };
   switch (node.getKind()) {

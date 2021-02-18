@@ -140,7 +140,7 @@ SyntaxParsingCache::getReusedRegions(const SourceFileSyntax &SyntaxTree) const {
       return ReusedRegions;
     }
 
-    void visit(Syntax Node) override {
+    void visit(const Syntax &Node) override {
       if (didReuseNode(Node.getId())) {
         // Node has been reused, add it to the list
         auto Start = Node.getAbsolutePositionBeforeLeadingTrivia();

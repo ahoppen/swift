@@ -55,7 +55,7 @@ class SyntaxVerifier: public SyntaxVisitor {
   DiagnosticEngine &Diags;
 
   template<class T>
-  SourceLoc getSourceLoc(T Node) {
+  SourceLoc getSourceLoc(const T &Node) {
     return SourceMgr.getLocForOffset(
         BufferID, Node.getAbsolutePositionAfterLeadingTrivia().getOffset());
   }
@@ -63,27 +63,27 @@ public:
   SyntaxVerifier( SourceManager &SM, unsigned bufID, DiagnosticEngine &diags)
     : SourceMgr(SM), BufferID(bufID), Diags(diags) {}
 
-  void visit(UnknownDeclSyntax Node) override {
+  void visit(const UnknownDeclSyntax &Node) override {
     Diags.diagnose(getSourceLoc(Node), diag::unknown_syntax_entity,
                    "declaration");
     visitChildren(Node);
   }
-  void visit(UnknownExprSyntax Node) override {
+  void visit(const UnknownExprSyntax &Node) override {
     Diags.diagnose(getSourceLoc(Node), diag::unknown_syntax_entity,
                    "expression");
     visitChildren(Node);
   }
-  void visit(UnknownStmtSyntax Node) override {
+  void visit(const UnknownStmtSyntax &Node) override {
     Diags.diagnose(getSourceLoc(Node), diag::unknown_syntax_entity,
                    "statement");
     visitChildren(Node);
   }
-  void visit(UnknownTypeSyntax Node) override {
+  void visit(const UnknownTypeSyntax &Node) override {
     Diags.diagnose(getSourceLoc(Node), diag::unknown_syntax_entity,
                    "type");
     visitChildren(Node);
   }
-  void visit(UnknownPatternSyntax Node) override {
+  void visit(const UnknownPatternSyntax &Node) override {
     Diags.diagnose(getSourceLoc(Node), diag::unknown_syntax_entity,
                    "pattern");
     visitChildren(Node);

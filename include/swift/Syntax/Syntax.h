@@ -42,7 +42,7 @@ class TokenSyntax;
 
 template <typename SyntaxNode> SyntaxNode makeRoot(RawSyntax *Raw) {
   auto Data = SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr);
-  return SyntaxNode(Data);
+  return SyntaxNode(std::move(Data));
 }
 
 const auto NoParent = llvm::None;

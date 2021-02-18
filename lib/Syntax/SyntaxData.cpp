@@ -21,7 +21,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
     AbsoluteSyntaxPosition::IndexInParentType Index) const {
   auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
   if (AbsoluteRaw) {
-    return SyntaxDataRef(*AbsoluteRaw, /*Parent=*/this);
+    return SyntaxDataRef(*AbsoluteRaw, /*Parent=*/const_cast<SyntaxDataRef *>(this), /*IsParentOwned=*/false);
   } else {
     return None;
   }
@@ -30,7 +30,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
 SyntaxDataRef SyntaxDataRef::getPresentChildRef(
     AbsoluteSyntaxPosition::IndexInParentType Index) const {
   auto AbsoluteRaw = getAbsoluteRaw().getPresentChild(Index);
-  return SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/this);
+  return SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this), /*IsParentOwned=*/false);
 }
 
 Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {

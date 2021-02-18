@@ -34,17 +34,17 @@ struct SyntaxVisitor {
 
 % for node in SYNTAX_NODES + PARSEONLY_NODES:
 %   if is_visitable(node):
-  virtual void visit(${node.name} node);
+  virtual void visit(const ${node.name} &node);
 %   end
 % end
 
-  virtual void visit(TokenSyntax token) {}
+  virtual void visit(const TokenSyntax &token) {}
 
-  virtual void visitPre(Syntax node) {}
-  virtual void visitPost(Syntax node) {}
-  virtual void visit(Syntax node);
+  virtual void visitPre(const Syntax &node) {}
+  virtual void visitPost(const Syntax &node) {}
+  virtual void visit(const Syntax &node);
 
-  void visitChildren(Syntax node) {
+  void visitChildren(const Syntax &node) {
     for (unsigned i = 0, e = node.getNumChildren(); i != e; ++i) {
       if (auto Child = node.getChild(i))
         visit(*Child);

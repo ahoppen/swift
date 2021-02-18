@@ -92,49 +92,41 @@ public:
 class SyntaxDataRef {
   friend class SyntaxData;
 
-  const AbsoluteRawSyntax AbsoluteRaw;
+  AbsoluteRawSyntax AbsoluteRaw;
 
   /// The parent can be stored either ref-counted or unsafe by a direct pointer.
   /// Either of those must always be \c nullptr. If both are \c nullptr, then
   /// the node does not have a parent.
-  const RC<RefCountedBox<SyntaxDataRef>> RefCountedParent;
-  const SyntaxDataRef *UnownedParent;
-  const RC<SyntaxArena> Arena;
-
-  /// Create a reference-counted \c SyntaxDataRef. \p AbsoluteRaw must be
-  /// reference-counted and \p Parent must be \c nullptr or also ref-counted.
-  SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw,
-                const RC<RefCountedBox<SyntaxDataRef>> &Parent)
-      : AbsoluteRaw(AbsoluteRaw), RefCountedParent(Parent),
-        UnownedParent(nullptr), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
-    assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
-           "Cannot address a subtree of an unowned tree as ref-counted");
-  }
-  SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw,
-                const RC<RefCountedBox<SyntaxDataRef>> &Parent)
-      : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(Parent),
-        UnownedParent(nullptr), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
-    assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
-           "Cannot address a subtree of an unowned tree as ref-counted");
-  }
-
+  llvm::PointerIntPair<SyntaxDataRef *, 1, /*IsOwned*/bool> Parent;
+  RC<SyntaxArena> Arena;
+  
   /// Create an unowned \c SyntaxDataRef.
   /// \p AbsoluteRaw must not be reference-counted.
-  SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw, const SyntaxDataRef *Parent)
-      : AbsoluteRaw(AbsoluteRaw), RefCountedParent(nullptr),
-        UnownedParent(Parent), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
+  SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw, SyntaxDataRef *Parent, bool IsParentOwned)
+      : AbsoluteRaw(AbsoluteRaw), Parent(Parent, IsParentOwned), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
   }
-  SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw, const SyntaxDataRef *Parent)
-      : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(nullptr),
-        UnownedParent(Parent), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
+  SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw, SyntaxDataRef *Parent, bool IsParentOwned)
+      : AbsoluteRaw(std::move(AbsoluteRaw)), Parent(Parent, IsParentOwned), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
   }
 
 public:
-  // MARK: - Retrieving underlying storage
-
-  bool isRefCounted() const {
-    return UnownedParent == nullptr;
+  SyntaxDataRef(const SyntaxDataRef &Other) : AbsoluteRaw(Other.AbsoluteRaw), Parent(
+     (Other.Parent.getInt() && Other.Parent.getPointer()) ? new SyntaxDataRef(*Other.Parent.getPointer()) : Other.Parent.getPointer(),
+     Other.Parent.getInt()
+                                                                                     ), Arena(Other.Arena) {
   }
+  SyntaxDataRef(SyntaxDataRef &&Other) : AbsoluteRaw(std::move(Other.AbsoluteRaw)), Parent(std::move(Other.Parent)), Arena(std::move(Other.Arena)) {
+    Other.Parent.setPointer(nullptr);
+    Other.Arena = nullptr;
+  }
+  
+  ~SyntaxDataRef() {
+    if (Parent.getInt() && Parent.getPointer()) {
+      delete Parent.getPointer();
+    }
+  }
+  
+  // MARK: - Retrieving underlying storage
 
   const AbsoluteRawSyntax &getAbsoluteRaw() const { return AbsoluteRaw; }
 
@@ -144,10 +136,8 @@ public:
   // MARK: - Retrieving related nodes
 
   Optional<SyntaxDataRef> getParentRef() const {
-    if (UnownedParent) {
-      return *UnownedParent;
-    } else if (RefCountedParent) {
-      return RefCountedParent->Data;
+    if (Parent.getPointer()) {
+      return *Parent.getPointer();
     } else {
       return None;
     }
@@ -247,23 +237,27 @@ public:
 class SyntaxData : public SyntaxDataRef {
 
   SyntaxData(AbsoluteRawSyntax AbsoluteRaw, const SyntaxData &Parent)
-      : SyntaxDataRef(AbsoluteRaw, RefCountedBox<SyntaxDataRef>::make(Parent)) {
+    : SyntaxDataRef(AbsoluteRaw, new SyntaxData(Parent), /*IsParentOwned=*/true) {
   }
 
 public:
   // MARK: - Creating new SyntaxData
 
+  SyntaxData(const SyntaxData &Other) : SyntaxDataRef(Other) {}
+  SyntaxData(SyntaxData &&Other) : SyntaxDataRef(std::move(Other)) {}
+  
   /// Create a \c SyntaxData for a tree's root (i.e. a node without a parent).
   SyntaxData(const AbsoluteRawSyntax &AbsoluteRaw, std::nullptr_t Parent)
-      : SyntaxDataRef(AbsoluteRaw, nullptr) {}
+      : SyntaxDataRef(AbsoluteRaw, nullptr, /*IsParentOwned=*/false) {}
   SyntaxData(AbsoluteRawSyntax &&AbsoluteRaw, std::nullptr_t Parent)
-      : SyntaxDataRef(std::move(AbsoluteRaw), nullptr) {}
+      : SyntaxDataRef(std::move(AbsoluteRaw), nullptr, /*IsParentOwned=*/false) {}
 
   /// Cast a \c SyntaxDataRef to a \c SyntaxData. This requires that \c Ref is
   /// known to be reference counted.
   explicit SyntaxData(const SyntaxDataRef &Ref)
-      : SyntaxDataRef(Ref.AbsoluteRaw, Ref.RefCountedParent) {
-    assert(Ref.isRefCounted());
+      : SyntaxDataRef(Ref.AbsoluteRaw,
+        Ref.Parent.getPointer() ? new SyntaxDataRef(*Ref.Parent.getPointer()) : nullptr,
+        /*IsParentOwned=*/true) {
   }
 
   // MARK: - Retrieving underlying storage
