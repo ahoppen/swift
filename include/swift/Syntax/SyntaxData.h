@@ -92,7 +92,7 @@ public:
 class SyntaxDataRef {
   friend class SyntaxData;
 
-  const AbsoluteRawSyntaxRef AbsoluteRaw;
+  const AbsoluteRawSyntax AbsoluteRaw;
 
   /// The parent can be stored either ref-counted or unsafe by a direct pointer.
   /// Either of those must always be \c nullptr. If both are \c nullptr, then
@@ -103,30 +103,30 @@ class SyntaxDataRef {
 
   /// Create a reference-counted \c SyntaxDataRef. \p AbsoluteRaw must be
   /// reference-counted and \p Parent must be \c nullptr or also ref-counted.
-  SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw,
+  SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(Parent),
-        UnownedParent(nullptr), Arena(AbsoluteRaw.getRawRef()->getArena()) {
+        UnownedParent(nullptr), Arena(AbsoluteRaw.getRaw()->getArena()) {
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
            "Cannot address a subtree of an unowned tree as ref-counted");
   }
-  SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw,
+  SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw,
                 const RC<RefCountedBox<SyntaxDataRef>> &Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(Parent),
-        UnownedParent(nullptr), Arena(AbsoluteRaw.getRawRef()->getArena()) {
+        UnownedParent(nullptr), Arena(AbsoluteRaw.getRaw()->getArena()) {
     assert((Parent == nullptr || Parent->Data.isRefCounted()) &&
            "Cannot address a subtree of an unowned tree as ref-counted");
   }
 
   /// Create an unowned \c SyntaxDataRef.
   /// \p AbsoluteRaw must not be reference-counted.
-  SyntaxDataRef(const AbsoluteRawSyntaxRef &AbsoluteRaw, const SyntaxDataRef *Parent)
+  SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(AbsoluteRaw), RefCountedParent(nullptr),
-        UnownedParent(Parent), Arena(AbsoluteRaw.getRawRef()->getArena()) {
+        UnownedParent(Parent), Arena(AbsoluteRaw.getRaw()->getArena()) {
   }
-  SyntaxDataRef(AbsoluteRawSyntaxRef &&AbsoluteRaw, const SyntaxDataRef *Parent)
+  SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw, const SyntaxDataRef *Parent)
       : AbsoluteRaw(std::move(AbsoluteRaw)), RefCountedParent(nullptr),
-        UnownedParent(Parent), Arena(AbsoluteRaw.getRawRef()->getArena()) {
+        UnownedParent(Parent), Arena(AbsoluteRaw.getRaw()->getArena()) {
   }
 
 public:
@@ -136,10 +136,10 @@ public:
     return UnownedParent == nullptr;
   }
 
-  const AbsoluteRawSyntaxRef &getAbsoluteRawRef() const { return AbsoluteRaw; }
+  const AbsoluteRawSyntax &getAbsoluteRaw() const { return AbsoluteRaw; }
 
   /// Returns the raw syntax node for this syntax node.
-  const RawSyntax *getRawRef() const { return getAbsoluteRawRef().getRawRef(); }
+  const RawSyntax *getRawRef() const { return getAbsoluteRaw().getRaw(); }
 
   // MARK: - Retrieving related nodes
 
@@ -185,7 +185,7 @@ public:
   /// Returns the child index of this node in its parent, if it has a parent,
   /// otherwise 0.
   AbsoluteSyntaxPosition::IndexInParentType getIndexInParent() const {
-    return getAbsoluteRawRef().getPosition().getIndexInParent();
+    return getAbsoluteRaw().getPosition().getIndexInParent();
   }
   
   /// Get the node immediately before this current node that does contain a
@@ -267,11 +267,7 @@ public:
   }
 
   // MARK: - Retrieving underlying storage
-
-  AbsoluteRawSyntax getAbsoluteRaw() const {
-    return AbsoluteRawSyntax(getAbsoluteRawRef());
-  }
-
+  
   /// Returns the raw syntax node for this syntax node.
   RawSyntax *getRaw() const { return getAbsoluteRaw().getRaw(); }
 

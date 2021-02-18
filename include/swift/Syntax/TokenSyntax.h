@@ -82,30 +82,30 @@ public:
 /// nodes, this code is gyb-generated but since we don't generate \c TokenSyntax
 /// the easiest way is to just duplicate it.
 class TokenSyntaxRef final : public SyntaxRef {
-  void validate() const { assert(getRawRef()->isToken()); }
+  void validate() const { assert(getRaw()->isToken()); }
 
 public:
   TokenSyntaxRef(const SyntaxDataRef &Data) : SyntaxRef(Data) {}
 
   TokenSyntaxRef(const TokenSyntax &Token) : SyntaxRef(Token.getData()) {}
 
-  StringRef getLeadingTrivia() const { return getRawRef()->getLeadingTrivia(); }
+  StringRef getLeadingTrivia() const { return getRaw()->getLeadingTrivia(); }
   Trivia getLeadingTriviaPieces() const {
-    return getRawRef()->getLeadingTriviaPieces();
+    return getRaw()->getLeadingTriviaPieces();
   }
 
   StringRef getTrailingTrivia() const {
-    return getRawRef()->getTrailingTrivia();
+    return getRaw()->getTrailingTrivia();
   }
   Trivia getTrailingTriviaPieces() const {
-    return getRawRef()->getTrailingTriviaPieces();
+    return getRaw()->getTrailingTriviaPieces();
   }
 
-  bool isMissing() const { return getRawRef()->isMissing(); }
+  bool isMissing() const { return getRaw()->isMissing(); }
 
-  tok getTokenKind() const { return getRawRef()->getTokenKind(); }
+  tok getTokenKind() const { return getRaw()->getTokenKind(); }
 
-  StringRef getText() const { return getRawRef()->getTokenText(); }
+  StringRef getText() const { return getRaw()->getTokenText(); }
 
   StringRef getIdentifierText() const {
     StringRef text = getText();

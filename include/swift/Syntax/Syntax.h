@@ -70,25 +70,25 @@ public:
   /// Get the Data for this Syntax node.
   const SyntaxDataRef &getDataRef() const { return Data; }
 
-  const AbsoluteRawSyntaxRef &getAbsoluteRawRef() const {
-    return getDataRef().getAbsoluteRawRef();
+  const AbsoluteRawSyntax &getAbsoluteRaw() const {
+    return getDataRef().getAbsoluteRaw();
   }
   
   /// Get the shared raw syntax.
-  const RawSyntax *getRawRef() const { return getDataRef().getRawRef(); }
+  const RawSyntax *getRaw() const { return getDataRef().getRawRef(); }
 
   /// Get the kind of syntax.
-  SyntaxKind getKind() const { return getRawRef()->getKind(); }
+  SyntaxKind getKind() const { return getRaw()->getKind(); }
 
   /// Get an ID for the \c RawSyntax node backing this \c Syntax which is
   /// stable across incremental parses.
   /// Note that this is different from the \c AbsoluteRawSyntax's \c NodeId,
   /// which uniquely identifies this node in the tree, but is not stable across
   /// incremental parses.
-  SyntaxNodeId getId() const { return getRawRef()->getId(); }
+  SyntaxNodeId getId() const { return getRaw()->getId(); }
 
   /// Return the number of bytes this node takes when spelled out in the source
-  size_t getTextLength() const { return getRawRef()->getTextLength(); }
+  size_t getTextLength() const { return getRaw()->getTextLength(); }
 
   // MARK: Parents/children
 
@@ -165,32 +165,32 @@ public:
   // MARK: - Get node kind
 
   /// Returns true if this syntax node represents a token.
-  bool isToken() const { return getRawRef()->isToken(); }
+  bool isToken() const { return getRaw()->isToken(); }
 
   /// Returns true if this syntax node represents a statement.
-  bool isStmt() const { return getRawRef()->isStmt(); }
+  bool isStmt() const { return getRaw()->isStmt(); }
 
   /// Returns true if this syntax node represents a declaration.
-  bool isDecl() const { return getRawRef()->isDecl(); }
+  bool isDecl() const { return getRaw()->isDecl(); }
 
   /// Returns true if this syntax node represents an expression.
-  bool isExpr() const { return getRawRef()->isExpr(); }
+  bool isExpr() const { return getRaw()->isExpr(); }
 
   /// Returns true if this syntax node represents a pattern.
-  bool isPattern() const { return getRawRef()->isPattern(); }
+  bool isPattern() const { return getRaw()->isPattern(); }
 
   /// Returns true if this syntax node represents a type.
-  bool isType() const { return getRawRef()->isType(); }
+  bool isType() const { return getRaw()->isType(); }
 
   /// Returns true if this syntax is of some "unknown" kind.
-  bool isUnknown() const { return getRawRef()->isUnknown(); }
+  bool isUnknown() const { return getRaw()->isUnknown(); }
 
   /// Returns true if the node is "missing" in the source (i.e. it was
   /// expected (or optional) but not written.
-  bool isMissing() const { return getRawRef()->isMissing(); }
+  bool isMissing() const { return getRaw()->isMissing(); }
 
   /// Returns true if the node is "present" in the source.
-  bool isPresent() const { return getRawRef()->isPresent(); }
+  bool isPresent() const { return getRaw()->isPresent(); }
 
   // MARK: Casting
 
@@ -233,7 +233,7 @@ public:
   /// Print the syntax node with full fidelity to the given output stream.
   void print(llvm::raw_ostream &OS,
              SyntaxPrintOptions Opts = SyntaxPrintOptions()) const {
-    if (auto Raw = getRawRef()) {
+    if (auto Raw = getRaw()) {
       Raw->print(OS, Opts);
     }
   }
@@ -241,15 +241,15 @@ public:
   /// Print a debug representation of the syntax node to the given output stream
   /// and indentation level.
   void dump(llvm::raw_ostream &OS, unsigned Indent = 0) const {
-    getRawRef()->dump(OS, Indent);
+    getRaw()->dump(OS, Indent);
   }
 
   /// Print a debug representation of the syntax node to standard error.
-  SWIFT_DEBUG_DUMP { getRawRef()->dump(); }
+  SWIFT_DEBUG_DUMP { getRaw()->dump(); }
 
   bool hasSameIdentityAs(const SyntaxRef &Other) const {
-    return getDataRef().getAbsoluteRawRef().getNodeId() ==
-           Other.getDataRef().getAbsoluteRawRef().getNodeId();
+    return getDataRef().getAbsoluteRaw().getNodeId() ==
+           Other.getDataRef().getAbsoluteRaw().getNodeId();
   }
 };
 

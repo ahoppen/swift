@@ -59,7 +59,7 @@ public:
   bool empty() const { return size() == 0; }
 
   /// Returns the number of elements in the collection.
-  size_t size() const { return getRawRef()->getLayout().size(); }
+  size_t size() const { return getRaw()->getLayout().size(); }
 
   SyntaxCollectionRefIterator<CollectionKind, Element> begin() const {
     return SyntaxCollectionRefIterator<CollectionKind, Element>{
@@ -71,7 +71,7 @@ public:
   SyntaxCollectionRefIterator<CollectionKind, Element> end() const {
     return SyntaxCollectionRefIterator<CollectionKind, Element>{
         /*Collection=*/*this,
-        /*Index=*/getRawRef()->getLayout().size(),
+        /*Index=*/getRaw()->getLayout().size(),
     };
   }
 

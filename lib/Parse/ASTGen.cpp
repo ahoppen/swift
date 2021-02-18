@@ -126,13 +126,13 @@ SourceRange ASTGen::getASTRange(const SyntaxRef &Node) {
   //  ^       ^
   //  Start   End
 
-  auto firstToken = Node.getAbsoluteRawRef().getFirstTokenRef();
-  auto lastToken = Node.getAbsoluteRawRef().getLastTokenRef();
+  auto firstToken = Node.getAbsoluteRaw().getFirstToken();
+  auto lastToken = Node.getAbsoluteRaw().getLastToken();
   assert(firstToken.hasValue() == lastToken.hasValue() &&
          "Either the node contains present tokens or not");
   if (firstToken && lastToken) {
-    assert(!firstToken->getRawRef()->isMissing() &&
-           !lastToken->getRawRef()->isMissing());
+    assert(!firstToken->getRaw()->isMissing() &&
+           !lastToken->getRaw()->isMissing());
     // The node contains a non-missing token
     SourceLoc StartLoc = getLoc(*firstToken);
     SourceLoc EndLoc = getLoc(*lastToken);
@@ -143,7 +143,7 @@ SourceRange ASTGen::getASTRange(const SyntaxRef &Node) {
   // current best practice in the AST, we use the range of the *previous*
   // token to represent the node's source range in the AST.
   if (auto previousNode = Node.getPreviousNodeRef()) {
-    auto previousToken = previousNode->getAbsoluteRawRef().getLastTokenRef();
+    auto previousToken = previousNode->getAbsoluteRaw().getLastToken();
     assert(previousToken && "getPreviousNode always returns a node which "
                             "contains a non-missing token");
     return SourceRange(getLoc(*previousToken));

@@ -280,20 +280,20 @@ private:
     if (Token.isMissing()) {
       return SourceLoc();
     } else {
-      return getLoc(Token.getAbsoluteRawRef());
+      return getLoc(Token.getAbsoluteRaw());
     }
   }
 
   /// Return the start location of this token. If the token is missing, return
   /// an invalid location. The result of this method can safely be used to
   /// describe source locations in the AST.
-  SourceLoc getLoc(const AbsoluteRawSyntaxRef &AbsoluteRaw) {
-    if (AbsoluteRaw.getRawRef()->isMissing()) {
+  SourceLoc getLoc(const AbsoluteRawSyntax &AbsoluteRaw) {
+    if (AbsoluteRaw.getRaw()->isMissing()) {
       return SourceLoc();
     } else {
       return TreeStartLoc.getAdvancedLoc(
           AbsoluteRaw.getPosition().getOffset() +
-          AbsoluteRaw.getRawRef()->getLeadingTriviaLength());
+          AbsoluteRaw.getRaw()->getLeadingTriviaLength());
     }
   }
 

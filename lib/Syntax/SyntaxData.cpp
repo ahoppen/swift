@@ -19,7 +19,7 @@ using namespace swift::syntax;
 
 Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
     AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  auto AbsoluteRaw = getAbsoluteRawRef().getChildRef(Index);
+  auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
   if (AbsoluteRaw) {
     return SyntaxDataRef(*AbsoluteRaw, /*Parent=*/this);
   } else {
@@ -29,7 +29,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
 
 SyntaxDataRef SyntaxDataRef::getPresentChildRef(
     AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  auto AbsoluteRaw = getAbsoluteRawRef().getPresentChildRef(Index);
+  auto AbsoluteRaw = getAbsoluteRaw().getPresentChild(Index);
   return SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/this);
 }
 
@@ -39,7 +39,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
       for (size_t I = N - 1;; --I) {
         if (auto C = getParentRef()->getChildRef(I)) {
           if (C->getRawRef()->isPresent() &&
-              C->getAbsoluteRawRef().getFirstTokenRef() != None) {
+              C->getAbsoluteRaw().getFirstToken() != None) {
             return C;
           }
         }
@@ -58,7 +58,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getNextNodeRef() const {
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
       if (auto C = getParentRef()->getChildRef(I)) {
         if (C->getRawRef()->isPresent() &&
-            C->getAbsoluteRawRef().getFirstTokenRef() != None) {
+            C->getAbsoluteRaw().getFirstToken() != None) {
           return C;
         }
       }
@@ -75,9 +75,9 @@ SyntaxDataRef::getAbsolutePositionBeforeLeadingTrivia() const {
 
 AbsoluteOffsetPosition
 SyntaxDataRef::getAbsolutePositionAfterLeadingTrivia() const {
-  if (auto FirstToken = getAbsoluteRawRef().getFirstTokenRef()) {
+  if (auto FirstToken = getAbsoluteRaw().getFirstToken()) {
     return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
-        FirstToken->getRawRef()->getLeadingTriviaLength());
+        FirstToken->getRaw()->getLeadingTriviaLength());
   } else {
     return getAbsolutePositionBeforeLeadingTrivia();
   }
@@ -85,9 +85,9 @@ SyntaxDataRef::getAbsolutePositionAfterLeadingTrivia() const {
 
 AbsoluteOffsetPosition
 SyntaxDataRef::getAbsoluteEndPositionBeforeTrailingTrivia() const {
-  if (auto LastToken = getAbsoluteRawRef().getLastTokenRef()) {
+  if (auto LastToken = getAbsoluteRaw().getLastToken()) {
     return getAbsoluteEndPositionAfterTrailingTrivia().advancedBy(
-        -LastToken->getRawRef()->getTrailingTriviaLength());
+        -LastToken->getRaw()->getTrailingTriviaLength());
   } else {
     return getAbsoluteEndPositionAfterTrailingTrivia();
   }
