@@ -62,24 +62,24 @@ Expr *ASTGen::generate(const BooleanLiteralExprSyntax &Expr) {
   assert(Literal.getTokenKind() == tok::kw_true ||
          Literal.getTokenKind() == tok::kw_false);
   bool Value = Literal.getTokenKind() == tok::kw_true;
-  return new (Context) BooleanLiteralExpr(Value, getLoc(Literal));
+  return new (*Context) BooleanLiteralExpr(Value, getLoc(Literal));
 }
 
 Expr *ASTGen::generate(const FloatLiteralExprSyntax &Expr) {
   TokenSyntax Digits = Expr.getFloatingDigits();
   StringRef Text = copyAndStripUnderscores(Digits.getText());
-  return new (Context) FloatLiteralExpr(Text, getLoc(Digits));
+  return new (*Context) FloatLiteralExpr(Text, getLoc(Digits));
 }
 
 Expr *ASTGen::generate(const IntegerLiteralExprSyntax &Expr) {
   TokenSyntax Digits = Expr.getDigits();
   StringRef Text = copyAndStripUnderscores(Digits.getText());
-  return new (Context) IntegerLiteralExpr(Text, getLoc(Digits));
+  return new (*Context) IntegerLiteralExpr(Text, getLoc(Digits));
 }
 
 Expr *ASTGen::generate(const NilLiteralExprSyntax &Expr) {
   TokenSyntax Nil = Expr.getNilKeyword();
-  return new (Context) NilLiteralExpr(getLoc(Nil));
+  return new (*Context) NilLiteralExpr(getLoc(Nil));
 }
 
 Expr *ASTGen::generate(const PoundColumnExprSyntax &Expr) {
@@ -121,7 +121,7 @@ Expr *ASTGen::generate(const UnknownExprSyntax &Expr) {
     case tok::kw___FUNCTION__:
     case tok::kw___DSO_HANDLE__: {
       auto MagicKind = getMagicIdentifierLiteralKind(Kind);
-      return new (Context) MagicIdentifierLiteralExpr(MagicKind, getLoc(Token));
+      return new (*Context) MagicIdentifierLiteralExpr(MagicKind, getLoc(Token));
     }
     default:
       return nullptr;
@@ -135,7 +135,7 @@ Expr *ASTGen::generate(const UnknownExprSyntax &Expr) {
 
 Expr *ASTGen::generateMagicIdentifierLiteralExpr(const TokenSyntax &Token) {
   auto Kind = getMagicIdentifierLiteralKind(Token.getTokenKind());
-  return new (Context) MagicIdentifierLiteralExpr(Kind, getLoc(Token));
+  return new (*Context) MagicIdentifierLiteralExpr(Kind, getLoc(Token));
 }
 
 /// Map magic literal tokens such as #file to their
@@ -145,7 +145,7 @@ ASTGen::getMagicIdentifierLiteralKind(tok Kind) {
   switch (Kind) {
   case tok::pound_file:
     // TODO: Enable by default at the next source break. (SR-13199)
-    return Context.LangOpts.EnableConcisePoundFile
+    return Context->LangOpts.EnableConcisePoundFile
                ? MagicIdentifierLiteralExpr::FileIDSpelledAsFile
                : MagicIdentifierLiteralExpr::FilePathSpelledAsFile;
 #define MAGIC_IDENTIFIER_TOKEN(NAME, TOKEN)                                    \

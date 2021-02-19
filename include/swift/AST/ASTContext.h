@@ -224,7 +224,7 @@ public:
 
 class ASTContext final {
   ASTContext(const ASTContext&) = delete;
-  void operator=(const ASTContext&) = delete;
+//  void operator=(const ASTContext&) = delete;
 
   ASTContext(LangOptions &langOpts, TypeCheckerOptions &typeckOpts,
              SearchPathOptions &SearchPathOpts,

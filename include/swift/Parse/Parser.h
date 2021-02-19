@@ -408,6 +408,7 @@ public:
   /// Has \c AvailabilityMacros been computed?
   bool AvailabilityMacrosComputed = false;
 
+public:
   /// The AST generator that generates AST nodes from libSyntax nodes.
   ASTGen ASTGenerator;
 

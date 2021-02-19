@@ -33,7 +33,7 @@ StringRef ASTGen::copyAndStripUnderscores(StringRef Orig, ASTContext &Context) {
 }
 
 StringRef ASTGen::copyAndStripUnderscores(StringRef Orig) {
-  return copyAndStripUnderscores(Orig, Context);
+  return copyAndStripUnderscores(Orig, *Context);
 }
 
 DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
@@ -51,7 +51,7 @@ DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
     break;
   default:
     declBaseName =
-        DeclBaseName(Context.getIdentifier(baseName.getIdentifierText()));
+        DeclBaseName(Context->getIdentifier(baseName.getIdentifierText()));
     break;
   }
   if (DeclNameSyntax.getDeclNameArguments().hasValue()) {
@@ -59,9 +59,9 @@ DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
     auto arguments = DeclNameSyntax.getDeclNameArguments()->getArguments();
     for (auto arg : arguments) {
       auto argName = arg.getName().getIdentifierText();
-      argumentLabels.push_back(Context.getIdentifier(argName));
+      argumentLabels.push_back(Context->getIdentifier(argName));
     }
-    return DeclNameRef(DeclName(Context, declBaseName, argumentLabels));
+    return DeclNameRef(DeclName(*Context, declBaseName, argumentLabels));
   } else {
     return DeclNameRef(declBaseName);
   }
@@ -93,14 +93,14 @@ void ASTGen::diagnoseDollarIdentifier(const TokenSyntaxRef &Token,
     // We've seen an escaped dollar identifier, `$`. This is fine
     return;
   }
-  if (Context.LangOpts.EnableDollarIdentifiers || Mode == LexerMode::SIL ||
+  if (Context->LangOpts.EnableDollarIdentifiers || Mode == LexerMode::SIL ||
       Mode == LexerMode::SwiftInterface) {
     // Dollar identifiers are allowed here.
     return;
   }
 
   diagnose(Token, diag::dollar_identifier_decl,
-           Context.getIdentifier(Token.getText()));
+           Context->getIdentifier(Token.getText()));
 }
 
 //===--------------------------------------------------------------------===//

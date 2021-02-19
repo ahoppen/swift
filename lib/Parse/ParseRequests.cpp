@@ -82,6 +82,8 @@ ParseMembersRequest::evaluate(Evaluator &evaluator,
     // Lexer diaganostics have been emitted during skipping, so we disable
     // lexer's diagnostic engine here.
     Parser parser(bufferID, *sf, /*No Lexer Diags*/ nullptr, nullptr, nullptr);
+    ASTContext *tempContext = ASTContext::get(const_cast<LangOptions &>(sf->getASTContext().LangOpts), const_cast<swift::TypeCheckerOptions &>(sf->getASTContext().TypeCheckerOpts), sf->getASTContext().SearchPathOpts, sf->getASTContext().ClangImporterOpts, sf->getASTContext().SourceMgr, sf->getASTContext().Diags);
+    parser.ASTGenerator.Context = tempContext;
     // Disable libSyntax creation in the delayed parsing.
     parser.SyntaxContext->disable();
     auto declsAndHash = parser.parseDeclListDelayed(idc);
@@ -90,6 +92,7 @@ ParseMembersRequest::evaluate(Evaluator &evaluator,
     (void)FingerprintAndMembers{
         fingerprintAndMembers.fingerprint,
         ctx.AllocateCopy(llvm::makeArrayRef(fingerprintAndMembers.members))};
+    delete tempContext;
   }
 
   SourceFile *sf = idc->getAsGenericContext()->getParentSourceFile();
@@ -211,6 +214,11 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
     }
 
     Parser parser(*bufferID, *SF, /*SIL*/ nullptr, state, spActions);
+    auto sf = SF;
+    LangOptions LangOpts = sf->getASTContext().LangOpts;
+    swift::TypeCheckerOptions TCOpts = sf->getASTContext().TypeCheckerOpts;
+    ASTContext *tempContext = ASTContext::get(LangOpts, TCOpts, sf->getASTContext().SearchPathOpts, sf->getASTContext().ClangImporterOpts, sf->getASTContext().SourceMgr, sf->getASTContext().Diags);
+    parser.ASTGenerator.Context = tempContext;
     PrettyStackTraceParser StackTrace(parser);
 
     SmallVector<Decl *, 128> decls;
@@ -228,6 +236,7 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
 
     (void)SourceFileParsingResult{ctx.AllocateCopy(decls), tokensRef,
                                   parser.CurrentTokenHash, syntaxRoot};
+    delete tempContext;
   }
   assert(SF);
   auto &ctx = SF->getASTContext();
