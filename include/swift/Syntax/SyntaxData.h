@@ -87,7 +87,8 @@ private:
   
 protected:
   
-  SyntaxDataRefBase(const AbsoluteRawSyntax &AbsoluteRaw, llvm::PointerIntPair<SyntaxDataRefBase *, 1, /*IsOwned*/bool> Parent, const RC<SyntaxArena> Arena) : AbsoluteRaw(AbsoluteRaw), Parent(Parent), Arena(Arena) {}
+  SyntaxDataRefBase(const AbsoluteRawSyntax &AbsoluteRaw, llvm::PointerIntPair<SyntaxDataRefBase *, 1, /*IsOwned*/bool> Parent, const RC<SyntaxArena> &Arena) : AbsoluteRaw(AbsoluteRaw), Parent(Parent), Arena(Arena) {}
+  SyntaxDataRefBase(AbsoluteRawSyntax &&AbsoluteRaw, llvm::PointerIntPair<SyntaxDataRefBase *, 1, /*IsOwned*/bool> &&Parent, RC<SyntaxArena> &&Arena) : AbsoluteRaw(std::move(AbsoluteRaw)), Parent(Parent), Arena(std::move(Arena)) {}
   
   SyntaxDataRefBase(const SyntaxDataRefBase &Other) : AbsoluteRaw(Other.AbsoluteRaw), Parent(
      (Other.Parent.getInt() && Other.Parent.getPointer()) ? new SyntaxDataRefBase(*Other.Parent.getPointer()) : Other.Parent.getPointer(),
@@ -236,19 +237,21 @@ class SyntaxDataRef: public SyntaxDataRefBase {
   }
   SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw, SyntaxDataRef *Parent, bool IsParentOwned)
   : SyntaxDataRefBase(std::move(AbsoluteRaw), {Parent, IsParentOwned}
-    , Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
+    , Parent ? nullptr : std::move(AbsoluteRaw.getRaw()->getArena())) {
   }
 
 public:
   SyntaxDataRef(const SyntaxDataRef &Other) : SyntaxDataRefBase(Other) {
   }
-  SyntaxDataRef(SyntaxDataRef &&Other) : SyntaxDataRefBase(std::move(Other)) {
-  }
+  SyntaxDataRef(SyntaxDataRef &&Other) = default;
   
   ~SyntaxDataRef() {
-    if (Parent.getInt() && Parent.getPointer()) {
-      delete Parent.getPointer();
-    }
+//    if (Parent.getInt() == false) {
+//      return;
+//    }
+//    if (Parent.getPointer()) {
+//      delete Parent.getPointer();
+//    }
   }
   
   // MARK: - Retrieving underlying storage

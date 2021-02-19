@@ -70,13 +70,10 @@ DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
 //===--------------------------------------------------------------------===//
 // MARK: - Diagnostics
 
-void ASTGen::diagnoseDollarIdentifier(const TokenSyntaxRef &Token,
-                                      bool DiagnoseDollarPrefix) {
-  if (Token.getIdentifierText()[0] != '$') {
-    // Identifier does not start with a '$'. Stop.
-    return;
-  }
-
+void ASTGen::diagnoseDollarIdentifierImpl(const TokenSyntaxRef &Token,
+                                          bool DiagnoseDollarPrefix) {
+  assert(Token.getIdentifierText()[0] == '$' && "The non '$' case should have been handled by diagnoseDollarIdentifier");
+  
   // We have a standalone '$' that is not guarded by backticks.
   // Offer to replace it with '`$`'.
   if (Token.getText() == "$") {

@@ -73,12 +73,12 @@ public:
   };
 %     end
 
-  ${node.name}(const SyntaxData &Data) : ${node.base_type}(Data) {
+  explicit ${node.name}(const SyntaxData &Data) : ${node.base_type}(Data) {
 %     if node.requires_validation():
     this->validate();
 %     end
   }
-  ${node.name}(SyntaxData &&Data) : ${node.base_type}(std::move(Data)) {
+  explicit ${node.name}(SyntaxData &&Data) : ${node.base_type}(std::move(Data)) {
 %     if node.requires_validation():
     this->validate();
 %     end
@@ -150,11 +150,18 @@ public:
   using Cursor = ${node.name}::Cursor; // Use same cursor as non-Ref node.
 %     end
 
-  ${node.name}Ref(const SyntaxDataRef &Data) : ${node.base_type}Ref(Data) {
+  explicit ${node.name}Ref(const SyntaxDataRef &Data) : ${node.base_type}Ref(Data) {
 %     if node.requires_validation():
     this->validate();
 %     end
   }
+  explicit ${node.name}Ref(SyntaxDataRef &&Data) : ${node.base_type}Ref(std::move(Data)) {
+%     if node.requires_validation():
+    this->validate();
+%     end
+  }
+  ${node.name}Ref(const ${node.name}Ref &Data) = default;
+  ${node.name}Ref(${node.name}Ref &&Data) = default;
 
   /// Demote a ${node.name} node to a ${node.name}Ref node.
   ${node.name}Ref(const ${node.name} &Node) : ${node.base_type}Ref(Node.getDataRef()) {}

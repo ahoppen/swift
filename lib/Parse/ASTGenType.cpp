@@ -20,18 +20,18 @@ using namespace swift::syntax;
 //===--------------------------------------------------------------------===//
 // MARK: - Public entry function
 
-TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, SourceLoc TreeStartLoc,
+TypeRepr *ASTGen::generate(TypeSyntaxRef &&Type, SourceLoc TreeStartLoc,
                            SourceLoc PreviousTokLoc, Diag<> MissingTypeDiag) {
   this->TreeStartLoc = TreeStartLoc;
   this->PreviousTokLoc = PreviousTokLoc;
 
-  return generate(Type, MissingTypeDiag);
+  return generate(std::move(Type), MissingTypeDiag);
 }
 
 //===--------------------------------------------------------------------===//
 // MARK: - Generate functions
 
-TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
+TypeRepr *ASTGen::generate(TypeSyntaxRef &&Type, Diag<> MissingTypeDiag) {
   auto typeLoc = getLeadingTriviaLoc(Type);
 
   // Check if we have recorded a type that hasn't been migrated to
@@ -167,7 +167,7 @@ TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
     return new (*Context) ErrorTypeRepr(getASTRange(Type));
   }
 
-  if (auto *parsedTyR = generate(*base)) {
+  if (auto *parsedTyR = generate(std::move(*base))) {
     if (CodeCompletion) {
       CodeCompletion->setParsedTypeLoc(parsedTyR);
       if (Type.getPeriod()) {
@@ -207,7 +207,7 @@ TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
 
       elementTypeRepr = generate(someSyntax->getBaseType());
     } else {
-      elementTypeRepr = generate(elementType);
+      elementTypeRepr = generate(std::move(elementType));
     }
 
     if (elementTypeRepr) {
@@ -345,11 +345,12 @@ TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
   // generate child 'TypeSyntax' anyway to trigger the side effects e.g.
   // code-completion.
   for (size_t i = 0; i != ChildrenCount; ++i) {
-    auto elem = *Type.getChildRef(i);
-    // TODO: (syntax-parse): Once everything is migrated, we can remove the
-    // check for TypeSyntax here and always call generate.
-    if (auto ty = elem.getAs<TypeSyntaxRef>()) {
-      (void)generate(*ty);
+    if (auto elem = Type.getChildRef(i)) {
+      // TODO: (syntax-parse): Once everything is migrated, we can remove the
+      // check for TypeSyntax here and always call generate.
+      if (auto ty = elem->getAs<TypeSyntaxRef>()) {
+        (void)generate(std::move(*ty));
+      }
     }
   }
 
@@ -601,7 +602,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       assert(false && "We don't have custom type attributes");
       continue;
     }
-    auto attrSyntax = elem.castTo<AttributeSyntaxRef>();
+    auto attrSyntax = std::move(elem).castTo<AttributeSyntaxRef>();
 
     auto attrName = attrSyntax.getAttributeName().getText();
 
@@ -679,11 +680,11 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       }
 
       if (!arg->is<TokenSyntaxRef>() ||
-          arg->castTo<TokenSyntaxRef>().getTokenKind() != tok::string_literal) {
+          arg->castTo2<TokenSyntaxRef>().getTokenKind() != tok::string_literal) {
         diagnose(*arg, diag::opened_attribute_id_value);
         break;
       }
-      auto tokText = arg->castTo<TokenSyntaxRef>().getText();
+      auto tokText = arg->castTo2<TokenSyntaxRef>().getText();
       // Remove quotes from the string literal.
       auto literalText = tokText.slice(1, tokText.size() - 1);
       if (auto openedID = UUID::fromString(literalText.str().c_str())) {
@@ -699,7 +700,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       auto arg = attrSyntax.getArgument();
       if (arg && arg->is<DifferentiableAttributeArgumentsSyntaxRef>()) {
         auto diffKindSyntax =
-            arg->castTo<DifferentiableAttributeArgumentsSyntaxRef>()
+            arg->castTo2<DifferentiableAttributeArgumentsSyntaxRef>()
                 .getDiffKind();
         auto diffKindText = diffKindSyntax->getIdentifierText();
         diffKind =
@@ -734,7 +735,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
 
         if (arg && arg->is<DifferentiableAttributeArgumentsSyntaxRef>()) {
           auto diffArgSyntax =
-              arg->castTo<DifferentiableAttributeArgumentsSyntaxRef>();
+              arg->castTo2<DifferentiableAttributeArgumentsSyntaxRef>();
           if (diffArgSyntax.getDiffKindComma()) {
             diag.fixItInsert(getContentStartLoc(diffArgSyntax), "reverse");
           } else {
@@ -802,7 +803,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
           continue;
         }
         auto protocolName =
-            witness->getStringOrDeclname().castTo<DeclNameSyntaxRef>();
+            witness->getStringOrDeclname().castTo2<DeclNameSyntaxRef>();
         convention.Name = "witness_method";
         convention.WitnessMethodProtocol = generateDeclNameRef(protocolName);
       } else {
@@ -828,7 +829,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       }
 
       auto opaqueArg =
-          arg->castTo<OpaqueReturnTypeOfAttributeArgumentsSyntaxRef>();
+          arg->castTo2<OpaqueReturnTypeOfAttributeArgumentsSyntaxRef>();
 
       auto manglingTok = opaqueArg.getMangledName();
       auto indexTok = opaqueArg.getIndex();
@@ -857,10 +858,11 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
 
 template <typename T>
 ComponentIdentTypeRepr *ASTGen::generateTypeIdentifier(const T &TypeSyntax) {
-  auto declNameLoc = DeclNameLoc(getLoc(TypeSyntax.getName()));
+  auto name = TypeSyntax.getName();
+  auto declNameLoc = DeclNameLoc(getLoc(name));
   auto declNameRef = DeclNameRef(
-      Context->getIdentifier(TypeSyntax.getName().getIdentifierText()));
-  diagnoseDollarIdentifier(TypeSyntax.getName(), /*DiagnoseDollarPrefix=*/true);
+      Context->getIdentifier(name.getIdentifierText()));
+  diagnoseDollarIdentifier(name, /*DiagnoseDollarPrefix=*/true);
   if (auto clause = TypeSyntax.getGenericArgumentClause()) {
     SourceRange range;
     SmallVector<TypeRepr *, 4> args;
@@ -920,10 +922,10 @@ ASTGen::recoverOldStyleProtocolComposition(const UnknownTypeSyntaxRef &Type) {
   for (unsigned i = 2; i < Type.getNumChildren(); i++) {
     // Only consider types. Skip over commas.
     if (auto elem = Type.getChildRef(i)->getAs<TypeSyntaxRef>()) {
-      if (auto proto = generate(*elem)) {
+      auto range = getRangeWithoutTrivia(*elem);
+      if (auto proto = generate(std::move(*elem))) {
         protocols.push_back(proto);
       }
-      auto range = getRangeWithoutTrivia(*elem);
       if (range.getByteLength() > 0) {
         // If the protocol name has a source representation, add it to the
         // protocol names

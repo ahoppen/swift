@@ -201,9 +201,17 @@ public:
   /// Cast this Syntax node to a more specific type, asserting it's of the
   /// right kind.
   template <typename T>
-  T castTo() const {
+  T castTo2() const {
     assert(is<T>() && "castTo<T>() node of incompatible type!");
     return T(getDataRef());
+  }
+  
+  /// Cast this Syntax node to a more specific type, asserting it's of the
+  /// right kind.
+  template <typename T>
+  T castTo() && {
+    assert(is<T>() && "castTo<T>() node of incompatible type!");
+    return T(std::move(*this));
   }
 
   /// If this Syntax node is of the right kind, cast and return it,
@@ -211,7 +219,7 @@ public:
   template <typename T>
   llvm::Optional<T> getAs() const {
     if (is<T>()) {
-      return castTo<T>();
+      return castTo2<T>();
     } else {
       return None;
     }
@@ -260,6 +268,7 @@ class Syntax : public SyntaxRef {
 
 public:
   explicit Syntax(const SyntaxData &Data) : SyntaxRef(Data) {}
+  explicit Syntax(SyntaxData &&Data) : SyntaxRef(std::move(Data)) {}
 
   virtual ~Syntax() {}
 
@@ -302,7 +311,15 @@ public:
   /// Cast this Syntax node to a more specific type, asserting it's of the
   /// right kind.
   template <typename T>
-  T castTo() const {
+  T castTo2() const {
+    assert(is<T>() && "castTo<T>() node of incompatible type!");
+    return T(getData());
+  }
+  
+  /// Cast this Syntax node to a more specific type, asserting it's of the
+  /// right kind.
+  template <typename T>
+  T castTo() && {
     assert(is<T>() && "castTo<T>() node of incompatible type!");
     return T(getData());
   }
@@ -312,7 +329,7 @@ public:
   template <typename T>
   llvm::Optional<T> getAs() const {
     if (is<T>()) {
-      return castTo<T>();
+      return castTo2<T>();
     } else {
       return None;
     }

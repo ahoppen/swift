@@ -123,12 +123,12 @@ public:
   /// representing the entire source file, \p TreeStartLoc must point to the
   /// first trivia in the file.
   /// If no type was provided \p MissingTypeDiag is emitted.
-  TypeRepr *generate(const TypeSyntaxRef &Type, SourceLoc TreeStartLoc,
+  TypeRepr *generate(TypeSyntaxRef &&Type, SourceLoc TreeStartLoc,
                      SourceLoc PreviousTokLoc,
                      Diag<> MissingTypeDiag = diag::expected_type);
 
 private:
-  TypeRepr *generate(const TypeSyntaxRef &Type,
+  TypeRepr *generate(TypeSyntaxRef &&Type,
                      Diag<> MissingTypeDiag = diag::expected_type);
 
   TypeRepr *generate(const ArrayTypeSyntaxRef &Type);
@@ -252,7 +252,17 @@ private:
   /// \param DiagnoseDollarPrefix Whether to diagnose dollar-prefixed
   /// identifiers in addition to a standalone '$'.
   void diagnoseDollarIdentifier(const TokenSyntaxRef &Token,
-                                bool DiagnoseDollarPrefix);
+                                bool DiagnoseDollarPrefix) {
+    // Expected to get inlined to handle the common case that there is no '$'
+    // prefix.
+    if (Token.getIdentifierText()[0] != '$') {
+      // Identifier does not start with a '$'. Stop.
+      return;
+    }
+    diagnoseDollarIdentifierImpl(Token, DiagnoseDollarPrefix);
+  }
+  void diagnoseDollarIdentifierImpl(const TokenSyntaxRef &Token,
+                                    bool DiagnoseDollarPrefix);
 
   //===--------------------------------------------------------------------===//
   // MARK: - Locations

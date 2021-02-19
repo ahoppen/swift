@@ -96,7 +96,7 @@ SyntaxOptional<SyntaxData>
 SyntaxData::getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
   auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
   if (AbsoluteRaw) {
-    return SyntaxData(*AbsoluteRaw, /*Parent=*/*this);
+    return SyntaxData(std::move(*AbsoluteRaw), /*Parent=*/*this);
   } else {
     return None;
   }
