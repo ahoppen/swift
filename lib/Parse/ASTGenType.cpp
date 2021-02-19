@@ -43,11 +43,11 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
   // Otherwise, generate the AST node for the type.
   switch (Type.getKind()) {
   case SyntaxKind::ArrayType:
-    return generate(Type.castTo<ArrayTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<ArrayTypeSyntaxRef>());
   case SyntaxKind::AttributedType:
-    return generate(Type.castTo<AttributedTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<AttributedTypeSyntaxRef>());
   case SyntaxKind::CodeCompletionType:
-    return generate(Type.castTo<CodeCompletionTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<CodeCompletionTypeSyntaxRef>());
   case SyntaxKind::CompositionTypeElementList:
     llvm_unreachable("Composition elements list is being generated from "
                      "within the CompositionType generate function.");
@@ -55,30 +55,30 @@ TypeRepr *ASTGen::generate(const TypeSyntaxRef &Type, Diag<> MissingTypeDiag) {
     llvm_unreachable("Composition type elements are being generated from "
                      "within the CompositionType generate function.");
   case SyntaxKind::CompositionType:
-    return generate(Type.castTo<CompositionTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<CompositionTypeSyntaxRef>());
   case SyntaxKind::DictionaryType:
-    return generate(Type.castTo<DictionaryTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<DictionaryTypeSyntaxRef>());
   case SyntaxKind::FunctionType:
-    return generate(Type.castTo<FunctionTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<FunctionTypeSyntaxRef>());
   case SyntaxKind::ImplicitlyUnwrappedOptionalType:
-    return generate(Type.castTo<ImplicitlyUnwrappedOptionalTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<ImplicitlyUnwrappedOptionalTypeSyntaxRef>());
   case SyntaxKind::MemberTypeIdentifier:
-    return generate(Type.castTo<MemberTypeIdentifierSyntaxRef>());
+    return generate(std::move(Type).castTo<MemberTypeIdentifierSyntaxRef>());
   case SyntaxKind::MetatypeType:
-    return generate(Type.castTo<MetatypeTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<MetatypeTypeSyntaxRef>());
   case SyntaxKind::OptionalType:
-    return generate(Type.castTo<OptionalTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<OptionalTypeSyntaxRef>());
   case SyntaxKind::SimpleTypeIdentifier:
-    return generate(Type.castTo<SimpleTypeIdentifierSyntaxRef>());
+    return generate(std::move(Type).castTo<SimpleTypeIdentifierSyntaxRef>());
   case SyntaxKind::SomeType:
-    return generate(Type.castTo<SomeTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<SomeTypeSyntaxRef>());
   case SyntaxKind::TupleType:
-    return generate(Type.castTo<TupleTypeSyntaxRef>());
+    return generate(std::move(Type).castTo<TupleTypeSyntaxRef>());
   case SyntaxKind::TupleTypeElement:
     llvm_unreachable("Tuple type elements are being generated from within the "
                      "TupleTypeSyntax generate function.");
   case SyntaxKind::UnknownType:
-    return generate(Type.castTo<UnknownTypeSyntaxRef>(), MissingTypeDiag);
+    return generate(std::move(Type).castTo<UnknownTypeSyntaxRef>(), MissingTypeDiag);
   default:
     llvm_unreachable("ASTGen hasn't been tought how to generate this type");
   }

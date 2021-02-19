@@ -65,6 +65,142 @@ public:
   }
 };
 
+
+class SyntaxDataRefBase {
+  template<typename T>
+  friend class SyntaxOptional;
+protected:
+  AbsoluteRawSyntax AbsoluteRaw;
+
+  /// The parent can be stored either ref-counted or unsafe by a direct pointer.
+  /// Either of those must always be \c nullptr. If both are \c nullptr, then
+  /// the node does not have a parent.
+  llvm::PointerIntPair<SyntaxDataRefBase *, 1, /*IsOwned*/bool> Parent;
+  RC<SyntaxArena> Arena;
+
+private:
+  SyntaxDataRefBase(std::nullptr_t) : AbsoluteRaw(nullptr), Parent(nullptr, false), Arena(nullptr) {}
+  
+  bool isNull() const {
+    return AbsoluteRaw.getRaw() == nullptr;
+  }
+  
+protected:
+  
+  SyntaxDataRefBase(const AbsoluteRawSyntax &AbsoluteRaw, llvm::PointerIntPair<SyntaxDataRefBase *, 1, /*IsOwned*/bool> Parent, const RC<SyntaxArena> Arena) : AbsoluteRaw(AbsoluteRaw), Parent(Parent), Arena(Arena) {}
+  
+  SyntaxDataRefBase(const SyntaxDataRefBase &Other) : AbsoluteRaw(Other.AbsoluteRaw), Parent(
+     (Other.Parent.getInt() && Other.Parent.getPointer()) ? new SyntaxDataRefBase(*Other.Parent.getPointer()) : Other.Parent.getPointer(),
+     Other.Parent.getInt()
+                                                                                     ), Arena(Other.Arena) {
+  }
+  SyntaxDataRefBase(SyntaxDataRefBase &&Other) : AbsoluteRaw(std::move(Other.AbsoluteRaw)), Parent(std::move(Other.Parent)), Arena(std::move(Other.Arena)) {
+    Other.Parent.setPointer(nullptr);
+    Other.Arena = nullptr;
+  }
+};
+
+template<typename T>
+class SyntaxOptional {
+public:
+  SyntaxDataRefBase Storage;
+  
+  SyntaxOptional() : Storage(nullptr) {}
+  SyntaxOptional(llvm::NoneType) : Storage(nullptr) {}
+  
+  SyntaxOptional(const T &y) : Storage(y) {}
+  SyntaxOptional(const SyntaxOptional &O) = default;
+
+  SyntaxOptional(T &&y) : Storage(std::move(y)) {}
+  SyntaxOptional(SyntaxOptional &&O) = default;
+
+  SyntaxOptional &operator=(T &&y) {
+    Storage = std::move(y);
+    return *this;
+  }
+  SyntaxOptional &operator=(SyntaxOptional &&O) = default;
+
+//  /// Create a new object by constructing it in place with the given arguments.
+//  template <typename... ArgTypes> void emplace(ArgTypes &&... Args) {
+//    Storage.emplace(std::forward<ArgTypes>(Args)...);
+//  }
+
+  static inline SyntaxOptional create(const T *y) {
+    return y ? SyntaxOptional(*y) : SyntaxOptional();
+  }
+
+  SyntaxOptional &operator=(const T &y) {
+    Storage = y;
+    return *this;
+  }
+  SyntaxOptional &operator=(const SyntaxOptional &O) = default;
+
+  void reset() { Storage = SyntaxDataRefBase(nullptr); }
+
+  const T *getPointer() const { return static_cast<const T *>(&Storage); }
+  T *getPointer() { return static_cast<T *>(&Storage); }
+  const T &getValue() const LLVM_LVALUE_FUNCTION { return static_cast<const T &>(Storage); }
+  T &getValue() LLVM_LVALUE_FUNCTION { return static_cast<T &>(Storage); }
+
+  explicit operator bool() const { return hasValue(); }
+  bool hasValue() const { return !Storage.isNull(); }
+  const T *operator->() const { return getPointer(); }
+  T *operator->() { return getPointer(); }
+  const T &operator*() const LLVM_LVALUE_FUNCTION { return getValue(); }
+  T &operator*() LLVM_LVALUE_FUNCTION { return getValue(); }
+//
+//  template <typename U>
+//  constexpr T getValueOr(U &&value) const LLVM_LVALUE_FUNCTION {
+//    return hasValue() ? getValue() : std::forward<U>(value);
+//  }
+//
+//  /// Apply a function to the value if present; otherwise return None.
+//  template <class Function>
+//  auto map(const Function &F) const LLVM_LVALUE_FUNCTION
+//      -> Optional<decltype(F(getValue()))> {
+//    if (*this) return F(getValue());
+//    return None;
+//  }
+//
+#if LLVM_HAS_RVALUE_REFERENCE_THIS
+  T &&getValue() && { return static_cast<T &&>(std::move(Storage)); }
+  T &&operator*() && { return static_cast<T &&>(std::move(Storage)); }
+
+//  template <typename U>
+//  T getValueOr(U &&value) && {
+//    return hasValue() ? std::move(getValue()) : std::forward<U>(value);
+//  }
+//
+//  /// Apply a function to the value if present; otherwise return None.
+//  template <class Function>
+//  auto map(const Function &F) &&
+//      -> Optional<decltype(F(std::move(*this).getValue()))> {
+//    if (*this) return F(std::move(*this).getValue());
+//    return None;
+//  }
+#endif
+};
+
+template<typename T>
+bool operator==(const SyntaxOptional<T> &X, NoneType) {
+  return !X;
+}
+
+template<typename T>
+bool operator==(NoneType, const SyntaxOptional<T> &X) {
+  return X == None;
+}
+
+template<typename T>
+bool operator!=(const SyntaxOptional<T> &X, NoneType) {
+  return !(X == None);
+}
+
+template<typename T>
+bool operator!=(NoneType, const SyntaxOptional<T> &X) {
+  return X != None;
+}
+
 /// The class for holding parented syntax.
 ///
 /// This structure should not contain significant public
@@ -89,35 +225,24 @@ public:
 /// can address a subtree of a ref-counted syntax tree in a fast, but unsafe
 /// unowned way, but we can never address a subtree of an unowned tree as
 /// ref-counted.
-class SyntaxDataRef {
+class SyntaxDataRef: public SyntaxDataRefBase {
   friend class SyntaxData;
 
-  AbsoluteRawSyntax AbsoluteRaw;
-
-  /// The parent can be stored either ref-counted or unsafe by a direct pointer.
-  /// Either of those must always be \c nullptr. If both are \c nullptr, then
-  /// the node does not have a parent.
-  llvm::PointerIntPair<SyntaxDataRef *, 1, /*IsOwned*/bool> Parent;
-  RC<SyntaxArena> Arena;
-  
   /// Create an unowned \c SyntaxDataRef.
   /// \p AbsoluteRaw must not be reference-counted.
   SyntaxDataRef(const AbsoluteRawSyntax &AbsoluteRaw, SyntaxDataRef *Parent, bool IsParentOwned)
-      : AbsoluteRaw(AbsoluteRaw), Parent(Parent, IsParentOwned), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
+  : SyntaxDataRefBase(AbsoluteRaw, {Parent, IsParentOwned}
+    , Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
   }
   SyntaxDataRef(AbsoluteRawSyntax &&AbsoluteRaw, SyntaxDataRef *Parent, bool IsParentOwned)
-      : AbsoluteRaw(std::move(AbsoluteRaw)), Parent(Parent, IsParentOwned), Arena(Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
+  : SyntaxDataRefBase(std::move(AbsoluteRaw), {Parent, IsParentOwned}
+    , Parent ? nullptr : AbsoluteRaw.getRaw()->getArena()) {
   }
 
 public:
-  SyntaxDataRef(const SyntaxDataRef &Other) : AbsoluteRaw(Other.AbsoluteRaw), Parent(
-     (Other.Parent.getInt() && Other.Parent.getPointer()) ? new SyntaxDataRef(*Other.Parent.getPointer()) : Other.Parent.getPointer(),
-     Other.Parent.getInt()
-                                                                                     ), Arena(Other.Arena) {
+  SyntaxDataRef(const SyntaxDataRef &Other) : SyntaxDataRefBase(Other) {
   }
-  SyntaxDataRef(SyntaxDataRef &&Other) : AbsoluteRaw(std::move(Other.AbsoluteRaw)), Parent(std::move(Other.Parent)), Arena(std::move(Other.Arena)) {
-    Other.Parent.setPointer(nullptr);
-    Other.Arena = nullptr;
+  SyntaxDataRef(SyntaxDataRef &&Other) : SyntaxDataRefBase(std::move(Other)) {
   }
   
   ~SyntaxDataRef() {
@@ -135,9 +260,9 @@ public:
 
   // MARK: - Retrieving related nodes
 
-  Optional<SyntaxDataRef> getParentRef() const {
+  SyntaxOptional<SyntaxDataRef> getParentRef() const {
     if (Parent.getPointer()) {
-      return *Parent.getPointer();
+      return *static_cast<SyntaxDataRef *>(Parent.getPointer());
     } else {
       return None;
     }
@@ -151,13 +276,13 @@ public:
 
   /// Gets the child at the index specified by the provided cursor.
   template <typename CursorType>
-  Optional<SyntaxDataRef> getChildRef(CursorType Cursor) const {
+  SyntaxOptional<SyntaxDataRef> getChildRef(CursorType Cursor) const {
     return getChildRef(
         (AbsoluteSyntaxPosition::IndexInParentType)cursorIndex(Cursor));
   }
 
   /// Gets the child at the specified \p Index.
-  Optional<SyntaxDataRef>
+  SyntaxOptional<SyntaxDataRef>
   getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const {
     auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
     if (AbsoluteRaw) {
@@ -190,11 +315,11 @@ public:
   
   /// Get the node immediately before this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxDataRef> getPreviousNodeRef() const;
+  SyntaxOptional<SyntaxDataRef> getPreviousNodeRef() const;
 
   /// Get the node immediately after this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxDataRef> getNextNodeRef() const;
+  SyntaxOptional<SyntaxDataRef> getNextNodeRef() const;
 
   // MARK: - Retrieving source locations
 
@@ -264,10 +389,7 @@ public:
 
   /// Cast a \c SyntaxDataRef to a \c SyntaxData. This requires that \c Ref is
   /// known to be reference counted.
-  explicit SyntaxData(const SyntaxDataRef &Ref)
-      : SyntaxDataRef(Ref.AbsoluteRaw,
-        Ref.Parent.getPointer() ? new SyntaxDataRef(*Ref.Parent.getPointer()) : nullptr,
-        /*IsParentOwned=*/true) {
+  explicit SyntaxData(const SyntaxDataRef &Ref) : SyntaxDataRef(Ref) {
   }
 
   // MARK: - Retrieving underlying storage
@@ -278,7 +400,7 @@ public:
   // MARK: - Retrieving related nodes
 
   /// Return the parent syntax if there is one.
-  Optional<SyntaxData> getParent() const {
+  SyntaxOptional<SyntaxData> getParent() const {
     if (auto ParentRef = getParentRef()) {
       return SyntaxData(*ParentRef);
     } else {
@@ -288,30 +410,30 @@ public:
 
   /// Gets the child at the index specified by the provided cursor.
   template <typename CursorType>
-  Optional<SyntaxData> getChild(CursorType Cursor) const {
+  SyntaxOptional<SyntaxData> getChild(CursorType Cursor) const {
     return getChild(
         (AbsoluteSyntaxPosition::IndexInParentType)cursorIndex(Cursor));
   }
 
   /// Gets the child at the specified \p Index.
-  Optional<SyntaxData>
+  SyntaxOptional<SyntaxData>
   getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const;
 
   /// Get the node immediately before this current node that contains a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxData> getPreviousNode() const;
+  SyntaxOptional<SyntaxData> getPreviousNode() const;
 
   /// Get the node immediately after this current node that contains a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxData> getNextNode() const;
+  SyntaxOptional<SyntaxData> getNextNode() const;
 
   /// Get the first non-missing token node in this tree. Return \c None if
   /// this node does not contain non-missing tokens.
-  Optional<SyntaxData> getFirstToken() const;
+  SyntaxOptional<SyntaxData> getFirstToken() const;
 
   /// Get the last non-missing token node in this tree. Return \c None if
   /// this node does not contain non-missing tokens.
-  Optional<SyntaxData> getLastToken() const;
+  SyntaxOptional<SyntaxData> getLastToken() const;
 
   // MARK: - Modifying node
 

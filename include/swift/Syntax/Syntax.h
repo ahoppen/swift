@@ -56,19 +56,17 @@ const auto NoParent = llvm::None;
 /// convenience methods based on the node's kind. As such \c SyntaxRef can
 /// either be reference-counted or unowned. See the comment on \c SyntaxDataRef
 /// for more details.
-class SyntaxRef {
-protected:
-  SyntaxDataRef Data;
-
+class SyntaxRef : public SyntaxDataRef {
 public:
-  explicit SyntaxRef(const SyntaxDataRef &Data) : Data(Data) {}
+  explicit SyntaxRef(const SyntaxDataRef &Data) : SyntaxDataRef(Data) {}
+  explicit SyntaxRef(SyntaxDataRef &&Data) : SyntaxDataRef(std::move(Data)) {}
 
   virtual ~SyntaxRef() {}
 
   // MARK: - Get underlying data
 
   /// Get the Data for this Syntax node.
-  const SyntaxDataRef &getDataRef() const { return Data; }
+  const SyntaxDataRef &getDataRef() const { return *this; }
 
   const AbsoluteRawSyntax &getAbsoluteRaw() const {
     return getDataRef().getAbsoluteRaw();
@@ -205,7 +203,7 @@ public:
   template <typename T>
   T castTo() const {
     assert(is<T>() && "castTo<T>() node of incompatible type!");
-    return T(Data);
+    return T(getDataRef());
   }
 
   /// If this Syntax node is of the right kind, cast and return it,

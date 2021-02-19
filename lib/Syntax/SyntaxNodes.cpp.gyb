@@ -28,7 +28,7 @@ using namespace swift::syntax;
 %   if node.requires_validation():
 void ${node.name}Ref::validate() const {
 #ifndef NDEBUG
-  auto raw = Data.getRawRef();
+  auto raw = getDataRef().getRawRef();
   if (isMissing()) return;
   assert(raw->getLayout().size() == ${len(node.children)});
 %     for child in node.children:
@@ -62,7 +62,7 @@ void ${node.name}::validate() const {
 
 %   for child in node.children:
 %     if child.is_optional:
-llvm::Optional<${child.type_name}> ${node.name}::get${child.name}() const {
+SyntaxOptional<${child.type_name}> ${node.name}::get${child.name}() const {
   if (auto ChildData = getData().getChild(Cursor::${child.name})) {
     return ${child.type_name}(*ChildData);
   } else {
@@ -94,7 +94,7 @@ ${node.name} ${node.name}::add${child_elt}(${child_elt_type} ${child_elt}) {
 %     end
 
 ${node.name} ${node.name}::with${child.name}(
-  llvm::Optional<${child.type_name}> New${child.type_name}) {
+  SyntaxOptional<${child.type_name}> New${child.type_name}) {
   RawSyntax *raw;
   if (New${child.type_name}.hasValue()) {
     raw = New${child.type_name}->getRaw();

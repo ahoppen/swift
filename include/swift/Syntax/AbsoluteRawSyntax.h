@@ -232,6 +232,11 @@ class AbsoluteRawSyntax {
 
   const AbsoluteSyntaxInfo Info;
 
+friend class SyntaxDataRefBase;
+  AbsoluteRawSyntax(std::nullptr_t) : Raw(), Info(
+    AbsoluteSyntaxPosition(0, 0),
+    SyntaxIdentifier(0, SyntaxIndexInTree::zero())
+  ) {}
 public:
   AbsoluteRawSyntax(AbsoluteRawSyntax &&Other)
       : Raw(std::move(Other.Raw)), Info(std::move(Other.Info)) {

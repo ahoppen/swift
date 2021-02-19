@@ -17,7 +17,7 @@ using namespace swift::syntax;
 
 // MARK: - SyntaxDataRef
 
-Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
+SyntaxOptional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
   if (size_t N = getIndexInParent()) {
     if (hasParent()) {
       for (size_t I = N - 1;; --I) {
@@ -36,7 +36,7 @@ Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
   return hasParent() ? getParentRef()->getPreviousNodeRef() : None;
 }
 
-Optional<SyntaxDataRef> SyntaxDataRef::getNextNodeRef() const {
+SyntaxOptional<SyntaxDataRef> SyntaxDataRef::getNextNodeRef() const {
   if (hasParent()) {
     size_t NumChildren = getParentRef()->getNumChildren();
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
@@ -92,7 +92,7 @@ void SyntaxDataRef::dump() const { dump(llvm::errs()); }
 
 // MARK: - SyntaxData
 
-Optional<SyntaxData>
+SyntaxOptional<SyntaxData>
 SyntaxData::getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
   auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
   if (AbsoluteRaw) {
@@ -102,7 +102,7 @@ SyntaxData::getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
   }
 }
 
-Optional<SyntaxData> SyntaxData::getPreviousNode() const {
+SyntaxOptional<SyntaxData> SyntaxData::getPreviousNode() const {
   if (size_t N = getIndexInParent()) {
     if (hasParent()) {
       for (size_t I = N - 1; ; --I) {
@@ -120,7 +120,7 @@ Optional<SyntaxData> SyntaxData::getPreviousNode() const {
   return hasParent() ? getParent()->getPreviousNode() : None;
 }
 
-Optional<SyntaxData> SyntaxData::getNextNode() const {
+SyntaxOptional<SyntaxData> SyntaxData::getNextNode() const {
   if (hasParent()) {
     size_t NumChildren = getParent()->getNumChildren();
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
@@ -135,7 +135,7 @@ Optional<SyntaxData> SyntaxData::getNextNode() const {
   return None;
 }
 
-Optional<SyntaxData> SyntaxData::getFirstToken() const {
+SyntaxOptional<SyntaxData> SyntaxData::getFirstToken() const {
   /// getFirstToken and getLastToken cannot be implemented on SyntaxDataRef
   /// because we might need to traverse through multiple nodes to reach the
   /// first token. When returning this token, the parent nodes are being
@@ -158,7 +158,7 @@ Optional<SyntaxData> SyntaxData::getFirstToken() const {
   return None;
 }
 
-Optional<SyntaxData> SyntaxData::getLastToken() const {
+SyntaxOptional<SyntaxData> SyntaxData::getLastToken() const {
   // Also see comment in getFirstToken.
   if (getRawRef()->isToken() && !getRawRef()->isMissing()) {
     return *this;
