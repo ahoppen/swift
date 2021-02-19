@@ -60,42 +60,6 @@ AbsoluteSyntaxPosition::reversedBy(RawSyntax *Raw) const {
   return AbsoluteSyntaxPosition(NewOffset, NewIndexInParent);
 }
 
-Optional<AbsoluteRawSyntax> AbsoluteRawSyntax::getChild(
-    AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  auto Raw = getRaw();
-  auto RawChild = Raw->getChild(Index);
-  if (!RawChild) {
-    return None;
-  }
-
-  AbsoluteSyntaxPosition Position = getPosition().advancedToFirstChild();
-  SyntaxIdentifier NodeId = getNodeId().advancedToFirstChild();
-
-  for (size_t I = 0; I < Index; ++I) {
-    Position = Position.advancedBy(Raw->getChild(I));
-    NodeId = NodeId.advancedBy(Raw->getChild(I));
-  }
-
-  AbsoluteSyntaxInfo Info(Position, NodeId);
-  return AbsoluteRawSyntax(RawChild, Info);
-}
-
-AbsoluteRawSyntax AbsoluteRawSyntax::getPresentChild(
-    AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  auto RawChild = getRaw()->getChild(Index);
-
-  AbsoluteSyntaxPosition Position = getPosition().advancedToFirstChild();
-  SyntaxIdentifier NodeId = getNodeId().advancedToFirstChild();
-
-  for (size_t I = 0; I < Index; ++I) {
-    Position = Position.advancedBy(getRaw()->getChild(I));
-    NodeId = NodeId.advancedBy(getRaw()->getChild(I));
-  }
-
-  AbsoluteSyntaxInfo Info(Position, NodeId);
-  return AbsoluteRawSyntax(RawChild, Info);
-}
-
 Optional<AbsoluteRawSyntax> AbsoluteRawSyntax::getFirstToken() const {
   if (getRaw()->isToken() && !getRaw()->isMissing()) {
     return *this;

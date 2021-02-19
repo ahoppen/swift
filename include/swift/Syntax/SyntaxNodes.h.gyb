@@ -159,9 +159,9 @@ public:
   /// ${line}
 %       end
 %       if child.is_optional:
-  llvm::Optional<${child.type_name}Ref> get${child.name}() const;
+  inline llvm::Optional<${child.type_name}Ref> get${child.name}() const;
 %       else:
-  ${child.type_name}Ref get${child.name}() const;
+  inline ${child.type_name}Ref get${child.name}() const;
 %       end
 
 %     end
@@ -184,6 +184,26 @@ public:
 /// Calculating an identifier for all syntax nodes' structures for verification
 /// purposes.
 const char* getSyntaxStructureVersioningIdentifier();
+
+% for node in SYNTAX_NODES + PARSEONLY_NODES:
+%   for child in node.children:
+%     if child.is_optional:
+llvm::Optional<${child.type_name}Ref> ${node.name}Ref::get${child.name}() const {
+  if (auto ChildData = getDataRef().getChildRef(Cursor::${child.name})) {
+    return ${child.type_name}Ref(*ChildData);
+  } else {
+    return None;
+  }
+}
+%     else:
+${child.type_name}Ref ${node.name}Ref::get${child.name}() const {
+  return ${child.type_name}Ref(getDataRef().getPresentChildRef(Cursor::${child.name}));
+}
+%     end
+%   end
+% end
+
+
 }
 }
 

@@ -53,22 +53,6 @@ void ${node.name}Ref::validate() const {
 }
 %   end
 
-%   for child in node.children:
-%     if child.is_optional:
-llvm::Optional<${child.type_name}Ref> ${node.name}Ref::get${child.name}() const {
-  if (auto ChildData = getDataRef().getChildRef(Cursor::${child.name})) {
-    return ${child.type_name}Ref(*ChildData);
-  } else {
-    return None;
-  }
-}
-%     else:
-${child.type_name}Ref ${node.name}Ref::get${child.name}() const {
-  return ${child.type_name}Ref(getDataRef().getPresentChildRef(Cursor::${child.name}));
-}
-%     end
-%   end
-
 
 %   if node.requires_validation():
 void ${node.name}::validate() const {

@@ -17,22 +17,6 @@ using namespace swift::syntax;
 
 // MARK: - SyntaxDataRef
 
-Optional<SyntaxDataRef> SyntaxDataRef::getChildRef(
-    AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
-  if (AbsoluteRaw) {
-    return SyntaxDataRef(*AbsoluteRaw, /*Parent=*/const_cast<SyntaxDataRef *>(this), /*IsParentOwned=*/false);
-  } else {
-    return None;
-  }
-}
-
-SyntaxDataRef SyntaxDataRef::getPresentChildRef(
-    AbsoluteSyntaxPosition::IndexInParentType Index) const {
-  auto AbsoluteRaw = getAbsoluteRaw().getPresentChild(Index);
-  return SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this), /*IsParentOwned=*/false);
-}
-
 Optional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
   if (size_t N = getIndexInParent()) {
     if (hasParent()) {

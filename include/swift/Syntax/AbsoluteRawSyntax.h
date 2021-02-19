@@ -273,10 +273,40 @@ public:
 
   /// Get the child at \p Index.
   Optional<AbsoluteRawSyntax>
-  getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const;
+  getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
+    auto Raw = getRaw();
+    auto RawChild = Raw->getChild(Index);
+    if (!RawChild) {
+      return None;
+    }
+
+    AbsoluteSyntaxPosition Position = getPosition().advancedToFirstChild();
+    SyntaxIdentifier NodeId = getNodeId().advancedToFirstChild();
+
+    for (size_t I = 0; I < Index; ++I) {
+      Position = Position.advancedBy(Raw->getChild(I));
+      NodeId = NodeId.advancedBy(Raw->getChild(I));
+    }
+
+    AbsoluteSyntaxInfo Info(Position, NodeId);
+    return AbsoluteRawSyntax(RawChild, Info);
+  }
 
   AbsoluteRawSyntax
-  getPresentChild(AbsoluteSyntaxPosition::IndexInParentType Index) const;
+  getPresentChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
+    auto RawChild = getRaw()->getChild(Index);
+
+    AbsoluteSyntaxPosition Position = getPosition().advancedToFirstChild();
+    SyntaxIdentifier NodeId = getNodeId().advancedToFirstChild();
+
+    for (size_t I = 0; I < Index; ++I) {
+      Position = Position.advancedBy(getRaw()->getChild(I));
+      NodeId = NodeId.advancedBy(getRaw()->getChild(I));
+    }
+
+    AbsoluteSyntaxInfo Info(Position, NodeId);
+    return AbsoluteRawSyntax(RawChild, Info);
+  }
 
   /// Get the first non-missing token node in this tree. Return \c None if
   /// this node does not contain non-missing tokens.

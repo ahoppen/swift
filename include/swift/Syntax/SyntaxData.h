@@ -158,7 +158,14 @@ public:
 
   /// Gets the child at the specified \p Index.
   Optional<SyntaxDataRef>
-  getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const;
+  getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const {
+    auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
+    if (AbsoluteRaw) {
+      return SyntaxDataRef(*AbsoluteRaw, /*Parent=*/const_cast<SyntaxDataRef *>(this), /*IsParentOwned=*/false);
+    } else {
+      return None;
+    }
+  }
 
   /// Gets the child at the index specified by the provided cursor, assuming
   /// that the child exists.
@@ -170,7 +177,10 @@ public:
 
   /// Gets the child at the specified \p Index, assuming that the child exists.
   SyntaxDataRef
-  getPresentChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const;
+  getPresentChildRef(AbsoluteSyntaxPosition::IndexInParentType Index) const {
+    auto AbsoluteRaw = getAbsoluteRaw().getPresentChild(Index);
+    return SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this), /*IsParentOwned=*/false);
+  }
 
   /// Returns the child index of this node in its parent, if it has a parent,
   /// otherwise 0.
