@@ -33,7 +33,7 @@ class SyntaxTreeCreator;
 
 namespace syntax {
 class SourceFileSyntax;
-enum class SyntaxKind;
+enum class SyntaxKind : uint8_t;
 class RawSyntax;
 }
 

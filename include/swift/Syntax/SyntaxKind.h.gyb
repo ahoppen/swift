@@ -31,7 +31,7 @@
 namespace swift {
 namespace syntax {
 
-enum class SyntaxKind {
+enum class SyntaxKind : uint8_t {
   Token,
 % for name, nodes in grouped_nodes.items():
 %   for node in nodes:

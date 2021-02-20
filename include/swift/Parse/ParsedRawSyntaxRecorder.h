@@ -38,7 +38,7 @@ class Token;
 enum class tok;
 
 namespace syntax {
-  enum class SyntaxKind;
+  enum class SyntaxKind : uint8_t;
 }
 
 class ParsedRawSyntaxRecorder final {

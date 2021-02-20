@@ -34,7 +34,7 @@ class Token;
 class DiagnosticEngine;
 
 namespace syntax {
-  enum class SyntaxKind;
+  enum class SyntaxKind : uint8_t;
 }
 
 enum class SyntaxContextKind {

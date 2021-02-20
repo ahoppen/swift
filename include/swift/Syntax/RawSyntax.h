@@ -185,46 +185,48 @@ class RawSyntax final
   /// alive. If this is a \c nullptr, the node owns its own memory buffer.
   SyntaxArena *Arena;
 
-  union {
-    struct {
-      /// Number of bytes this node takes up spelled out in the source code.
-      /// Always 0 if the node is missing.
-      uint32_t TextLength;
-      /// Whether this piece of syntax was actually present in the source.
-      SourcePresence Presence;
-      bool IsToken;
-    } Common;
-    enum { NumRawSyntaxBits = 32 + 8 + 8 };
-
-    // For "layout" nodes.
-    struct {
-      static_assert(NumRawSyntaxBits <= 64,
-                    "Only 64 bits reserved for standard syntax bits");
-      uint64_t _Common;
-      /// Number of children this "layout" node has.
-      uint32_t NumChildren;
-      /// Total number of sub nodes, i.e. number of transitive children of this
-      /// node. This does not include the node itself.
-      uint32_t TotalSubNodeCount;
-      /// The kind of syntax this node represents.
-      unsigned Kind : bitmax(NumSyntaxKindBits, 8);
-    } Layout;
-
-    // For "token" nodes.
-    struct {
-      static_assert(NumRawSyntaxBits <= 64,
-                    "Only 64 bits reserved for standard syntax bits");
-      uint64_t : bitmax(NumRawSyntaxBits, 64); // align to 16 bits
-      /// The kind of token this "token" node represents.
-      const char *LeadingTrivia;
-      const char *TokenText;
-      const char *TrailingTrivia;
-      uint32_t LeadingTriviaLength;
-      uint32_t TokenLength;
-      uint32_t TrailingTriviaLength;
-      uint32_t TokenKind;
-    } Token;
-  } Bits;
+  struct CommonData {
+    /// Number of bytes this node takes up spelled out in the source code.
+    /// Always 0 if the node is missing.
+    uint32_t TextLength;
+    /// Whether this piece of syntax was actually present in the source.
+    SourcePresence Presence;
+    bool IsToken;
+  };
+      
+  struct LayoutData {
+    CommonData Common;
+    /// Number of children this "layout" node has.
+    uint32_t NumChildren;
+    /// Total number of sub nodes, i.e. number of transitive children of this
+    /// node. This does not include the node itself.
+    uint32_t TotalSubNodeCount;
+    /// The kind of syntax this node represents.
+    SyntaxKind Kind;
+  };
+      
+  struct TokenData {
+    CommonData Common;
+    /// The kind of token this "token" node represents.
+    const char *LeadingTrivia;
+    const char *TokenText;
+    const char *TrailingTrivia;
+    uint32_t LeadingTriviaLength;
+    uint32_t TokenLength;
+    uint32_t TrailingTriviaLength;
+    tok TokenKind;
+  };
+      
+  union BitsData {
+    CommonData Common;
+    LayoutData Layout;
+    TokenData Token;
+    
+    BitsData(const CommonData &Common) : Common(Common) {}
+    BitsData(const LayoutData &Layout) : Layout(Layout) {}
+    BitsData(const TokenData &Token) : Token(Token) {}
+  };
+  BitsData Bits;
 
   size_t numTrailingObjects(OverloadToken<RawSyntax *>) const {
     return isToken() ? 0 : Bits.Layout.NumChildren;
@@ -240,7 +242,7 @@ class RawSyntax final
             SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
       : Arena(Arena),
-      Bits({{uint32_t(TextLength), Presence, false}}) {
+      Bits(BitsData(LayoutData{{uint32_t(TextLength), Presence, false}, uint32_t(Layout.size()), /*TotalSubNodeCount=*/0, Kind})) {
   assert(Arena && "RawSyntax nodes must always be allocated in an arena");
   assert(Kind != SyntaxKind::Token &&
          "'token' syntax node must be constructed with dedicated constructor");
@@ -259,9 +261,7 @@ class RawSyntax final
   } else {
     this->NodeId = NextFreeNodeId++;
   }
-  Bits.Layout.NumChildren = Layout.size();
   Bits.Layout.TotalSubNodeCount = TotalSubNodeCount;
-  Bits.Layout.Kind = unsigned(Kind);
 
   // Initialize layout data.
   std::uninitialized_copy(Layout.begin(), Layout.end(),
@@ -278,7 +278,16 @@ class RawSyntax final
             SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
       : Arena(Arena),
-        Bits({{uint32_t(TextLength), Presence, true}}) {
+      Bits(BitsData(
+        TokenData{CommonData{uint32_t(TextLength), Presence, true},
+        nullptr, //LeadingTrivia.data(),
+        nullptr, //Text.data(),
+        nullptr, //TrailingTrivia.data(),
+        uint32_t(LeadingTrivia.size()),
+        uint32_t(Text.size()),
+        uint32_t(TrailingTrivia.size()),
+        TokKind
+      })) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
     copyToArenaIfNecessary(LeadingTrivia, Arena);
     copyToArenaIfNecessary(Text, Arena);
@@ -300,10 +309,10 @@ class RawSyntax final
     Bits.Token.LeadingTrivia = LeadingTrivia.data();
     Bits.Token.TokenText = Text.data();
     Bits.Token.TrailingTrivia = TrailingTrivia.data();
-    Bits.Token.LeadingTriviaLength = LeadingTrivia.size();
-    Bits.Token.TokenLength = Text.size();
-    Bits.Token.TrailingTriviaLength = TrailingTrivia.size();
-    Bits.Token.TokenKind = unsigned(TokKind);
+//    Bits.Token.LeadingTriviaLength = LeadingTrivia.size();
+//    Bits.Token.TokenLength = Text.size();
+//    Bits.Token.TrailingTriviaLength = TrailingTrivia.size();
+//    Bits.Token.TokenKind = unsigned(TokKind);
   }
 
   /// Compute the node's text length by summing up the length of its childern
