@@ -148,7 +148,7 @@ template <typename CursorType> constexpr CursorIndex cursorIndex(CursorType C) {
 /// An indicator of whether a Syntax node was found or written in the source.
 ///
 /// This is not an 'implicit' bit.
-enum class SourcePresence {
+enum class SourcePresence : uint8_t {
   /// The syntax was authored by a human and found, or was generated.
   Present,
 
@@ -189,23 +189,23 @@ class RawSyntax final
     struct {
       /// Number of bytes this node takes up spelled out in the source code.
       /// Always 0 if the node is missing.
-      unsigned TextLength : 32;
+      uint32_t TextLength;
       /// Whether this piece of syntax was actually present in the source.
-      unsigned Presence : 1;
-      unsigned IsToken : 1;
+      SourcePresence Presence;
+      bool IsToken;
     } Common;
-    enum { NumRawSyntaxBits = 32 + 1 + 1 };
+    enum { NumRawSyntaxBits = 32 + 8 + 8 };
 
     // For "layout" nodes.
     struct {
       static_assert(NumRawSyntaxBits <= 64,
                     "Only 64 bits reserved for standard syntax bits");
-      uint64_t : bitmax(NumRawSyntaxBits, 64); // align to 32 bits
+      uint64_t _Common;
       /// Number of children this "layout" node has.
-      unsigned NumChildren : 32;
+      uint32_t NumChildren;
       /// Total number of sub nodes, i.e. number of transitive children of this
       /// node. This does not include the node itself.
-      unsigned TotalSubNodeCount : 32;
+      uint32_t TotalSubNodeCount;
       /// The kind of syntax this node represents.
       unsigned Kind : bitmax(NumSyntaxKindBits, 8);
     } Layout;
@@ -219,10 +219,10 @@ class RawSyntax final
       const char *LeadingTrivia;
       const char *TokenText;
       const char *TrailingTrivia;
-      unsigned LeadingTriviaLength : 32;
-      unsigned TokenLength : 32;
-      unsigned TrailingTriviaLength : 32;
-      unsigned TokenKind : 16;
+      uint32_t LeadingTriviaLength;
+      uint32_t TokenLength;
+      uint32_t TrailingTriviaLength;
+      uint32_t TokenKind;
     } Token;
   } Bits;
 
@@ -240,7 +240,7 @@ class RawSyntax final
             SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
       : Arena(Arena),
-      Bits({{unsigned(TextLength), unsigned(Presence), false}}) {
+      Bits({{uint32_t(TextLength), Presence, false}}) {
   assert(Arena && "RawSyntax nodes must always be allocated in an arena");
   assert(Kind != SyntaxKind::Token &&
          "'token' syntax node must be constructed with dedicated constructor");
@@ -278,7 +278,7 @@ class RawSyntax final
             SourcePresence Presence, SyntaxArena *Arena,
             llvm::Optional<SyntaxNodeId> NodeId)
       : Arena(Arena),
-        Bits({{unsigned(TextLength), unsigned(Presence), true}}) {
+        Bits({{uint32_t(TextLength), Presence, true}}) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
     copyToArenaIfNecessary(LeadingTrivia, Arena);
     copyToArenaIfNecessary(Text, Arena);
