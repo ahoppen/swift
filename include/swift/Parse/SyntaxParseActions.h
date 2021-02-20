@@ -78,7 +78,7 @@ public:
   /// OpaqueSyntaxNode object.
   virtual OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
-                  const SmallVector<OpaqueSyntaxNode, 4> &elements) = 0;
+                  const ArrayRef<OpaqueSyntaxNode> &elements) = 0;
 
   /// Create a deferred token node that may or may not be recorded later using
   /// \c recordDeferredToken. The \c SyntaxParseAction is responsible for
@@ -95,7 +95,7 @@ public:
   virtual OpaqueSyntaxNode
   makeDeferredLayout(syntax::SyntaxKind k,
                      bool IsMissing,
-                     const SmallVector<OpaqueSyntaxNode, 4> &children) = 0;
+                     const ArrayRef<OpaqueSyntaxNode> &children) = 0;
 
   /// Record a deferred token node that was previously created using \c
   /// makeDeferredToken. The deferred data will never be used again, so it can

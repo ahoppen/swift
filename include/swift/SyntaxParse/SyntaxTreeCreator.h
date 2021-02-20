@@ -92,7 +92,7 @@ public:
 
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
-                  const SmallVector<OpaqueSyntaxNode, 4> &elements) override {
+                  const ArrayRef<OpaqueSyntaxNode> &elements) override {
 //    SmallVector<RC<syntax::RawSyntax>, 16> parts;
 //    parts.reserve(elements.size());
     size_t ByteLength = 0;
@@ -133,7 +133,7 @@ public:
   OpaqueSyntaxNode
   makeDeferredLayout(syntax::SyntaxKind k,
                      bool IsMissing,
-                     const SmallVector<OpaqueSyntaxNode, 4> &children) override{
+                     const ArrayRef<OpaqueSyntaxNode> &children) override{
     // Also see comment in makeDeferredToken
     auto Node = recordRawSyntax(k, children);
     return Node;

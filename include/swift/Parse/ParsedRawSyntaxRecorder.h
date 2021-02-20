@@ -124,13 +124,11 @@ public:
                SyntaxParsingContext &ctx) {
     assert(k != syntax::SyntaxKind::Token &&
            "Use makeDeferredToken to create deferred tokens");
-    SmallVector<OpaqueSyntaxNode, 4> children;
-    children.reserve(deferredNodes.size());
+    static_assert(sizeof(OpaqueSyntaxNode) == sizeof(ParsedRawSyntaxNode), "");
+    MutableArrayRef<OpaqueSyntaxNode> children(reinterpret_cast<OpaqueSyntaxNode *>(deferredNodes.data()), deferredNodes.size());
     
-    // TODO: Modify deferredNodes in place and clear the upper bits
-    for (auto &node : deferredNodes) {
-      // Cached range.
-      children.push_back(node.getData());
+    for (size_t i = 0; i < children.size(); ++i) {
+      children[i] = reinterpret_cast<ParsedRawSyntaxNode &>(children[i]).getData();
     }
     OpaqueSyntaxNode Data =
     SPActions->makeDeferredLayout(k, /*IsMissing=*/false, children);

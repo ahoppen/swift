@@ -102,7 +102,7 @@ public:
 
   OpaqueSyntaxNode
   recordRawSyntax(syntax::SyntaxKind kind,
-                  const SmallVector<OpaqueSyntaxNode, 4> &elements) override {
+                  const ArrayRef<OpaqueSyntaxNode> &elements) override {
     OpaqueSyntaxNode explicitActionNode;
     if (ExplicitAction) {
       if (ExplicitAction == LibSyntaxAction) {
@@ -184,7 +184,7 @@ public:
   OpaqueSyntaxNode
   makeDeferredLayout(syntax::SyntaxKind k,
                      bool IsMissing,
-                     const SmallVector<OpaqueSyntaxNode, 4> &children) override {
+                     const ArrayRef<OpaqueSyntaxNode> &children) override {
     OpaqueSyntaxNode explicitActionNode;
     if (ExplicitAction) {
       if (ExplicitAction == LibSyntaxAction) {
