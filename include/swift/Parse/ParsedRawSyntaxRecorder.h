@@ -22,6 +22,7 @@
 #include "swift/Basic/LLVM.h"
 #include "swift/Parse/ParsedRawSyntaxNode.h"
 #include "swift/Parse/SyntaxParseActions.h"
+#include "swift/SyntaxParse/SyntaxTreeCreator.h"
 #include <memory>
 
 namespace swift {
@@ -120,11 +121,29 @@ public:
   ParsedRawSyntaxNode
   makeDeferred(syntax::SyntaxKind k,
                MutableArrayRef<ParsedRawSyntaxNode> deferredNodes,
-               SyntaxParsingContext &ctx);
+               SyntaxParsingContext &ctx) {
+    assert(k != syntax::SyntaxKind::Token &&
+           "Use makeDeferredToken to create deferred tokens");
+    SmallVector<OpaqueSyntaxNode, 4> children;
+    children.reserve(deferredNodes.size());
+    
+    // TODO: Modify deferredNodes in place and clear the upper bits
+    for (auto &node : deferredNodes) {
+      // Cached range.
+      children.push_back(node.getData());
+    }
+    OpaqueSyntaxNode Data =
+    SPActions->makeDeferredLayout(k, /*IsMissing=*/false, children);
+    return ParsedRawSyntaxNode(Data,
+                               ParsedRawSyntaxNode::DataKind::DeferredLayout);
+  }
 
   /// Create a deferred token node.
   ParsedRawSyntaxNode makeDeferred(Token tok, StringRef leadingTrivia,
-                                   StringRef trailingTrivia);
+                                   StringRef trailingTrivia) {
+    OpaqueSyntaxNode Data = SPActionsP->makeDeferredToken(tok.getKind(), leadingTrivia, trailingTrivia, tok.getRange(), /*isMissing=*/false);
+    return ParsedRawSyntaxNode(tok.getLoc(), Data, ParsedRawSyntaxNode::DataKind::DeferredToken);
+  }
 
   /// Form a deferred missing token node.
   ParsedRawSyntaxNode makeDeferredMissing(tok tokKind, SourceLoc loc);
