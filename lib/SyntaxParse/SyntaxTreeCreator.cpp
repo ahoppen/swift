@@ -136,7 +136,7 @@ SyntaxTreeCreator::lookupNode(size_t lexerOffset, syntax::SyntaxKind kind) {
   auto cacheLookup = SyntaxCache->lookUp(lexerOffset, kind);
   if (!cacheLookup)
     return {0, nullptr};
-  RawSyntax *raw = cacheLookup->getRaw();
+  RawSyntax *raw = const_cast<RawSyntax *>(cacheLookup->getRaw());
   size_t length = raw->getTextLength();
   return {length, raw};
 }

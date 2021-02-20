@@ -53,8 +53,7 @@ class SyntaxCollectionRef : public SyntaxRef {
   friend class Syntax;
 
 public:
-  SyntaxCollectionRef(const SyntaxDataRef &Data) : SyntaxRef(Data) {}
-  SyntaxCollectionRef(SyntaxDataRef &&Data) : SyntaxRef(std::move(Data)) {}
+  SyntaxCollectionRef(SyntaxDataRef *Data) : SyntaxRef(Data) {}
 
   /// Returns true if the collection is empty.
   bool empty() const { return size() == 0; }
@@ -82,7 +81,7 @@ public:
   /// Precondition: !empty()
   Element operator[](const size_t Index) const {
     assert(Index < size());
-    return Element(*getDataRef().getChildRef(Index));
+    return Element(getDataRef().getChildRef(Index));
   }
 
   static bool kindof(SyntaxKind Kind) { return Kind == CollectionKind; }
@@ -137,9 +136,8 @@ private:
   }
 
 public:
-  SyntaxCollection(const SyntaxData &Data) : Syntax(Data) {}
-  SyntaxCollection(SyntaxData &&Data) : Syntax(std::move(Data)) {}
-
+  SyntaxCollection(const RC<SyntaxData> &Data) : Syntax(Data) {}
+  
   SyntaxCollection(std::initializer_list<Element> list):
     SyntaxCollection(SyntaxCollection::makeData(list)) {}
 

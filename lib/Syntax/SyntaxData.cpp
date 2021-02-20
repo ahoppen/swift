@@ -17,11 +17,11 @@ using namespace swift::syntax;
 
 // MARK: - SyntaxDataRef
 
-SyntaxOptional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
+SyntaxDataRef *SyntaxDataRef::getPreviousNodeRef() const {
   if (size_t N = getIndexInParent()) {
-    if (hasParent()) {
+    if (auto Parent = getParentRef()) {
       for (size_t I = N - 1;; --I) {
-        if (auto C = getParentRef()->getChildRef(I)) {
+        if (auto C = Parent->getChildRef(I)) {
           if (C->getRawRef()->isPresent() &&
               C->getAbsoluteRaw().getFirstToken() != None) {
             return C;
@@ -33,10 +33,10 @@ SyntaxOptional<SyntaxDataRef> SyntaxDataRef::getPreviousNodeRef() const {
       }
     }
   }
-  return hasParent() ? getParentRef()->getPreviousNodeRef() : None;
+  return hasParent() ? getParentRef()->getPreviousNodeRef() : nullptr;
 }
 
-SyntaxOptional<SyntaxDataRef> SyntaxDataRef::getNextNodeRef() const {
+SyntaxDataRef *SyntaxDataRef::getNextNodeRef() const {
   if (hasParent()) {
     size_t NumChildren = getParentRef()->getNumChildren();
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
@@ -49,12 +49,12 @@ SyntaxOptional<SyntaxDataRef> SyntaxDataRef::getNextNodeRef() const {
     }
     return getParentRef()->getNextNodeRef();
   }
-  return None;
+  return nullptr;
 }
 
 AbsoluteOffsetPosition
 SyntaxDataRef::getAbsolutePositionBeforeLeadingTrivia() const {
-  return AbsoluteRaw.getPosition();
+  return getAbsoluteRaw().getPosition();
 }
 
 AbsoluteOffsetPosition
@@ -92,22 +92,22 @@ void SyntaxDataRef::dump() const { dump(llvm::errs()); }
 
 // MARK: - SyntaxData
 
-SyntaxOptional<SyntaxData>
+RC<SyntaxData>
 SyntaxData::getChild(AbsoluteSyntaxPosition::IndexInParentType Index) const {
   auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
   if (AbsoluteRaw) {
-    return SyntaxData(std::move(*AbsoluteRaw), /*Parent=*/*this);
+    return RC<SyntaxData>(new SyntaxData(std::move(*AbsoluteRaw), /*Parent=*/RC<SyntaxData>(const_cast<SyntaxData *>(this))));
   } else {
-    return None;
+    return nullptr;
   }
 }
 
-SyntaxOptional<SyntaxData> SyntaxData::getPreviousNode() const {
+RC<SyntaxData> SyntaxData::getPreviousNode() const {
   if (size_t N = getIndexInParent()) {
     if (hasParent()) {
       for (size_t I = N - 1; ; --I) {
         if (auto C = getParent()->getChild(I)) {
-          if (C->getRaw()->isPresent() && C->getFirstToken() != None) {
+          if (C->getRaw()->isPresent() && C->getFirstToken() != nullptr) {
             return C;
           }
         }
@@ -117,31 +117,31 @@ SyntaxOptional<SyntaxData> SyntaxData::getPreviousNode() const {
       }
     }
   }
-  return hasParent() ? getParent()->getPreviousNode() : None;
+  return hasParent() ? getParent()->getPreviousNode() : nullptr;
 }
 
-SyntaxOptional<SyntaxData> SyntaxData::getNextNode() const {
+RC<SyntaxData> SyntaxData::getNextNode() const {
   if (hasParent()) {
     size_t NumChildren = getParent()->getNumChildren();
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
       if (auto C = getParent()->getChild(I)) {
-        if (C->getRaw()->isPresent() && C->getFirstToken() != None) {
+        if (C->getRaw()->isPresent() && C->getFirstToken() != nullptr) {
           return C;
         }
       }
     }
     return getParent()->getNextNode();
   }
-  return None;
+  return nullptr;
 }
 
-SyntaxOptional<SyntaxData> SyntaxData::getFirstToken() const {
+RC<SyntaxData> SyntaxData::getFirstToken() const {
   /// getFirstToken and getLastToken cannot be implemented on SyntaxDataRef
   /// because we might need to traverse through multiple nodes to reach the
   /// first token. When returning this token, the parent nodes are being
   /// discarded and thus its parent pointer would point to invalid memory.
   if (getRawRef()->isToken() && !getRawRef()->isMissing()) {
-    return *this;
+    return RC<SyntaxData>(const_cast<SyntaxData *>(this));
   }
 
   for (size_t I = 0, E = getNumChildren(); I < E; ++I) {
@@ -155,17 +155,17 @@ SyntaxOptional<SyntaxData> SyntaxData::getFirstToken() const {
       }
     }
   }
-  return None;
+  return nullptr;
 }
 
-SyntaxOptional<SyntaxData> SyntaxData::getLastToken() const {
+RC<SyntaxData> SyntaxData::getLastToken() const {
   // Also see comment in getFirstToken.
   if (getRawRef()->isToken() && !getRawRef()->isMissing()) {
-    return *this;
+    return RC<SyntaxData>(const_cast<SyntaxData *>(this));
   }
 
   if (getNumChildren() == 0) {
-    return None;
+    return nullptr;
   }
   for (int I = getNumChildren() - 1; I >= 0; --I) {
     if (auto Child = getChild(I)) {
@@ -178,17 +178,17 @@ SyntaxOptional<SyntaxData> SyntaxData::getLastToken() const {
       }
     }
   }
-  return None;
+  return nullptr;
 }
 
-SyntaxData SyntaxData::replacingSelf(RawSyntax *NewRaw) const {
+RC<SyntaxData> SyntaxData::replacingSelf(RawSyntax *NewRaw) const {
   if (hasParent()) {
     auto NewRoot = getParent()->replacingChild(NewRaw, getIndexInParent());
-    auto NewSelf = getAbsoluteRaw().replacingSelf(
-        NewRaw, NewRoot.AbsoluteRaw.getNodeId().getRootId());
-    return SyntaxData(NewSelf, NewRoot);
+    auto NewSelf = getAbsoluteRaw().replacingSelf(NewRaw, NewRoot->getAbsoluteRaw().getNodeId().getRootId());
+    return new SyntaxData(NewSelf, NewRoot);
   } else {
     auto NewSelf = AbsoluteRawSyntax::forRoot(NewRaw);
-    return SyntaxData(NewSelf, /*Parent=*/nullptr);
+    // FIXME: Eliminate SyntaxArena::make() from RawSyntax::make* functions and use the same arena here
+    return new SyntaxData(NewSelf, /*Parent=*/nullptr, SyntaxArena::make());
   }
 }

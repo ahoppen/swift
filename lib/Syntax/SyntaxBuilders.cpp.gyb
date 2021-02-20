@@ -31,7 +31,7 @@ using namespace swift::syntax;
 ${node.name}Builder &
 ${node.name}Builder::use${child.name}(${child.type_name} ${child.name}) {
   Layout[cursorIndex(${node.name}::Cursor::${child.name})] =
-    ${child.name}.getRaw();
+    const_cast<RawSyntax *>(${child.name}.getRaw());
   return *this;
 }
 %       child_node = NODE_MAP.get(child.syntax_kind)
@@ -46,10 +46,10 @@ ${node.name}Builder::add${child_elt}(${child_elt_type} ${child_elt}) {
   auto &raw = Layout[cursorIndex(${node.name}::Cursor::${child.name})];
   if (!raw)
     raw = RawSyntax::makeAndCalcLength(SyntaxKind::${child_node.syntax_kind},
-                                       {${child_elt}.getRaw()},
+                                       {const_cast<RawSyntax *>(${child_elt}.getRaw())},
                                        SourcePresence::Present, Arena);
   else
-    raw = raw->append(${child_elt}.getRaw());
+    raw = raw->append(const_cast<RawSyntax *>(${child_elt}.getRaw()));
   return *this;
 }
 %       end

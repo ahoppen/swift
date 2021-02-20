@@ -62,16 +62,16 @@ void ${node.name}::validate() const {
 
 %   for child in node.children:
 %     if child.is_optional:
-SyntaxOptional<${child.type_name}> ${node.name}::get${child.name}() const {
+Optional<${child.type_name}> ${node.name}::get${child.name}() const {
   if (auto ChildData = getData().getChild(Cursor::${child.name})) {
-    return ${child.type_name}(*ChildData);
+    return ${child.type_name}(ChildData);
   } else {
     return None;
   }
 }
 %     else:
 ${child.type_name} ${node.name}::get${child.name}() const {
-  return ${child.type_name}(*getData().getChild(Cursor::${child.name}));
+  return ${child.type_name}(getData().getChild(Cursor::${child.name}));
 }
 %     end
 
@@ -94,7 +94,7 @@ ${node.name} ${node.name}::add${child_elt}(${child_elt_type} ${child_elt}) {
 %     end
 
 ${node.name} ${node.name}::with${child.name}(
-  SyntaxOptional<${child.type_name}> New${child.type_name}) {
+  Optional<${child.type_name}> New${child.type_name}) {
   RawSyntax *raw;
   if (New${child.type_name}.hasValue()) {
     raw = New${child.type_name}->getRaw();

@@ -73,12 +73,7 @@ public:
   };
 %     end
 
-  explicit ${node.name}(const SyntaxData &Data) : ${node.base_type}(Data) {
-%     if node.requires_validation():
-    this->validate();
-%     end
-  }
-  explicit ${node.name}(SyntaxData &&Data) : ${node.base_type}(std::move(Data)) {
+  explicit ${node.name}(const RC<SyntaxData> &Data) : ${node.base_type}(Data) {
 %     if node.requires_validation():
     this->validate();
 %     end
@@ -89,7 +84,7 @@ public:
   /// ${line}
 %       end
 %       if child.is_optional:
-  SyntaxOptional<${child.type_name}> get${child.name}() const;
+  Optional<${child.type_name}> get${child.name}() const;
 %       else:
   ${child.type_name} get${child.name}() const;
 %       end
@@ -114,7 +109,7 @@ public:
   /// - param newChild: The new `${child.name}` to replace the node's
   ///                   current `${child.name}`, if present.
   ${node.name}
-  with${child.name}(SyntaxOptional<${child.type_name}> New${child.type_name});
+  with${child.name}(Optional<${child.type_name}> New${child.type_name});
 
 %     end
 
@@ -150,29 +145,22 @@ public:
   using Cursor = ${node.name}::Cursor; // Use same cursor as non-Ref node.
 %     end
 
-  explicit ${node.name}Ref(const SyntaxDataRef &Data) : ${node.base_type}Ref(Data) {
-%     if node.requires_validation():
-    this->validate();
-%     end
-  }
-  explicit ${node.name}Ref(SyntaxDataRef &&Data) : ${node.base_type}Ref(std::move(Data)) {
+  explicit ${node.name}Ref(SyntaxDataRef *Data) : ${node.base_type}Ref(Data) {
 %     if node.requires_validation():
     this->validate();
 %     end
   }
   ${node.name}Ref(const ${node.name}Ref &Data) = default;
-  ${node.name}Ref(${node.name}Ref &&Data) = default;
 
   /// Demote a ${node.name} node to a ${node.name}Ref node.
-  ${node.name}Ref(const ${node.name} &Node) : ${node.base_type}Ref(Node.getDataRef()) {}
-  ${node.name}Ref(${node.name} &&Node) : ${node.base_type}Ref(std::move(Node.getDataRef())) {}
+  ${node.name}Ref(const ${node.name} &Node) : ${node.base_type}Ref(Node.getDataPtr().get()) {}
 
 %     for child in node.children:
 %       for line in dedented_lines(child.description):
   /// ${line}
 %       end
 %       if child.is_optional:
-  inline SyntaxOptional<${child.type_name}Ref> get${child.name}() const;
+  inline Optional<${child.type_name}Ref> get${child.name}() const;
 %       else:
   inline ${child.type_name}Ref get${child.name}() const;
 %       end
@@ -201,9 +189,9 @@ const char* getSyntaxStructureVersioningIdentifier();
 % for node in SYNTAX_NODES + PARSEONLY_NODES:
 %   for child in node.children:
 %     if child.is_optional:
-SyntaxOptional<${child.type_name}Ref> ${node.name}Ref::get${child.name}() const {
+Optional<${child.type_name}Ref> ${node.name}Ref::get${child.name}() const {
   if (auto ChildData = getDataRef().getChildRef(Cursor::${child.name})) {
-    return ${child.type_name}Ref(*ChildData);
+    return ${child.type_name}Ref(ChildData);
   } else {
     return None;
   }

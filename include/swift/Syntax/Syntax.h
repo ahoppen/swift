@@ -41,7 +41,7 @@ class SourceFileSyntax;
 class TokenSyntax;
 
 template <typename SyntaxNode> SyntaxNode makeRoot(RawSyntax *Raw) {
-  auto Data = SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr);
+  auto Data = new SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr, Raw->getArena());
   return SyntaxNode(std::move(Data));
 }
 
@@ -56,17 +56,19 @@ const auto NoParent = llvm::None;
 /// convenience methods based on the node's kind. As such \c SyntaxRef can
 /// either be reference-counted or unowned. See the comment on \c SyntaxDataRef
 /// for more details.
-class SyntaxRef : public SyntaxDataRef {
+class SyntaxRef {
+  SyntaxDataRef *Data;
+  
 public:
-  explicit SyntaxRef(const SyntaxDataRef &Data) : SyntaxDataRef(Data) {}
-  explicit SyntaxRef(SyntaxDataRef &&Data) : SyntaxDataRef(std::move(Data)) {}
-
+  explicit SyntaxRef(SyntaxDataRef *Data) : Data(Data) {}
+  
   virtual ~SyntaxRef() {}
 
   // MARK: - Get underlying data
 
   /// Get the Data for this Syntax node.
-  const SyntaxDataRef &getDataRef() const { return *this; }
+  const SyntaxDataRef &getDataRef() const { return *Data; }
+  SyntaxDataRef *getDataRefPtr() const { return Data; }
 
   const AbsoluteRawSyntax &getAbsoluteRaw() const {
     return getDataRef().getAbsoluteRaw();
@@ -93,7 +95,7 @@ public:
   /// Return the parent of this node, if it has one.
   llvm::Optional<SyntaxRef> getParentRef() const {
     if (auto ParentDataRef = getDataRef().getParentRef()) {
-      return SyntaxRef(*ParentDataRef);
+      return SyntaxRef(ParentDataRef);
     } else {
       return None;
     }
@@ -111,7 +113,7 @@ public:
   /// Get the \p N -th child of this piece of syntax.
   llvm::Optional<SyntaxRef> getChildRef(const size_t N) const {
     if (auto ChildData = getDataRef().getChildRef(N)) {
-      return SyntaxRef(*ChildData);
+      return SyntaxRef(ChildData);
     } else {
       return None;
     }
@@ -121,7 +123,7 @@ public:
   /// non-missing token. Return \c None if we cannot find such node.
   Optional<SyntaxRef> getPreviousNodeRef() const {
     if (auto prev = getDataRef().getPreviousNodeRef()) {
-      return SyntaxRef(*prev);
+      return SyntaxRef(prev);
     } else {
       return None;
     }
@@ -131,7 +133,7 @@ public:
   /// non-missing token. Return \c None if we cannot find such node.
   Optional<SyntaxRef> getNextNodeRef() const {
     if (auto prev = getDataRef().getNextNodeRef()) {
-      return SyntaxRef(*prev);
+      return SyntaxRef(prev);
     } else {
       return None;
     }
@@ -197,23 +199,22 @@ public:
   bool is() const {
     return T::classof(this);
   }
+  
+  /// Cast this Syntax node to a more specific type, asserting it's of the
+  /// right kind.
+  template <typename T>
+  T castTo() const {
+    assert(is<T>() && "castTo<T>() node of incompatible type!");
+    return T(getDataRefPtr());
+  }
 
   /// Cast this Syntax node to a more specific type, asserting it's of the
   /// right kind.
   template <typename T>
   T castTo2() const {
-    assert(is<T>() && "castTo<T>() node of incompatible type!");
-    return T(getDataRef());
+    return castTo<T>();
   }
   
-  /// Cast this Syntax node to a more specific type, asserting it's of the
-  /// right kind.
-  template <typename T>
-  T castTo() && {
-    assert(is<T>() && "castTo<T>() node of incompatible type!");
-    return T(std::move(*this));
-  }
-
   /// If this Syntax node is of the right kind, cast and return it,
   /// otherwise return None.
   template <typename T>
@@ -263,42 +264,149 @@ public:
 
 /// A \c SyntaxRef that is guaranteed to always be reference-counted. See
 /// comment on \c SyntaxRef.
-class Syntax : public SyntaxRef {
+class Syntax {
   friend struct SyntaxFactory;
+  
+  RC<SyntaxData> Data;
 
 public:
-  explicit Syntax(const SyntaxData &Data) : SyntaxRef(Data) {}
-  explicit Syntax(SyntaxData &&Data) : SyntaxRef(std::move(Data)) {}
+  explicit Syntax(const RC<SyntaxData> &Data) : Data(Data) {}
 
   virtual ~Syntax() {}
-
+  
   // MARK: - Get underlying data
 
-  /// Get the data for this Syntax node.
-  SyntaxData getData() const { return SyntaxData(getDataRef()); }
+  /// Get the Data for this Syntax node.
+  const SyntaxData &getData() const { return *Data; }
+  const RC<SyntaxData> &getDataPtr() const { return Data; }
 
+  const AbsoluteRawSyntax &getAbsoluteRaw() const {
+    return getData().getAbsoluteRaw();
+  }
+  
   /// Get the shared raw syntax.
-  RawSyntax *getRaw() const { return getData().getRaw(); }
+  RawSyntax *getRaw() const { return const_cast<RawSyntax *>(getData().getRaw()); }
+
+  /// Get the kind of syntax.
+  SyntaxKind getKind() const { return getRaw()->getKind(); }
+
+  /// Get an ID for the \c RawSyntax node backing this \c Syntax which is
+  /// stable across incremental parses.
+  /// Note that this is different from the \c AbsoluteRawSyntax's \c NodeId,
+  /// which uniquely identifies this node in the tree, but is not stable across
+  /// incremental parses.
+  SyntaxNodeId getId() const { return getRaw()->getId(); }
+
+  /// Return the number of bytes this node takes when spelled out in the source
+  size_t getTextLength() const { return getRaw()->getTextLength(); }
+
+  // MARK: Parents/children
+
+  /// Return the parent of this node, if it has one.
+  llvm::Optional<Syntax> getParent() const {
+    if (auto ParentDataRef = getData().getParent()) {
+      return Syntax(ParentDataRef);
+    } else {
+      return None;
+    }
+  }
+
+  /// Get the number of child nodes in this piece of syntax.
+  size_t getNumChildren() const { return getData().getNumChildren(); }
+
+  /// Returns the child index of this node in its parent, if it has one,
+  /// otherwise 0.
+  CursorIndex getIndexInParent() const {
+    return getData().getIndexInParent();
+  }
 
   /// Get the \p N -th child of this piece of syntax.
-  llvm::Optional<Syntax> getChild(const size_t N) const;
+  llvm::Optional<Syntax> getChild(const size_t N) const {
+    if (auto ChildData = getData().getChild(N)) {
+      return Syntax(ChildData);
+    } else {
+      return None;
+    }
+  }
 
+  /// Get the node immediately before this current node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  Optional<Syntax> getPreviousNode() const {
+    if (auto prev = getData().getPreviousNode()) {
+      return Syntax(prev);
+    } else {
+      return None;
+    }
+  }
+
+  /// Get the node immediately after this node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  Optional<Syntax> getNextNode() const {
+    if (auto prev = getData().getNextNode()) {
+      return Syntax(prev);
+    } else {
+      return None;
+    }
+  }
+  
   /// Get the first non-missing token in this node.
   Optional<TokenSyntax> getFirstToken() const;
 
   /// Get the last non-missing token in this node.
   Optional<TokenSyntax> getLastToken() const;
 
-  /// Return the parent of this node, if it has one.
-  llvm::Optional<Syntax> getParent() const;
+  // MARK: Position
 
-  /// Get the node immediately before this current node that does contain a
-  /// non-missing token. Return \c None if we cannot find such node.
-  Optional<Syntax> getPreviousNode() const;
+  /// Get the offset at which the leading trivia of this node starts.
+  AbsoluteOffsetPosition getAbsolutePositionBeforeLeadingTrivia() const {
+    return getData().getAbsolutePositionBeforeLeadingTrivia();
+  }
 
-  /// Get the node immediately after this node that does contain a
-  /// non-missing token. Return \c None if we cannot find such node.
-  Optional<Syntax> getNextNode() const;
+  /// Get the offset at which the actual content (i.e. non-triva) of this node
+  /// starts.
+  AbsoluteOffsetPosition getAbsolutePositionAfterLeadingTrivia() const {
+    return getData().getAbsolutePositionAfterLeadingTrivia();
+  }
+
+  /// Get the offset at which the trailing trivia of this node starts.
+  AbsoluteOffsetPosition getAbsoluteEndPositionBeforeTrailingTrivia() const {
+    return getData().getAbsoluteEndPositionBeforeTrailingTrivia();
+  }
+
+  /// Get the offset at which the trailing trivia of this node ends.
+  AbsoluteOffsetPosition getAbsoluteEndPositionAfterTrailingTrivia() const {
+    return getData().getAbsoluteEndPositionAfterTrailingTrivia();
+  }
+
+  // MARK: - Get node kind
+
+  /// Returns true if this syntax node represents a token.
+  bool isToken() const { return getRaw()->isToken(); }
+
+  /// Returns true if this syntax node represents a statement.
+  bool isStmt() const { return getRaw()->isStmt(); }
+
+  /// Returns true if this syntax node represents a declaration.
+  bool isDecl() const { return getRaw()->isDecl(); }
+
+  /// Returns true if this syntax node represents an expression.
+  bool isExpr() const { return getRaw()->isExpr(); }
+
+  /// Returns true if this syntax node represents a pattern.
+  bool isPattern() const { return getRaw()->isPattern(); }
+
+  /// Returns true if this syntax node represents a type.
+  bool isType() const { return getRaw()->isType(); }
+
+  /// Returns true if this syntax is of some "unknown" kind.
+  bool isUnknown() const { return getRaw()->isUnknown(); }
+
+  /// Returns true if the node is "missing" in the source (i.e. it was
+  /// expected (or optional) but not written.
+  bool isMissing() const { return getRaw()->isMissing(); }
+
+  /// Returns true if the node is "present" in the source.
+  bool isPresent() const { return getRaw()->isPresent(); }
 
   // MARK: - Casting
 
@@ -312,16 +420,15 @@ public:
   /// right kind.
   template <typename T>
   T castTo2() const {
-    assert(is<T>() && "castTo<T>() node of incompatible type!");
-    return T(getData());
+    return castTo<T>();
   }
   
   /// Cast this Syntax node to a more specific type, asserting it's of the
   /// right kind.
   template <typename T>
-  T castTo() && {
+  T castTo() const {
     assert(is<T>() && "castTo<T>() node of incompatible type!");
-    return T(getData());
+    return T(getDataPtr());
   }
 
   /// If this Syntax node is of the right kind, cast and return it,
@@ -334,11 +441,37 @@ public:
       return None;
     }
   }
+  
+  static bool kindof(SyntaxKind Kind) {
+    return true;
+  }
 
   // MARK: - Miscellaneous
 
   /// Recursively visit this node.
   void accept(SyntaxVisitor &Visitor);
+
+  /// Print the syntax node with full fidelity to the given output stream.
+  void print(llvm::raw_ostream &OS,
+             SyntaxPrintOptions Opts = SyntaxPrintOptions()) const {
+    if (auto Raw = getRaw()) {
+      Raw->print(OS, Opts);
+    }
+  }
+
+  /// Print a debug representation of the syntax node to the given output stream
+  /// and indentation level.
+  void dump(llvm::raw_ostream &OS, unsigned Indent = 0) const {
+    getRaw()->dump(OS, Indent);
+  }
+
+  /// Print a debug representation of the syntax node to standard error.
+  SWIFT_DEBUG_DUMP { getRaw()->dump(); }
+
+  bool hasSameIdentityAs(const Syntax &Other) const {
+    return getAbsoluteRaw().getNodeId() ==
+           Other.getAbsoluteRaw().getNodeId();
+  }
 };
 
 } // end namespace syntax

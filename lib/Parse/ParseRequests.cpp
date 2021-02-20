@@ -37,7 +37,7 @@ namespace swift {
 #undef SWIFT_TYPEID_HEADER
 }
 
-#define BOOST 2000
+#define BOOST 1
 
 void swift::simple_display(llvm::raw_ostream &out,
                            const FingerprintAndMembers &value) {

@@ -32,9 +32,8 @@ class TokenSyntax final : public Syntax {
     assert(getRaw()->isToken());
   }
 public:
-  TokenSyntax(const SyntaxData &Data) : Syntax(Data) {}
-  TokenSyntax(SyntaxData &&Data) : Syntax(std::move(Data)) {}
-
+  TokenSyntax(const RC<SyntaxData> &Data) : Syntax(Data) {}
+  
   static TokenSyntax missingToken(const tok Kind, StringRef Text) {
     return makeRoot<TokenSyntax>(RawSyntax::missing(Kind, Text));
   }
@@ -86,11 +85,9 @@ class TokenSyntaxRef final : public SyntaxRef {
   void validate() const { assert(getRaw()->isToken()); }
 
 public:
-  TokenSyntaxRef(const SyntaxDataRef &Data) : SyntaxRef(Data) {}
-  TokenSyntaxRef(SyntaxDataRef &&Data) : SyntaxRef(std::move(Data)) {}
-
-  TokenSyntaxRef(const TokenSyntax &Token) : SyntaxRef(Token.getData()) {}
-  TokenSyntaxRef(TokenSyntax &&Token) : SyntaxRef(std::move(Token.getData())) {}
+  TokenSyntaxRef(SyntaxDataRef *Data) : SyntaxRef(Data) {}
+  
+  TokenSyntaxRef(const TokenSyntax &Token) : SyntaxRef(Token.getDataPtr().get()) {}
 
   StringRef getLeadingTrivia() const { return getRaw()->getLeadingTrivia(); }
   Trivia getLeadingTriviaPieces() const {

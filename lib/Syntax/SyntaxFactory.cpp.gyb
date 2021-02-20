@@ -53,7 +53,7 @@ SyntaxFactory::makeUnknownSyntax(llvm::ArrayRef<TokenSyntax> Tokens,
   std::vector<RawSyntax *> Layout;
   Layout.reserve(Tokens.size());
   for (auto &Token : Tokens) {
-    Layout.push_back(Token.getRaw());
+    Layout.push_back(const_cast<RawSyntax *>(Token.getRaw()));
   }
   auto Raw = RawSyntax::makeAndCalcLength(SyntaxKind::Unknown, Layout,
                                           SourcePresence::Present, Arena);
@@ -117,7 +117,7 @@ bool SyntaxFactory::canServeAsCollectionMemberRaw(SyntaxKind CollectionKind,
 
 bool SyntaxFactory::
 canServeAsCollectionMember(SyntaxKind CollectionKind, Syntax Member) {
-  return canServeAsCollectionMemberRaw(CollectionKind, Member.getRaw());
+  return canServeAsCollectionMemberRaw(CollectionKind, const_cast<RawSyntax *>(Member.getRaw()));
 }
 
 RawSyntax *SyntaxFactory::createRaw(SyntaxKind Kind,

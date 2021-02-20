@@ -261,7 +261,7 @@ class AbsoluteRawSyntax {
 
   const AbsoluteSyntaxInfo Info;
 
-friend class SyntaxDataRefBase;
+public:
   AbsoluteRawSyntax(std::nullptr_t) : Raw(), Info(
     AbsoluteSyntaxPosition(0, 0),
     SyntaxIdentifier(0, SyntaxIndexInTree::zero())

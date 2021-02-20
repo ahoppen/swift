@@ -17,17 +17,9 @@
 using namespace swift;
 using namespace swift::syntax;
 
-llvm::Optional<Syntax> Syntax::getChild(const size_t N) const {
-  if (auto ChildData = getData().getChild(N)) {
-    return Syntax(*ChildData);
-  } else {
-    return None;
-  }
-}
-
 Optional<TokenSyntax> Syntax::getFirstToken() const {
   if (auto Token = getData().getFirstToken()) {
-    return TokenSyntax(*Token);
+    return TokenSyntax(Token);
   } else {
     return None;
   }
@@ -35,31 +27,7 @@ Optional<TokenSyntax> Syntax::getFirstToken() const {
 
 Optional<TokenSyntax> Syntax::getLastToken() const {
   if (auto Token = getData().getLastToken()) {
-    return TokenSyntax(*Token);
-  } else {
-    return None;
-  }
-}
-
-llvm::Optional<Syntax> Syntax::getParent() const {
-  if (auto ParentData = getData().getParent()) {
-    return Syntax(*ParentData);
-  } else {
-    return None;
-  }
-}
-
-Optional<Syntax> Syntax::getPreviousNode() const {
-  if (auto prev = getData().getPreviousNode()) {
-    return Syntax(*prev);
-  } else {
-    return None;
-  }
-}
-
-Optional<Syntax> Syntax::getNextNode() const {
-  if (auto prev = getData().getNextNode()) {
-    return Syntax(*prev);
+    return TokenSyntax(Token);
   } else {
     return None;
   }
