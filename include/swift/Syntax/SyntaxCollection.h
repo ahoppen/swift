@@ -27,8 +27,9 @@ template <SyntaxKind CollectionKind, typename Element>
 struct SyntaxCollectionRefIterator {
   const SyntaxCollectionRef<CollectionKind, Element> &Collection;
   size_t Index;
+  SyntaxDataRef DataMem{};
 
-  Element operator*() { return Collection[Index]; }
+  Element operator*() { return Collection.getChild(Index, &DataMem); }
 
   SyntaxCollectionRefIterator<CollectionKind, Element> &operator++() {
     ++Index;
@@ -74,14 +75,14 @@ public:
         /*Index=*/getRaw()->getLayout().size(),
     };
   }
-
+  
   /// Return the element at the given Index.
   ///
   /// Precondition: Index < size()
   /// Precondition: !empty()
-  Element operator[](const size_t Index) const {
+  Element getChild(const size_t Index, SyntaxDataRef *DataMem) const {
     assert(Index < size());
-    return Element(getDataRef().getChildRef(Index));
+    return Element(getDataRef().getChildRef(Index, DataMem));
   }
 
   static bool kindof(SyntaxKind Kind) { return Kind == CollectionKind; }

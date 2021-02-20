@@ -41,7 +41,12 @@ class SourceFileSyntax;
 class TokenSyntax;
 
 template <typename SyntaxNode> SyntaxNode makeRoot(RawSyntax *Raw) {
-  auto Data = new SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr, Raw->getArena());
+  auto Data = RC<SyntaxData>(new SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr, Raw->getArena()));
+  return SyntaxNode(std::move(Data));
+}
+
+template <typename SyntaxNode> SyntaxNode makeRootRef(RawSyntax *Raw, SyntaxDataRef *DataMem) {
+  auto Data = new (DataMem) SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr, Raw->getArena());
   return SyntaxNode(std::move(Data));
 }
 
@@ -111,8 +116,8 @@ public:
   }
 
   /// Get the \p N -th child of this piece of syntax.
-  llvm::Optional<SyntaxRef> getChildRef(const size_t N) const {
-    if (auto ChildData = getDataRef().getChildRef(N)) {
+  llvm::Optional<SyntaxRef> getChildRef(const size_t N, SyntaxDataRef *DataMem) const {
+    if (auto ChildData = getDataRef().getChildRef(N, DataMem)) {
       return SyntaxRef(ChildData);
     } else {
       return None;
@@ -121,8 +126,8 @@ public:
 
   /// Get the node immediately before this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxRef> getPreviousNodeRef() const {
-    if (auto prev = getDataRef().getPreviousNodeRef()) {
+  Optional<SyntaxRef> getPreviousNodeRef(SyntaxDataRef *DataMem) const {
+    if (auto prev = getDataRef().getPreviousNodeRef(DataMem)) {
       return SyntaxRef(prev);
     } else {
       return None;
@@ -131,8 +136,8 @@ public:
 
   /// Get the node immediately after this node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxRef> getNextNodeRef() const {
-    if (auto prev = getDataRef().getNextNodeRef()) {
+  Optional<SyntaxRef> getNextNodeRef(SyntaxDataRef *DataMem) const {
+    if (auto prev = getDataRef().getNextNodeRef(DataMem)) {
       return SyntaxRef(prev);
     } else {
       return None;

@@ -17,11 +17,11 @@ using namespace swift::syntax;
 
 // MARK: - SyntaxDataRef
 
-SyntaxDataRef *SyntaxDataRef::getPreviousNodeRef() const {
+SyntaxDataRef *SyntaxDataRef::getPreviousNodeRef(SyntaxDataRef *DataMem) const {
   if (size_t N = getIndexInParent()) {
     if (auto Parent = getParentRef()) {
       for (size_t I = N - 1;; --I) {
-        if (auto C = Parent->getChildRef(I)) {
+        if (auto C = Parent->getChildRef(I, DataMem)) {
           if (C->getRawRef()->isPresent() &&
               C->getAbsoluteRaw().getFirstToken() != None) {
             return C;
@@ -33,21 +33,21 @@ SyntaxDataRef *SyntaxDataRef::getPreviousNodeRef() const {
       }
     }
   }
-  return hasParent() ? getParentRef()->getPreviousNodeRef() : nullptr;
+  return hasParent() ? getParentRef()->getPreviousNodeRef(DataMem) : nullptr;
 }
 
-SyntaxDataRef *SyntaxDataRef::getNextNodeRef() const {
+SyntaxDataRef *SyntaxDataRef::getNextNodeRef(SyntaxDataRef *DataMem) const {
   if (hasParent()) {
     size_t NumChildren = getParentRef()->getNumChildren();
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
-      if (auto C = getParentRef()->getChildRef(I)) {
+      if (auto C = getParentRef()->getChildRef(I, DataMem)) {
         if (C->getRawRef()->isPresent() &&
             C->getAbsoluteRaw().getFirstToken() != None) {
           return C;
         }
       }
     }
-    return getParentRef()->getNextNodeRef();
+    return getParentRef()->getNextNodeRef(DataMem);
   }
   return nullptr;
 }
@@ -185,10 +185,10 @@ RC<SyntaxData> SyntaxData::replacingSelf(RawSyntax *NewRaw) const {
   if (hasParent()) {
     auto NewRoot = getParent()->replacingChild(NewRaw, getIndexInParent());
     auto NewSelf = getAbsoluteRaw().replacingSelf(NewRaw, NewRoot->getAbsoluteRaw().getNodeId().getRootId());
-    return new SyntaxData(NewSelf, NewRoot);
+    return RC<SyntaxData>(new SyntaxData(NewSelf, NewRoot));
   } else {
     auto NewSelf = AbsoluteRawSyntax::forRoot(NewRaw);
     // FIXME: Eliminate SyntaxArena::make() from RawSyntax::make* functions and use the same arena here
-    return new SyntaxData(NewSelf, /*Parent=*/nullptr, SyntaxArena::make());
+    return RC<SyntaxData>(new SyntaxData(NewSelf, /*Parent=*/nullptr, SyntaxArena::make()));
   }
 }

@@ -160,9 +160,9 @@ public:
   /// ${line}
 %       end
 %       if child.is_optional:
-  inline Optional<${child.type_name}Ref> get${child.name}() const;
+  inline Optional<${child.type_name}Ref> get${child.name}(SyntaxDataRef *DataMem) const;
 %       else:
-  inline ${child.type_name}Ref get${child.name}() const;
+  inline ${child.type_name}Ref get${child.name}(SyntaxDataRef *DataMem) const;
 %       end
 
 %     end
@@ -189,16 +189,16 @@ const char* getSyntaxStructureVersioningIdentifier();
 % for node in SYNTAX_NODES + PARSEONLY_NODES:
 %   for child in node.children:
 %     if child.is_optional:
-Optional<${child.type_name}Ref> ${node.name}Ref::get${child.name}() const {
-  if (auto ChildData = getDataRef().getChildRef(Cursor::${child.name})) {
+Optional<${child.type_name}Ref> ${node.name}Ref::get${child.name}(SyntaxDataRef *DataMem) const {
+  if (auto ChildData = getDataRef().getChildRef(Cursor::${child.name}, DataMem)) {
     return ${child.type_name}Ref(ChildData);
   } else {
     return None;
   }
 }
 %     else:
-${child.type_name}Ref ${node.name}Ref::get${child.name}() const {
-  return ${child.type_name}Ref(getDataRef().getPresentChildRef(Cursor::${child.name}));
+${child.type_name}Ref ${node.name}Ref::get${child.name}(SyntaxDataRef *DataMem) const {
+  return ${child.type_name}Ref(getDataRef().getPresentChildRef(Cursor::${child.name}, DataMem));
 }
 %     end
 %   end

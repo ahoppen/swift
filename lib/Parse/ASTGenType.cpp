@@ -121,21 +121,23 @@ TypeRepr *ASTGen::generate(TypeSyntaxRef &&Type, Diag<> MissingTypeDiag) {
 }
 
 TypeRepr *ASTGen::generate(const ArrayTypeSyntaxRef &Type) {
-  TypeRepr *ElementType = generate(Type.getElementType());
+  SyntaxDataRef Data[1];
+  TypeRepr *ElementType = generate(Type.getElementType(Data));
   return new (*Context) ArrayTypeRepr(ElementType, getASTRange(Type));
 }
 
 TypeRepr *ASTGen::generate(const AttributedTypeSyntaxRef &Type) {
-  auto typeAST = generate(Type.getBaseType());
+  SyntaxDataRef Data[1];
+  auto typeAST = generate(Type.getBaseType(Data));
 
-  if (auto attributes = Type.getAttributes()) {
+  if (auto attributes = Type.getAttributes(Data)) {
     TypeAttributes attrs = generateTypeAttributes(*attributes);
     if (!attrs.empty()) {
       typeAST = new (*Context) AttributedTypeRepr(attrs, typeAST);
     }
   }
 
-  if (auto specifier = Type.getSpecifier()) {
+  if (auto specifier = Type.getSpecifier(Data)) {
     auto specifierLoc = getLoc(*specifier);
     auto specifierText = specifier->getText();
 
@@ -159,7 +161,8 @@ TypeRepr *ASTGen::generate(const AttributedTypeSyntaxRef &Type) {
 }
 
 TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
-  auto base = Type.getBase();
+  SyntaxDataRef BaseData[1];
+  auto base = Type.getBase(BaseData);
   if (!base) {
     if (CodeCompletion) {
       CodeCompletion->completeTypeSimpleBeginning();
@@ -170,7 +173,8 @@ TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
   if (auto *parsedTyR = generate(std::move(*base))) {
     if (CodeCompletion) {
       CodeCompletion->setParsedTypeLoc(parsedTyR);
-      if (Type.getPeriod()) {
+      SyntaxDataRef PeriodData[1];
+      if (Type.getPeriod(PeriodData)) {
         CodeCompletion->completeTypeIdentifierWithDot();
       } else {
         CodeCompletion->completeTypeIdentifierWithoutDot();
@@ -183,19 +187,22 @@ TypeRepr *ASTGen::generate(const CodeCompletionTypeSyntaxRef &Type) {
 }
 
 TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
-  auto elements = Type.getElements();
+  SyntaxDataRef ElementsData[1];
+  auto elements = Type.getElements(ElementsData);
   assert(!elements.empty());
 
   SmallVector<TypeRepr *, 4> elementTypeReprs;
   for (auto element = elements.begin(); element != elements.end(); ++element) {
-    auto elementType = (*element).getType();
+    SyntaxDataRef TypeData[1];
+    auto elementType = (*element).getType(TypeData);
     TypeRepr *elementTypeRepr;
     if (auto someSyntax = elementType.getAs<SomeTypeSyntaxRef>()) {
+      SyntaxDataRef SomeSpecifierData[1];
       // Some types inside type compositions are not valid. Diagnose and ignore
       // the 'some'.
-      auto diag = diagnose(someSyntax->getSomeSpecifier(),
+      auto diag = diagnose(someSyntax->getSomeSpecifier(SomeSpecifierData),
                            diag::opaque_mid_composition);
-      diag.fixItRemove(getLoc(someSyntax->getSomeSpecifier()));
+      diag.fixItRemove(getLoc(someSyntax->getSomeSpecifier(SomeSpecifierData)));
 
       // Don't suggest adding 'some' before the composition if there is already
       // a 'some' before.
@@ -205,7 +212,8 @@ TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
         diag.fixItInsert(getContentStartLoc(Type), "some ");
       }
 
-      elementTypeRepr = generate(someSyntax->getBaseType());
+      SyntaxDataRef BaseTypeData[1];
+      elementTypeRepr = generate(someSyntax->getBaseType(BaseTypeData));
     } else {
       elementTypeRepr = generate(std::move(elementType));
     }
@@ -217,37 +225,42 @@ TypeRepr *ASTGen::generate(const CompositionTypeSyntaxRef &Type) {
 
   SourceLoc firstTypeLoc;
   if (!elements.empty()) {
-    firstTypeLoc = getContentStartLoc(elements[0]);
+    SyntaxDataRef Data[1];
+    firstTypeLoc = getContentStartLoc(elements.getChild(0, Data));
   }
   return CompositionTypeRepr::create(*Context, elementTypeReprs, firstTypeLoc,
                                      getASTRange(Type));
 }
 
 TypeRepr *ASTGen::generate(const DictionaryTypeSyntaxRef &Type) {
-  SourceLoc ColonLoc = getLoc(Type.getColon());
+  SyntaxDataRef Data[1];
+  SourceLoc ColonLoc = getLoc(Type.getColon(Data));
 
-  TypeRepr *KeyType = generate(Type.getKeyType());
-  TypeRepr *ValueType = generate(Type.getValueType());
+  TypeRepr *KeyType = generate(Type.getKeyType(Data));
+  TypeRepr *ValueType = generate(Type.getValueType(Data));
   auto Range = getASTRange(Type);
 
   return new (*Context) DictionaryTypeRepr(KeyType, ValueType, ColonLoc, Range);
 }
 
 TypeRepr *ASTGen::generate(const FunctionTypeSyntaxRef &FuncSyntax) {
+  SyntaxDataRef ArgsData[1];
+  SyntaxDataRef ElementsData[1];
   TupleTypeRepr *argumentTypes = argumentTypes =
-      generateTuple(FuncSyntax.getArguments().getElements(),
+      generateTuple(FuncSyntax.getArguments(ArgsData).getElements(ElementsData),
                     getASTRange(FuncSyntax), /*IsInFunctionSignature=*/true);
 
   if (!argumentTypes) {
     return new (*Context) ErrorTypeRepr(getASTRange(FuncSyntax));
   }
 
+  SyntaxDataRef Data[1];
   SourceLoc asyncLoc, throwsLoc;
   std::tie(asyncLoc, throwsLoc) = generateEffectsSpecifiers(
-      FuncSyntax.getEffectsSpecifiers(), /*RethrowsAllowed=*/false);
+      FuncSyntax.getEffectsSpecifiers(Data), /*RethrowsAllowed=*/false);
 
-  auto arrowLoc = getLoc(FuncSyntax.getArrow());
-  auto returnType = generate(FuncSyntax.getReturnType());
+  auto arrowLoc = getLoc(FuncSyntax.getArrow(Data));
+  auto returnType = generate(FuncSyntax.getReturnType(Data));
   if (!returnType) {
     return new (*Context) ErrorTypeRepr(getASTRange(FuncSyntax));
     ;
@@ -259,8 +272,9 @@ TypeRepr *ASTGen::generate(const FunctionTypeSyntaxRef &FuncSyntax) {
 
 TypeRepr *
 ASTGen::generate(const ImplicitlyUnwrappedOptionalTypeSyntaxRef &Type) {
-  auto baseTypeRepr = generate(Type.getWrappedType());
-  auto exclamationLoc = getLoc(Type.getExclamationMark());
+  SyntaxDataRef Data[1];
+  auto baseTypeRepr = generate(Type.getWrappedType(Data));
+  auto exclamationLoc = getLoc(Type.getExclamationMark(Data));
   return new (*Context)
       ImplicitlyUnwrappedOptionalTypeRepr(baseTypeRepr, exclamationLoc);
 }
@@ -272,9 +286,10 @@ TypeRepr *ASTGen::generate(const MemberTypeIdentifierSyntaxRef &Type) {
 }
 
 TypeRepr *ASTGen::generate(const MetatypeTypeSyntaxRef &Type) {
-  auto baseTypeRepr = generate(Type.getBaseType());
-  auto metaLoc = getLoc(Type.getTypeOrProtocol());
-  auto metaText = Type.getTypeOrProtocol().getText();
+  SyntaxDataRef Data[1];
+  auto baseTypeRepr = generate(Type.getBaseType(Data));
+  auto metaLoc = getLoc(Type.getTypeOrProtocol(Data));
+  auto metaText = Type.getTypeOrProtocol(Data).getText();
   if (metaText == "Type") {
     return new (*Context) MetatypeTypeRepr(baseTypeRepr, metaLoc);
   } else if (metaText == "Protocol") {
@@ -285,14 +300,16 @@ TypeRepr *ASTGen::generate(const MetatypeTypeSyntaxRef &Type) {
 }
 
 TypeRepr *ASTGen::generate(const OptionalTypeSyntaxRef &Type) {
-  auto baseTypeRepr = generate(Type.getWrappedType());
-  auto questionLoc = getLoc(Type.getQuestionMark());
+  SyntaxDataRef Data[1];
+  auto baseTypeRepr = generate(Type.getWrappedType(Data));
+  auto questionLoc = getLoc(Type.getQuestionMark(Data));
   return new (*Context) OptionalTypeRepr(baseTypeRepr, questionLoc);
 }
 
 TypeRepr *ASTGen::generate(const SimpleTypeIdentifierSyntaxRef &Type) {
-  if (Type.getName().getTokenKind() == tok::kw_Any) {
-    auto anyLoc = getLoc(Type.getName());
+  SyntaxDataRef Data[1];
+  if (Type.getName(Data).getTokenKind() == tok::kw_Any) {
+    auto anyLoc = getLoc(Type.getName(Data));
     return CompositionTypeRepr::createEmptyComposition(*Context, anyLoc);
   }
 
@@ -301,13 +318,15 @@ TypeRepr *ASTGen::generate(const SimpleTypeIdentifierSyntaxRef &Type) {
 }
 
 TypeRepr *ASTGen::generate(const SomeTypeSyntaxRef &Type) {
-  auto someLoc = getLoc(Type.getSomeSpecifier());
-  auto baseTypeRepr = generate(Type.getBaseType());
+  SyntaxDataRef Data[1];
+  auto someLoc = getLoc(Type.getSomeSpecifier(Data));
+  auto baseTypeRepr = generate(Type.getBaseType(Data));
   return new (*Context) OpaqueReturnTypeRepr(someLoc, baseTypeRepr);
 }
 
 TypeRepr *ASTGen::generate(const TupleTypeSyntaxRef &Type) {
-  return generateTuple(Type.getElements(), getASTRange(Type),
+  SyntaxDataRef Data[1];
+  return generateTuple(Type.getElements(Data), getASTRange(Type),
                        /*IsInFunctionSignature=*/false);
 }
 
@@ -326,7 +345,8 @@ TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
     diagName = MissingTypeDiag;
   }
   if (ChildrenCount == 1) {
-    SyntaxRef child = *Type.getChildRef(0);
+    SyntaxDataRef Data[1];
+    SyntaxRef child = *Type.getChildRef(0, Data);
     if (auto token = child.getAs<TokenSyntaxRef>()) {
       if (token->getTokenKind() != tok::identifier &&
           token->getTokenKind() != tok::kw_Self) {
@@ -345,7 +365,8 @@ TypeRepr *ASTGen::generate(const UnknownTypeSyntaxRef &Type,
   // generate child 'TypeSyntax' anyway to trigger the side effects e.g.
   // code-completion.
   for (size_t i = 0; i != ChildrenCount; ++i) {
-    if (auto elem = Type.getChildRef(i)) {
+    SyntaxDataRef Data[1];
+    if (auto elem = Type.getChildRef(i, Data)) {
       // TODO: (syntax-parse): Once everything is migrated, we can remove the
       // check for TypeSyntax here and always call generate.
       if (auto ty = elem->getAs<TypeSyntaxRef>()) {
@@ -393,7 +414,8 @@ std::pair<SourceLoc, SourceLoc> ASTGen::generateEffectsSpecifiers(
   bool isRethrows;
 
   for (auto specifier : EffectsSpecifiers) {
-    auto token = specifier.getSpecifier();
+    SyntaxDataRef Data[1];
+    auto token = specifier.getSpecifier(Data);
 
     switch (token.getTokenKind()) {
     case tok::kw_throws:
@@ -436,9 +458,11 @@ std::pair<SourceLoc, SourceLoc> ASTGen::generateEffectsSpecifiers(
 
 std::pair<SourceRange, SmallVector<TypeRepr *, 4>> ASTGen::generateGenericArgs(
     const GenericArgumentClauseSyntaxRef &ClauseSyntax) {
+  SyntaxDataRef Data[1];
   SmallVector<TypeRepr *, 4> args;
-  for (auto arg : ClauseSyntax.getArguments()) {
-    auto typeRepr = generate(arg.getArgumentType());
+  for (auto arg : ClauseSyntax.getArguments(Data)) {
+    SyntaxDataRef Data2[1];
+    auto typeRepr = generate(arg.getArgumentType(Data2));
     args.push_back(typeRepr);
   }
 
@@ -456,25 +480,30 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
   unsigned ellipsisIdx;
 
   for (unsigned i = 0; i < Elements.size(); i++) {
-    auto element = Elements[i];
+    SyntaxDataRef Data10[1];
+    auto element = Elements.getChild(i, Data10);
 
     // If we are in a function type, complain about elements that have a first
     // name that is not '_'.
     // If we are not in a function type, complain about elements with a second
     // name.
     if (IsInFunctionSignature) {
-      if (element.getName()) {
-        auto nameToken = *element.getName();
+      SyntaxDataRef Data[1];
+      if (element.getName(Data)) {
+        SyntaxDataRef Data2[1];
+        auto nameToken = *element.getName(Data2);
         if (nameToken.getText() != "_") {
           auto nameIdentifier = Context->getIdentifier(nameToken.getText());
           auto diag = diagnose(nameToken, diag::function_type_argument_label,
                                nameIdentifier);
-          if (element.getSecondName()) {
-            if (element.getSecondName()->getText() == "_") {
+          SyntaxDataRef Data3[1];
+          if (element.getSecondName(Data3)) {
+            if (element.getSecondName(Data3)->getText() == "_") {
               // The names are of the form `first '_' ':' type`
               // Offer to remove both names.
+              SyntaxDataRef Data4[1];
               diag.fixItRemoveChars(getLoc(nameToken),
-                                    getLeadingTriviaLoc(element.getType()));
+                                    getLeadingTriviaLoc(element.getType(Data4)));
             } else {
               // The names are of the form `first second ':' type`
               // The first name is invalid. Replace it by '_'.
@@ -488,33 +517,39 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
         }
       }
     } else {
+      SyntaxDataRef Data[1];
+      SyntaxDataRef Data2[1];
       // We're in a proper tuple
-      if (element.getName() && element.getSecondName()) {
+      if (element.getName(Data) && element.getSecondName(Data2)) {
+        SyntaxDataRef Data3[1];
         // True tuples can't have two labels
-        auto nameToken = *element.getName();
+        auto nameToken = *element.getName(Data3);
 
         auto diag = diagnose(nameToken, diag::tuple_type_multiple_labels);
         if (nameToken.getText() == "_") {
           // If the first name is '_', remove both names.
+          SyntaxDataRef Data4[1];
           diag.fixItRemoveChars(getLoc(nameToken),
-                                getLeadingTriviaLoc(element.getType()));
+                                getLeadingTriviaLoc(element.getType(Data4)));
         } else {
+          SyntaxDataRef Data4[1];
           // Otherwise, remove the second name
-          diag.fixItRemove(getLoc(*element.getSecondName()));
+          diag.fixItRemove(getLoc(*element.getSecondName(Data4)));
         }
       }
     }
 
     TupleTypeReprElement elementAST;
-    elementAST.Type = generate(element.getType());
+    SyntaxDataRef Data[1];
+    elementAST.Type = generate(element.getType(Data));
 
-    if (auto name = element.getName()) {
+    if (auto name = element.getName(Data)) {
       elementAST.NameLoc = getLoc(*name);
       elementAST.Name = name->getText() == "_"
                             ? Identifier()
                             : Context->getIdentifier(name->getIdentifierText());
     }
-    if (auto secondName = element.getSecondName()) {
+    if (auto secondName = element.getSecondName(Data)) {
       elementAST.SecondNameLoc = getLoc(*secondName);
       elementAST.SecondName =
           secondName->getText() == "_"
@@ -529,11 +564,11 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
         elementAST.NameLoc = elementAST.SecondNameLoc;
       }
     }
-    if (auto colon = element.getColon()) {
+    if (auto colon = element.getColon(Data)) {
       elementAST.ColonLoc = getLoc(*colon);
     }
 
-    if (auto inOut = element.getInOut()) {
+    if (auto inOut = element.getInOut(Data)) {
       auto inOutLoc = getLoc(*inOut);
       if (isa<InOutTypeRepr>(elementAST.Type)) {
         // If the parsed type is already attributed, suggest removing
@@ -541,11 +576,12 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
         diagnose(inOutLoc, diag::parameter_specifier_repeated)
             .fixItRemove(inOutLoc);
       } else {
+        SyntaxDataRef Data2[1];
         // Otherwise suggest moving it before the type.
         diagnose(inOutLoc, diag::parameter_specifier_as_attr_disallowed,
                  "inout")
             .fixItRemove(inOutLoc)
-            .fixItInsert(getContentStartLoc(element.getType()), "inout ");
+            .fixItInsert(getContentStartLoc(element.getType(Data2)), "inout ");
       }
 
       // If the type is not already attributed, apply the inout attribute to
@@ -557,7 +593,7 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
       }
     }
 
-    if (auto ellipsis = element.getEllipsis()) {
+    if (auto ellipsis = element.getEllipsis(Data)) {
       if (ellipsisLoc.isInvalid()) {
         // Seeing the first ellipsis
         ellipsisLoc = getLoc(*ellipsis);
@@ -570,14 +606,15 @@ ASTGen::generateTuple(const TupleTypeElementListSyntaxRef &Elements,
       }
     }
 
-    if (element.getInitializer()) {
+    if (element.getInitializer(Data)) {
+      SyntaxDataRef Data2[1];
       // Initializers aren't valid in function types.
-      auto init = *element.getInitializer();
+      auto init = *element.getInitializer(Data2);
       diagnose(init, diag::tuple_type_init)
           .fixItRemoveChars(getRangeWithTrivia(init));
     }
 
-    if (auto comma = element.getTrailingComma()) {
+    if (auto comma = element.getTrailingComma(Data)) {
       elementAST.TrailingCommaLoc = getLoc(*comma);
     }
     tupleElements.push_back(elementAST);
@@ -604,10 +641,11 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
     }
     auto attrSyntax = std::move(elem).castTo<AttributeSyntaxRef>();
 
-    auto attrName = attrSyntax.getAttributeName().getText();
+    SyntaxDataRef Data[1];
+    auto attrName = attrSyntax.getAttributeName(Data).getText();
 
     // If we haven't recorded the location of the first '@' yet, do so now.
-    auto atLoc = getLoc(attrSyntax.getAtSignToken());
+    auto atLoc = getLoc(attrSyntax.getAtSignToken(Data));
     if (attrs.AtLoc.isInvalid()) {
       attrs.AtLoc = atLoc;
     }
@@ -617,17 +655,17 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       auto declAttrID = DeclAttribute::getAttrKindFromString(attrName);
       if (declAttrID == DAK_Count) {
         // Not a decl or type attribute.
-        diagnose(attrSyntax.getAttributeName(), diag::unknown_attribute,
+        diagnose(attrSyntax.getAttributeName(Data), diag::unknown_attribute,
                  attrName);
       } else {
-        diagnose(attrSyntax.getAttributeName(),
+        diagnose(attrSyntax.getAttributeName(Data),
                  diag::decl_attribute_applied_to_type);
       }
       continue;
     }
 
     if (attrs.has(attr)) {
-      diagnose(attrSyntax.getAtSignToken(), diag::duplicate_attribute,
+      diagnose(attrSyntax.getAtSignToken(Data), diag::duplicate_attribute,
                /*isModifier=*/false);
       continue;
     }
@@ -658,7 +696,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
         continue;
       }
       if (attrs.hasOwnership()) {
-        diagnose(attrSyntax.getAtSignToken(), diag::duplicate_attribute,
+        diagnose(attrSyntax.getAtSignToken(Data), diag::duplicate_attribute,
                  /*isModifier=*/false);
       }
       break;
@@ -673,7 +711,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
         continue;
       }
       // @opened("01234567-89ab-cdef-0123-111111111111")
-      auto arg = attrSyntax.getArgument();
+      auto arg = attrSyntax.getArgument(Data);
       if (!arg) {
         diagnose(atLoc, diag::opened_attribute_id_value);
         continue;
@@ -697,11 +735,12 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
     case TAK_differentiable: {
       DifferentiabilityKind diffKind = DifferentiabilityKind::Normal;
 
-      auto arg = attrSyntax.getArgument();
+      auto arg = attrSyntax.getArgument(Data);
       if (arg && arg->is<DifferentiableAttributeArgumentsSyntaxRef>()) {
+        SyntaxDataRef Data2[1];
         auto diffKindSyntax =
             arg->castTo2<DifferentiableAttributeArgumentsSyntaxRef>()
-                .getDiffKind();
+                .getDiffKind(Data2);
         auto diffKindText = diffKindSyntax->getIdentifierText();
         diffKind =
             llvm::StringSwitch<DifferentiabilityKind>(diffKindText)
@@ -736,7 +775,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
         if (arg && arg->is<DifferentiableAttributeArgumentsSyntaxRef>()) {
           auto diffArgSyntax =
               arg->castTo2<DifferentiableAttributeArgumentsSyntaxRef>();
-          if (diffArgSyntax.getDiffKindComma()) {
+          if (diffArgSyntax.getDiffKindComma(Data)) {
             diag.fixItInsert(getContentStartLoc(diffArgSyntax), "reverse");
           } else {
             diag.fixItInsert(getContentStartLoc(diffArgSyntax), "reverse, ");
@@ -758,7 +797,7 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       // @convention(c, cType: "void *(void)")
       TypeAttributes::Convention convention;
 
-      auto arg = attrSyntax.getArgument();
+      auto arg = attrSyntax.getArgument(Data);
       if (!arg) {
         diagnose(atLoc, diag::convention_attribute_expected_name);
         continue;
@@ -771,11 +810,13 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
         convention.Name = Context->getIdentifier(conventionName).str();
       } else if (auto conventionAttributeArgs =
                      arg->getAs<CTypeConventionAttributeArgumentsSyntaxRef>()) {
+        SyntaxDataRef Data2[1];
         auto conventionName =
-            conventionAttributeArgs->getConvention().getIdentifierText();
+            conventionAttributeArgs->getConvention(Data2).getIdentifierText();
         conventionName = Context->getIdentifier(conventionName).str();
         convention.Name = conventionName;
-        if (auto cType = conventionAttributeArgs->getCType()) {
+        SyntaxDataRef Data3[1];
+        if (auto cType = conventionAttributeArgs->getCType(Data3)) {
           // If the attribute doesn't have a cType, this has already been
           // diagnosed in the parser
           auto cTypeToken = *cType;
@@ -792,38 +833,43 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
         }
       } else if (auto witness =
                      arg->getAs<NamedAttributeStringArgumentSyntaxRef>()) {
-        if (witness->getNameTok().getIdentifierText() != "witness_method") {
-          diagnose(witness->getNameTok(),
+        SyntaxDataRef Data2[1];
+        if (witness->getNameTok(Data2).getIdentifierText() != "witness_method") {
+          diagnose(witness->getNameTok(Data2),
                    diag::convention_attribute_unkown_name);
           continue;
         }
-        if (!witness->getStringOrDeclname().is<DeclNameSyntaxRef>()) {
-          diagnose(witness->getStringOrDeclname(),
+        if (!witness->getStringOrDeclname(Data2).is<DeclNameSyntaxRef>()) {
+          diagnose(witness->getStringOrDeclname(Data2),
                    diag::convention_attribute_witness_method_expected_protocol);
           continue;
         }
         auto protocolName =
-            witness->getStringOrDeclname().castTo2<DeclNameSyntaxRef>();
+            witness->getStringOrDeclname(Data2).castTo2<DeclNameSyntaxRef>();
         convention.Name = "witness_method";
         convention.WitnessMethodProtocol = generateDeclNameRef(protocolName);
       } else {
+        SyntaxDataRef Data2[1];
         // Unknown attribute. Diagnose and ignore.
-        diagnose(witness->getNameTok(), diag::convention_attribute_unkown_name);
+        diagnose(witness->getNameTok(Data2), diag::convention_attribute_unkown_name);
         continue;
       }
       attrs.ConventionArguments = convention;
       break;
     }
     case TAK__opaqueReturnTypeOf: {
-      auto arg = attrSyntax.getArgument();
+      SyntaxDataRef Data2[1];
+      auto arg = attrSyntax.getArgument(Data2);
       // @_opaqueReturnTypeOf("$sMangledName", 0)
       if (!arg) {
-        diagnose(attrSyntax.getAttributeName(),
+        SyntaxDataRef Data3[1];
+        diagnose(attrSyntax.getAttributeName(Data3),
                  diag::attr_expected_string_literal, attrName);
         continue;
       }
       if (!arg->is<OpaqueReturnTypeOfAttributeArgumentsSyntaxRef>()) {
-        diagnose(attrSyntax.getAttributeName(),
+        SyntaxDataRef Data5[1];
+        diagnose(attrSyntax.getAttributeName(Data5),
                  diag::attr_expected_string_literal, attrName);
         continue;
       }
@@ -831,8 +877,10 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
       auto opaqueArg =
           arg->castTo2<OpaqueReturnTypeOfAttributeArgumentsSyntaxRef>();
 
-      auto manglingTok = opaqueArg.getMangledName();
-      auto indexTok = opaqueArg.getIndex();
+      SyntaxDataRef Data3[1];
+      auto manglingTok = opaqueArg.getMangledName(Data3);
+      SyntaxDataRef Data4[1];
+      auto indexTok = opaqueArg.getIndex(Data4);
 
       auto tokText = manglingTok.getText();
       auto mangling = tokText.slice(1, tokText.size() - 1);
@@ -858,12 +906,14 @@ ASTGen::generateTypeAttributes(const AttributeListSyntaxRef &Syntax) {
 
 template <typename T>
 ComponentIdentTypeRepr *ASTGen::generateTypeIdentifier(const T &TypeSyntax) {
-  auto name = TypeSyntax.getName();
+  SyntaxDataRef Data[1];
+  auto name = TypeSyntax.getName(Data);
   auto declNameLoc = DeclNameLoc(getLoc(name));
   auto declNameRef = DeclNameRef(
       Context->getIdentifier(name.getIdentifierText()));
   diagnoseDollarIdentifier(name, /*DiagnoseDollarPrefix=*/true);
-  if (auto clause = TypeSyntax.getGenericArgumentClause()) {
+  SyntaxDataRef Data2[1];
+  if (auto clause = TypeSyntax.getGenericArgumentClause(Data2)) {
     SourceRange range;
     SmallVector<TypeRepr *, 4> args;
     std::tie(range, args) = generateGenericArgs(*clause);
@@ -884,7 +934,8 @@ void ASTGen::gatherTypeIdentifierComponents(
     Components.push_back(componentType);
   } else if (auto memberIdentifier =
                  Component.getAs<MemberTypeIdentifierSyntaxRef>()) {
-    gatherTypeIdentifierComponents(memberIdentifier->getBaseType(), Components);
+    SyntaxDataRef Data[1];
+    gatherTypeIdentifierComponents(memberIdentifier->getBaseType(Data), Components);
     auto ComponentType = generateTypeIdentifier(*memberIdentifier);
     Components.push_back(ComponentType);
   } else {
@@ -902,11 +953,13 @@ ASTGen::recoverOldStyleProtocolComposition(const UnknownTypeSyntaxRef &Type) {
     return nullptr;
   }
 
-  auto keyword = Type.getChildRef(0)->getAs<TokenSyntaxRef>();
+  SyntaxDataRef Data[1];
+  auto keyword = Type.getChildRef(0, Data)->getAs<TokenSyntaxRef>();
   if (!keyword || keyword->getText() != "protocol") {
     return nullptr;
   }
-  auto lAngle = Type.getChildRef(1)->getAs<TokenSyntaxRef>();
+  SyntaxDataRef Data2[1];
+  auto lAngle = Type.getChildRef(1, Data)->getAs<TokenSyntaxRef>();
   if (!lAngle || lAngle->getTokenKind() != tok::l_angle) {
     return nullptr;
   }
@@ -921,7 +974,8 @@ ASTGen::recoverOldStyleProtocolComposition(const UnknownTypeSyntaxRef &Type) {
 
   for (unsigned i = 2; i < Type.getNumChildren(); i++) {
     // Only consider types. Skip over commas.
-    if (auto elem = Type.getChildRef(i)->getAs<TypeSyntaxRef>()) {
+    SyntaxDataRef Data3[1];
+    if (auto elem = Type.getChildRef(i, Data3)->getAs<TypeSyntaxRef>()) {
       auto range = getRangeWithoutTrivia(*elem);
       if (auto proto = generate(std::move(*elem))) {
         protocols.push_back(proto);
