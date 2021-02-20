@@ -52,37 +52,6 @@ SyntaxDataRef *SyntaxDataRef::getNextNodeRef(SyntaxDataRef *DataMem) const {
   return nullptr;
 }
 
-AbsoluteOffsetPosition
-SyntaxDataRef::getAbsolutePositionBeforeLeadingTrivia() const {
-  return getAbsoluteRaw().getPosition();
-}
-
-AbsoluteOffsetPosition
-SyntaxDataRef::getAbsolutePositionAfterLeadingTrivia() const {
-  if (auto FirstToken = getAbsoluteRaw().getFirstToken()) {
-    return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
-        FirstToken->getRaw()->getLeadingTriviaLength());
-  } else {
-    return getAbsolutePositionBeforeLeadingTrivia();
-  }
-}
-
-AbsoluteOffsetPosition
-SyntaxDataRef::getAbsoluteEndPositionBeforeTrailingTrivia() const {
-  if (auto LastToken = getAbsoluteRaw().getLastToken()) {
-    return getAbsoluteEndPositionAfterTrailingTrivia().advancedBy(
-        -LastToken->getRaw()->getTrailingTriviaLength());
-  } else {
-    return getAbsoluteEndPositionAfterTrailingTrivia();
-  }
-}
-
-AbsoluteOffsetPosition
-SyntaxDataRef::getAbsoluteEndPositionAfterTrailingTrivia() const {
-  return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
-      getRawRef()->getTextLength());
-}
-
 void SyntaxDataRef::dump(llvm::raw_ostream &OS) const {
   getRawRef()->dump(OS, 0);
   OS << '\n';

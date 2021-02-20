@@ -342,11 +342,50 @@ public:
 
   /// Get the first non-missing token node in this tree. Return \c None if
   /// this node does not contain non-missing tokens.
-  Optional<AbsoluteRawSyntax> getFirstToken() const;
+  Optional<AbsoluteRawSyntax> getFirstToken() const {
+    if (getRaw()->isToken() && !getRaw()->isMissing()) {
+      return *this;
+    }
+
+    size_t NumChildren = getNumChildren();
+    for (size_t I = 0; I < NumChildren; ++I) {
+      if (auto Child = getChild(I)) {
+        if (Child->getRaw()->isMissing()) {
+          continue;
+        }
+
+        if (auto Token = Child->getFirstToken()) {
+          return Token;
+        }
+      }
+    }
+    return None;
+  }
 
   /// Get the last non-missing token node in this tree. Return \c None if
   /// this node does not contain non-missing tokens.
-  Optional<AbsoluteRawSyntax> getLastToken() const;
+  Optional<AbsoluteRawSyntax> getLastToken() const {
+    if (getRaw()->isToken() && !getRaw()->isMissing()) {
+      return *this;
+    }
+
+    size_t NumChildren = getNumChildren();
+    if (NumChildren == 0) {
+      return None;
+    }
+    for (int I = NumChildren - 1; I >= 0; --I) {
+      if (auto Child = getChild(I)) {
+        if (Child->getRaw()->isMissing()) {
+          continue;
+        }
+
+        if (auto Token = Child->getLastToken()) {
+          return Token;
+        }
+      }
+    }
+    return None;
+  }
   
   /// Construct a new \c AbsoluteRawSyntax node that has the same info as the
   /// current one, but

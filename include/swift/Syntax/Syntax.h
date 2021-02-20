@@ -46,7 +46,7 @@ template <typename SyntaxNode> SyntaxNode makeRoot(RawSyntax *Raw) {
 }
 
 template <typename SyntaxNode> SyntaxNode makeRootRef(RawSyntax *Raw, SyntaxDataRef *DataMem) {
-  auto Data = new (DataMem) SyntaxData(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr, Raw->getArena());
+  auto Data = new (DataMem) SyntaxDataRef(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr);
   return SyntaxNode(std::move(Data));
 }
 

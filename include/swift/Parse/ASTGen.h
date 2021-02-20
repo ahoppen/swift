@@ -123,12 +123,12 @@ public:
   /// representing the entire source file, \p TreeStartLoc must point to the
   /// first trivia in the file.
   /// If no type was provided \p MissingTypeDiag is emitted.
-  TypeRepr *generate(TypeSyntaxRef &&Type, SourceLoc TreeStartLoc,
+  TypeRepr *generate(const TypeSyntaxRef &Type, SourceLoc TreeStartLoc,
                      SourceLoc PreviousTokLoc,
                      Diag<> MissingTypeDiag = diag::expected_type);
 
 private:
-  TypeRepr *generate(TypeSyntaxRef &&Type,
+  TypeRepr *generate(const TypeSyntaxRef &Type,
                      Diag<> MissingTypeDiag = diag::expected_type);
 
   TypeRepr *generate(const ArrayTypeSyntaxRef &Type);

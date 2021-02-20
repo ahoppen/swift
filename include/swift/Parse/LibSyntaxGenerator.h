@@ -56,6 +56,29 @@ public:
     RawSyntax *Raw = Actions->getLibSyntaxNodeFor(Node.getData());
     return makeRoot<SyntaxNode>(Raw);
   }
+  
+  /// Create a \c TokenSyntax from the raw data.
+  TokenSyntaxRef createTokenRef(const ParsedRawSyntaxNode &Node, SyntaxDataRef *DataMem) {
+    assert(Node.isDeferredToken());
+    // The HiddenLibSyntaxAction always creates RawSyntax nodes, even for
+    // deferred nodes. We can thus simply return the node that has already been
+    // created. Don't transfer ownership to the caller, however, since it is
+    // just creating a new view into the syntax tree.
+    RawSyntax *Raw = Actions->getLibSyntaxNodeFor(Node.getData());
+    return makeRootRef<TokenSyntaxRef>(Raw, DataMem);
+  }
+
+  /// Create a \c SyntaxNode from the raw data.
+  template <typename SyntaxNode>
+  SyntaxNode createNodeRef(const ParsedRawSyntaxNode &Node, SyntaxDataRef *DataMem) {
+    assert(Node.isDeferredLayout());
+    // The HiddenLibSyntaxAction always creates RawSyntax nodes, even for
+    // deferred nodes. We can thus simply return the node that has already been
+    // created. Don't transfer ownership to the caller, however, since it is
+    // just creating a new view into the syntax tree.
+    RawSyntax *Raw = Actions->getLibSyntaxNodeFor(Node.getData());
+    return makeRootRef<SyntaxNode>(Raw, DataMem);
+  }
 
   /// Return the libSyntax node stored in the given opaque \c Node.
   /// Assumes that \c Node is of type \c HiddenNode.
@@ -68,6 +91,13 @@ public:
   template <typename SyntaxNode>
   SyntaxNode getLibSyntaxNodeFor(OpaqueSyntaxNode Node) {
     return makeRoot<SyntaxNode>(Actions->getLibSyntaxNodeFor(Node));
+  }
+
+  /// Return the libSyntax node stored in the given opaque \c Node.
+  /// Assumes that \c Node is of type \c HiddenNode.
+  template <typename SyntaxNode>
+  SyntaxNode getLibSyntaxNodeRefFor(OpaqueSyntaxNode Node, SyntaxDataRef *DataMem) {
+    return makeRootRef<SyntaxNode>(Actions->getLibSyntaxNodeFor(Node), DataMem);
   }
 };
 } // namespace swift

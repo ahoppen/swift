@@ -180,18 +180,37 @@ public:
   // MARK: - Retrieving source locations
 
   /// Get the offset at which the leading trivia of this node starts.
-  AbsoluteOffsetPosition getAbsolutePositionBeforeLeadingTrivia() const;
+  AbsoluteOffsetPosition getAbsolutePositionBeforeLeadingTrivia() const {
+    return getAbsoluteRaw().getPosition();
+  }
 
   /// Get the offset at which the content of this node (excluding leading
   /// trivia) starts.
-  AbsoluteOffsetPosition getAbsolutePositionAfterLeadingTrivia() const;
+  AbsoluteOffsetPosition getAbsolutePositionAfterLeadingTrivia() const {
+    if (auto FirstToken = getAbsoluteRaw().getFirstToken()) {
+      return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
+          FirstToken->getRaw()->getLeadingTriviaLength());
+    } else {
+      return getAbsolutePositionBeforeLeadingTrivia();
+    }
+  }
 
   /// Get the offset at which the content (excluding trailing trivia) of this
   /// node ends.
-  AbsoluteOffsetPosition getAbsoluteEndPositionBeforeTrailingTrivia() const;
+  AbsoluteOffsetPosition getAbsoluteEndPositionBeforeTrailingTrivia() const {
+    if (auto LastToken = getAbsoluteRaw().getLastToken()) {
+      return getAbsoluteEndPositionAfterTrailingTrivia().advancedBy(
+          -LastToken->getRaw()->getTrailingTriviaLength());
+    } else {
+      return getAbsoluteEndPositionAfterTrailingTrivia();
+    }
+  }
 
   /// Get the offset at chiwh the trailing trivia of this node ends.
-  AbsoluteOffsetPosition getAbsoluteEndPositionAfterTrailingTrivia() const;
+  AbsoluteOffsetPosition getAbsoluteEndPositionAfterTrailingTrivia() const {
+    return getAbsolutePositionBeforeLeadingTrivia().advancedBy(
+        getRawRef()->getTextLength());
+  }
 
   // MARK: - Getting the node's kind
 

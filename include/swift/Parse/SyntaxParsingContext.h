@@ -303,6 +303,14 @@ public:
   /// \c LibSyntaxAction and returned.
   template <typename SyntaxNode>
   SyntaxNode topNode();
+  
+  /// Creates a parsed libSyntax node from the top node of the parsing context's
+  /// storage stack. If the node has already been recorded, the data stored in
+  /// the \c LibSyntaxNode of the corresponding \c HiddenNode is returned.
+  /// If the node is deferred, the node will be recorded in the
+  /// \c LibSyntaxAction and returned.
+  template <typename SyntaxNode>
+  SyntaxNode topNodeRef(SyntaxDataRef *DataMem);
 
   template<typename SyntaxNode>
   llvm::Optional<SyntaxNode> popIf() {
@@ -410,5 +418,28 @@ inline TokenSyntax SyntaxParsingContext::topNode<TokenSyntax>() {
   }
   return getSyntaxCreator().createToken(TopNode);
 }
+
+template <typename SyntaxNode>
+inline SyntaxNode SyntaxParsingContext::topNodeRef(SyntaxDataRef *DataMem) {
+  assert(isTopNode<SyntaxNode>());
+  ParsedRawSyntaxNode &TopNode = getStorage().back();
+  if (TopNode.isRecorded()) {
+    OpaqueSyntaxNode OpaqueNode(TopNode.getData());
+    return getSyntaxCreator().getLibSyntaxNodeRefFor<SyntaxNode>(OpaqueNode, DataMem);
+  }
+  return getSyntaxCreator().createNodeRef<SyntaxNode>(TopNode, DataMem);
+}
+
+template <>
+inline TokenSyntaxRef SyntaxParsingContext::topNodeRef<TokenSyntaxRef>(SyntaxDataRef *DataMem) {
+  assert(isTopNode<TokenSyntaxRef>());
+  ParsedRawSyntaxNode &TopNode = getStorage().back();
+  if (TopNode.isRecorded()) {
+    OpaqueSyntaxNode OpaqueNode(TopNode.getData());
+    return getSyntaxCreator().getLibSyntaxNodeRefFor<TokenSyntaxRef>(OpaqueNode, DataMem);
+  }
+  return getSyntaxCreator().createTokenRef(TopNode, DataMem);
+}
+
 } // namespace swift
 #endif // SWIFT_SYNTAX_PARSING_CONTEXT_H

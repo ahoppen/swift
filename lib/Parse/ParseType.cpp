@@ -160,7 +160,8 @@ ParserResult<TypeRepr> Parser::parseTypeSimple(Diag<> MessageID) {
   auto result = parseTypeSimpleSyntax(MessageID);
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef collectionType = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
   auto typeRepr =
       ASTGenerator.generate(collectionType, typeLoc, previousTokLoc, MessageID);
   if (!typeRepr) {
@@ -247,26 +248,31 @@ ParserResult<TypeRepr> Parser::parseSILBoxType(GenericParamList *generics,
 ///     type-composition 'async'? 'throws'? '->' type
 ///
 ParserResult<TypeRepr> Parser::parseType(Diag<> MessageID, bool IsSILFuncDecl) {
-  // Type parsing for SIL hasn't been migrated yet. Use the legacy method
-  if (isInSILMode()) {
-    return parseTypeSIL(MessageID, IsSILFuncDecl);
+  ParserResult<TypeRepr> r;
+  {
+    // Type parsing for SIL hasn't been migrated yet. Use the legacy method
+    if (isInSILMode()) {
+      return parseTypeSIL(MessageID, IsSILFuncDecl);
+    }
+    // Otherwise use syntax-parse
+    
+    EnableSyntaxParsingRAII enableSyntaxParsing(*this);
+    
+    SourceLoc previousTokLoc = PreviousLoc;
+    auto typeLoc = leadingTriviaLoc();
+    auto result = parseTypeSyntaxNonSIL(MessageID);
+    auto status = result.getStatus();
+    SyntaxContext->addSyntax(result.take());
+    SyntaxDataRef Data[1];
+    TypeSyntaxRef type = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
+    auto typeRepr =
+    ASTGenerator.generate(type, typeLoc, previousTokLoc, MessageID);
+    if (!typeRepr) {
+      status.setIsParseError();
+    }
+    r = makeParserResult(status, typeRepr);
   }
-  // Otherwise use syntax-parse
-
-  EnableSyntaxParsingRAII enableSyntaxParsing(*this);
-
-  SourceLoc previousTokLoc = PreviousLoc;
-  auto typeLoc = leadingTriviaLoc();
-  auto result = parseTypeSyntaxNonSIL(MessageID);
-  auto status = result.getStatus();
-  SyntaxContext->addSyntax(result.take());
-  auto type = SyntaxContext->topNode<TypeSyntax>();
-  auto typeRepr =
-      ASTGenerator.generate(type, typeLoc, previousTokLoc, MessageID);
-  if (!typeRepr) {
-    status.setIsParseError();
-  }
-  return makeParserResult(status, typeRepr);
+  return r;
 }
 
 /// parseTypeSIL
@@ -603,7 +609,8 @@ Parser::parseTypeIdentifier(bool isParsingQualifiedDeclBaseType) {
   auto result = parseTypeIdentifierSyntax(isParsingQualifiedDeclBaseType);
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto typeSyntax = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef typeSyntax = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
   auto typeRepr = ASTGenerator.generate(typeSyntax, typeLoc, previousTokLoc);
   if (!typeRepr) {
     status.setIsParseError();
@@ -625,7 +632,8 @@ Parser::parseTypeSimpleOrComposition(Diag<> MessageID) {
   auto result = parseTypeSimpleOrCompositionSyntax(MessageID);
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef collectionType = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
   auto typeRepr =
       ASTGenerator.generate(collectionType, typeLoc, previousTokLoc, MessageID);
   if (!typeRepr) {
@@ -642,7 +650,8 @@ ParserResult<TypeRepr> Parser::parseAnyType() {
   auto result = parseTypeAnySyntax();
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef collectionType = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
   auto typeRepr =
   ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
   if (!typeRepr) {
@@ -667,7 +676,8 @@ ParserResult<TypeRepr> Parser::parseOldStyleProtocolComposition() {
   auto result = parseTypeOldStyleProtocolCompositionSyntax();
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto typeSyntax = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef typeSyntax = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
   auto typeRepr = ASTGenerator.generate(typeSyntax, typeLoc, previousTokLoc);
   if (!typeRepr) {
     status.setIsParseError();
@@ -692,7 +702,8 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
   auto result = parseTypeTupleBodySyntax();
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto type = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef type = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
 
   auto typeRepr = ASTGenerator.generate(type, typeLoc, previousTokLoc);
   if (!typeRepr) {
@@ -752,7 +763,8 @@ ParserResult<TypeRepr> Parser::parseTypeCollection() {
   auto result = parseTypeCollectionSyntax();
   auto status = result.getStatus();
   SyntaxContext->addSyntax(result.take());
-  auto collectionType = SyntaxContext->topNode<TypeSyntax>();
+  SyntaxDataRef Data[1];
+  TypeSyntaxRef collectionType = SyntaxContext->topNodeRef<TypeSyntaxRef>(Data);
   auto typeRepr =
       ASTGenerator.generate(collectionType, typeLoc, previousTokLoc);
   if (!typeRepr) {

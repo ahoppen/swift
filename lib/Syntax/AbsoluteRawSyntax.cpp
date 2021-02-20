@@ -15,50 +15,7 @@
 using namespace swift;
 using namespace swift::syntax;
 
-std::atomic<SyntaxIdentifier::RootIdType> SyntaxIdentifier::NextUnusedRootId(0);
-
-Optional<AbsoluteRawSyntax> AbsoluteRawSyntax::getFirstToken() const {
-  if (getRaw()->isToken() && !getRaw()->isMissing()) {
-    return *this;
-  }
-
-  size_t NumChildren = getNumChildren();
-  for (size_t I = 0; I < NumChildren; ++I) {
-    if (auto Child = getChild(I)) {
-      if (Child->getRaw()->isMissing()) {
-        continue;
-      }
-
-      if (auto Token = Child->getFirstToken()) {
-        return Token;
-      }
-    }
-  }
-  return None;
-}
-
-Optional<AbsoluteRawSyntax> AbsoluteRawSyntax::getLastToken() const {
-  if (getRaw()->isToken() && !getRaw()->isMissing()) {
-    return *this;
-  }
-
-  size_t NumChildren = getNumChildren();
-  if (NumChildren == 0) {
-    return None;
-  }
-  for (int I = NumChildren - 1; I >= 0; --I) {
-    if (auto Child = getChild(I)) {
-      if (Child->getRaw()->isMissing()) {
-        continue;
-      }
-
-      if (auto Token = Child->getLastToken()) {
-        return Token;
-      }
-    }
-  }
-  return None;
-}
+std::atomic<SyntaxIdentifier::RootIdType> SyntaxIdentifier::NextUnusedRootId(1);
 
 raw_ostream &llvm::operator<<(raw_ostream &OS,
                               swift::syntax::AbsoluteOffsetPosition Pos) {
