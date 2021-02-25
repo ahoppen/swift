@@ -52,6 +52,56 @@ template <typename SyntaxNode> SyntaxNode makeRootRef(RawSyntax *Raw, SyntaxData
 
 const auto NoParent = llvm::None;
 
+template<typename SyntaxRefType>
+class OwnedSyntaxRef {
+  SyntaxDataRef Data;
+  SyntaxRefType Ref;
+
+public:
+  OwnedSyntaxRef() : Ref(nullptr) {}
+
+  SyntaxDataRef *getDataPtr() { return &Data; }
+
+  const SyntaxRefType &getRef() {
+    Ref = SyntaxRefType(&Data);
+    return Ref;
+  }
+
+  SyntaxRefType *operator->() {
+    Ref = SyntaxRefType(&Data);
+    return &Ref;
+  }
+};
+
+template<typename SyntaxRefType>
+class OptionalOwnedSyntaxRef {
+  SyntaxDataRef Data;
+  SyntaxRefType Ref;
+
+public:
+  OptionalOwnedSyntaxRef() : Ref(nullptr) {}
+  
+  SyntaxDataRef *getDataPtr() { return &Data; }
+  
+  bool hasValue() const {
+    return Data.getRaw() != nullptr;
+  }
+
+  const SyntaxRefType &getRef() {
+    assert(hasValue());
+    Ref = SyntaxRefType(&Data);
+    return Ref;
+  }
+
+  SyntaxRefType *operator->() {
+    assert(hasValue());
+    Ref = SyntaxRefType(&Data);
+    return &Ref;
+  }
+  
+  explicit operator bool() const { return hasValue(); }
+};
+
 // MARK: - SyntaxRef
 
 /// The main handle for syntax nodes - subclasses contain all public
@@ -123,6 +173,13 @@ public:
       return None;
     }
   }
+  
+  /// Get the \p N -th child of this piece of syntax.
+  OptionalOwnedSyntaxRef<SyntaxRef> getChildRef(const size_t N) const {
+    OptionalOwnedSyntaxRef<SyntaxRef> Result;
+    getChildRef(N, Result.getDataPtr());
+    return Result;
+  }
 
   /// Get the node immediately before this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
@@ -133,6 +190,14 @@ public:
       return None;
     }
   }
+  
+  /// Get the node immediately before this current node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  OptionalOwnedSyntaxRef<SyntaxRef> getPreviousNodeRef() const {
+    OptionalOwnedSyntaxRef<SyntaxRef> Result;
+    getPreviousNodeRef(Result.getDataPtr());
+    return Result;
+  }
 
   /// Get the node immediately after this node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
@@ -142,6 +207,14 @@ public:
     } else {
       return None;
     }
+  }
+  
+  /// Get the node immediately after this node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  OptionalOwnedSyntaxRef<SyntaxRef> getNextNodeRef() const {
+    OptionalOwnedSyntaxRef<SyntaxRef> Result;
+    getNextNodeRef(Result.getDataPtr());
+    return Result;
   }
 
   // MARK: Position
@@ -264,6 +337,12 @@ public:
            Other.getDataRef().getAbsoluteRaw().getNodeId();
   }
 };
+
+template <typename SyntaxNode> OwnedSyntaxRef<SyntaxNode> makeRootRef(RawSyntax *Raw) {
+  OwnedSyntaxRef<SyntaxNode> Node;
+  new (Node.getDataPtr()) SyntaxDataRef(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr);
+  return Node;
+}
 
 // MARK: - Syntax
 

@@ -312,6 +312,9 @@ public:
   template <typename SyntaxNode>
   SyntaxNode topNodeRef(SyntaxDataRef *DataMem);
 
+  template <typename SyntaxNode>
+  OwnedSyntaxRef<SyntaxNode> topNodeRef();
+
   template<typename SyntaxNode>
   llvm::Optional<SyntaxNode> popIf() {
     auto &Storage = getStorage();
@@ -439,6 +442,28 @@ inline TokenSyntaxRef SyntaxParsingContext::topNodeRef<TokenSyntaxRef>(SyntaxDat
     return getSyntaxCreator().getLibSyntaxNodeRefFor<TokenSyntaxRef>(OpaqueNode, DataMem);
   }
   return getSyntaxCreator().createTokenRef(TopNode, DataMem);
+}
+
+template <typename SyntaxNode>
+inline OwnedSyntaxRef<SyntaxNode> SyntaxParsingContext::topNodeRef() {
+  assert(isTopNode<SyntaxNode>());
+  ParsedRawSyntaxNode &TopNode = getStorage().back();
+  if (TopNode.isRecorded()) {
+    OpaqueSyntaxNode OpaqueNode(TopNode.getData());
+    return getSyntaxCreator().getLibSyntaxNodeRefFor<SyntaxNode>(OpaqueNode);
+  }
+  return getSyntaxCreator().createNodeRef<SyntaxNode>(TopNode);
+}
+
+template <>
+inline OwnedSyntaxRef<TokenSyntaxRef> SyntaxParsingContext::topNodeRef<TokenSyntaxRef>() {
+  assert(isTopNode<TokenSyntaxRef>());
+  ParsedRawSyntaxNode &TopNode = getStorage().back();
+  if (TopNode.isRecorded()) {
+    OpaqueSyntaxNode OpaqueNode(TopNode.getData());
+    return getSyntaxCreator().getLibSyntaxNodeRefFor<TokenSyntaxRef>(OpaqueNode);
+  }
+  return getSyntaxCreator().createTokenRef(TopNode);
 }
 
 } // namespace swift

@@ -37,10 +37,9 @@ StringRef ASTGen::copyAndStripUnderscores(StringRef Orig) {
 }
 
 DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
-  SyntaxDataRef Data[1];
-  TokenSyntaxRef baseName = DeclNameSyntax.getDeclBaseName(Data);
+  auto baseName = DeclNameSyntax.getDeclBaseName();
   DeclBaseName declBaseName;
-  switch (baseName.getTokenKind()) {
+  switch (baseName->getTokenKind()) {
   case tok::kw_init:
     declBaseName = DeclBaseName::createConstructor();
     break;
@@ -52,18 +51,14 @@ DeclNameRef ASTGen::generateDeclNameRef(DeclNameSyntaxRef DeclNameSyntax) {
     break;
   default:
     declBaseName =
-        DeclBaseName(Context->getIdentifier(baseName.getIdentifierText()));
+        DeclBaseName(Context->getIdentifier(baseName->getIdentifierText()));
     break;
   }
-  SyntaxDataRef Data2[1];
-  if (DeclNameSyntax.getDeclNameArguments(Data2).hasValue()) {
+  if (DeclNameSyntax.getDeclNameArguments().hasValue()) {
     SmallVector<Identifier, 2> argumentLabels;
-    SyntaxDataRef Data3[1];
-    SyntaxDataRef Data4[1];
-    auto arguments = DeclNameSyntax.getDeclNameArguments(Data3)->getArguments(Data4);
-    for (auto arg : arguments) {
-      SyntaxDataRef Data5[1];
-      auto argName = arg.getName(Data5).getIdentifierText();
+    auto arguments = DeclNameSyntax.getDeclNameArguments()->getArguments();
+    for (auto arg : arguments.getRef()) {
+      auto argName = arg->getName()->getIdentifierText();
       argumentLabels.push_back(Context->getIdentifier(argName));
     }
     return DeclNameRef(DeclName(*Context, declBaseName, argumentLabels));
@@ -144,8 +139,7 @@ SourceRange ASTGen::getASTRange(const SyntaxRef &Node) {
   // The node does not contain any present tokens. In accordance with the
   // current best practice in the AST, we use the range of the *previous*
   // token to represent the node's source range in the AST.
-  SyntaxDataRef Data[1];
-  if (auto previousNode = Node.getPreviousNodeRef(Data)) {
+  if (auto previousNode = Node.getPreviousNodeRef()) {
     auto previousToken = previousNode->getAbsoluteRaw().getLastToken();
     assert(previousToken && "getPreviousNode always returns a node which "
                             "contains a non-missing token");
