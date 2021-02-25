@@ -45,11 +45,6 @@ template <typename SyntaxNode> SyntaxNode makeRoot(RawSyntax *Raw) {
   return SyntaxNode(std::move(Data));
 }
 
-template <typename SyntaxNode> SyntaxNode makeRootRef(RawSyntax *Raw, SyntaxDataRef *DataMem) {
-  auto Data = new (DataMem) SyntaxDataRef(AbsoluteRawSyntax::forRoot(Raw), /*Parent=*/nullptr);
-  return SyntaxNode(std::move(Data));
-}
-
 const auto NoParent = llvm::None;
 
 template<typename SyntaxRefType>
@@ -164,56 +159,27 @@ public:
   CursorIndex getIndexInParent() const {
     return getDataRef().getIndexInParent();
   }
-
-  /// Get the \p N -th child of this piece of syntax.
-  llvm::Optional<SyntaxRef> getChildRef(const size_t N, SyntaxDataRef *DataMem) const {
-    if (auto ChildData = getDataRef().getChildRef(N, DataMem)) {
-      return SyntaxRef(ChildData);
-    } else {
-      return None;
-    }
-  }
   
   /// Get the \p N -th child of this piece of syntax.
   OptionalOwnedSyntaxRef<SyntaxRef> getChildRef(const size_t N) const {
     OptionalOwnedSyntaxRef<SyntaxRef> Result;
-    getChildRef(N, Result.getDataPtr());
+    getDataRef().getChildRef(N, Result.getDataPtr());
     return Result;
-  }
-
-  /// Get the node immediately before this current node that does contain a
-  /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxRef> getPreviousNodeRef(SyntaxDataRef *DataMem) const {
-    if (auto prev = getDataRef().getPreviousNodeRef(DataMem)) {
-      return SyntaxRef(prev);
-    } else {
-      return None;
-    }
   }
   
   /// Get the node immediately before this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
   OptionalOwnedSyntaxRef<SyntaxRef> getPreviousNodeRef() const {
     OptionalOwnedSyntaxRef<SyntaxRef> Result;
-    getPreviousNodeRef(Result.getDataPtr());
+    getDataRef().getPreviousNodeRef(Result.getDataPtr());
     return Result;
   }
 
   /// Get the node immediately after this node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  Optional<SyntaxRef> getNextNodeRef(SyntaxDataRef *DataMem) const {
-    if (auto prev = getDataRef().getNextNodeRef(DataMem)) {
-      return SyntaxRef(prev);
-    } else {
-      return None;
-    }
-  }
-  
-  /// Get the node immediately after this node that does contain a
-  /// non-missing token. Return \c None if we cannot find such node.
   OptionalOwnedSyntaxRef<SyntaxRef> getNextNodeRef() const {
     OptionalOwnedSyntaxRef<SyntaxRef> Result;
-    getNextNodeRef(Result.getDataPtr());
+    getDataRef().getNextNodeRef(Result.getDataPtr());
     return Result;
   }
 

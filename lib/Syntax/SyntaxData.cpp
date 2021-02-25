@@ -17,14 +17,14 @@ using namespace swift::syntax;
 
 // MARK: - SyntaxDataRef
 
-SyntaxDataRef *SyntaxDataRef::getPreviousNodeRef(SyntaxDataRef *DataMem) const {
+bool SyntaxDataRef::getPreviousNodeRef(SyntaxDataRef *DataMem) const {
   if (size_t N = getIndexInParent()) {
     if (auto Parent = getParentRef()) {
       for (size_t I = N - 1;; --I) {
-        if (auto C = Parent->getChildRef(I, DataMem)) {
-          if (C->getRawRef()->isPresent() &&
-              C->getAbsoluteRaw().getFirstToken() != None) {
-            return C;
+        if (Parent->getChildRef(I, DataMem)) {
+          if (DataMem->getRawRef()->isPresent() &&
+              DataMem->getAbsoluteRaw().getFirstToken() != None) {
+            return true;
           }
         }
         if (I == 0) {
@@ -33,23 +33,27 @@ SyntaxDataRef *SyntaxDataRef::getPreviousNodeRef(SyntaxDataRef *DataMem) const {
       }
     }
   }
-  return hasParent() ? getParentRef()->getPreviousNodeRef(DataMem) : nullptr;
+  if (hasParent()) {
+    return getParentRef()->getPreviousNodeRef(DataMem);
+  } else {
+    return false;
+  }
 }
 
-SyntaxDataRef *SyntaxDataRef::getNextNodeRef(SyntaxDataRef *DataMem) const {
+bool SyntaxDataRef::getNextNodeRef(SyntaxDataRef *DataMem) const {
   if (hasParent()) {
     size_t NumChildren = getParentRef()->getNumChildren();
     for (size_t I = getIndexInParent() + 1; I != NumChildren; ++I) {
-      if (auto C = getParentRef()->getChildRef(I, DataMem)) {
-        if (C->getRawRef()->isPresent() &&
-            C->getAbsoluteRaw().getFirstToken() != None) {
-          return C;
+      if (getParentRef()->getChildRef(I, DataMem)) {
+        if (DataMem->getRawRef()->isPresent() &&
+            DataMem->getAbsoluteRaw().getFirstToken() != None) {
+          return true;
         }
       }
     }
     return getParentRef()->getNextNodeRef(DataMem);
   }
-  return nullptr;
+  return false;
 }
 
 void SyntaxDataRef::dump(llvm::raw_ostream &OS) const {

@@ -114,6 +114,8 @@ public:
   SyntaxDataRef(const SyntaxDataRef &DataRef) = default;
   SyntaxDataRef(SyntaxDataRef &&DataRef) = default;
   
+  bool isNull() const { return getRaw() == nullptr; }
+  
   const AbsoluteRawSyntax &getAbsoluteRaw() const { return AbsoluteRaw; }
   
   /// Returns the raw syntax node for this syntax node.
@@ -132,35 +134,35 @@ public:
 
   /// Gets the child at the index specified by the provided cursor.
   template <typename CursorType>
-  SyntaxDataRef *getChildRef(CursorType Cursor, SyntaxDataRef *DataMem) const {
+  bool getChildRef(CursorType Cursor, SyntaxDataRef *DataMem) const {
     return getChildRef(
         (AbsoluteSyntaxPosition::IndexInParentType)cursorIndex(Cursor), DataMem);
   }
 
   /// Gets the child at the specified \p Index.
-  SyntaxDataRef *
-  getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index, SyntaxDataRef *DataMem) const {
+  bool getChildRef(AbsoluteSyntaxPosition::IndexInParentType Index, SyntaxDataRef *DataMem) const {
     auto AbsoluteRaw = getAbsoluteRaw().getChild(Index);
     if (AbsoluteRaw) {
-      return new (DataMem) SyntaxDataRef(std::move(*AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this));
+      new (DataMem) SyntaxDataRef(std::move(*AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this));
+      return true;
     } else {
-      return nullptr;
+      return false;
     }
   }
 
   /// Gets the child at the index specified by the provided cursor, assuming
   /// that the child exists.
   template <typename CursorType>
-  SyntaxDataRef *getPresentChildRef(CursorType Cursor, SyntaxDataRef *DataMem) const {
+  void getPresentChildRef(CursorType Cursor, SyntaxDataRef *DataMem) const {
     return getPresentChildRef(
         (AbsoluteSyntaxPosition::IndexInParentType)cursorIndex(Cursor), DataMem);
   }
 
   /// Gets the child at the specified \p Index, assuming that the child exists.
-  SyntaxDataRef *
+  void
   getPresentChildRef(AbsoluteSyntaxPosition::IndexInParentType Index, SyntaxDataRef *DataMem) const {
     auto AbsoluteRaw = getAbsoluteRaw().getPresentChild(Index);
-    return new (DataMem) SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this));
+    new (DataMem) SyntaxDataRef(std::move(AbsoluteRaw), /*Parent=*/const_cast<SyntaxDataRef *>(this));
   }
 
   /// Returns the child index of this node in its parent, if it has a parent,
@@ -171,11 +173,11 @@ public:
   
   /// Get the node immediately before this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  SyntaxDataRef *getPreviousNodeRef(SyntaxDataRef *DataMem) const;
+  bool getPreviousNodeRef(SyntaxDataRef *DataMem) const;
 
   /// Get the node immediately after this current node that does contain a
   /// non-missing token. Return \c None if we cannot find such node.
-  SyntaxDataRef *getNextNodeRef(SyntaxDataRef *DataMem) const;
+  bool getNextNodeRef(SyntaxDataRef *DataMem) const;
 
   // MARK: - Retrieving source locations
 

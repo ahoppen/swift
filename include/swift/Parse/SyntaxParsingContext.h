@@ -310,9 +310,6 @@ public:
   /// If the node is deferred, the node will be recorded in the
   /// \c LibSyntaxAction and returned.
   template <typename SyntaxNode>
-  SyntaxNode topNodeRef(SyntaxDataRef *DataMem);
-
-  template <typename SyntaxNode>
   OwnedSyntaxRef<SyntaxNode> topNodeRef();
 
   template<typename SyntaxNode>
@@ -420,28 +417,6 @@ inline TokenSyntax SyntaxParsingContext::topNode<TokenSyntax>() {
     return getSyntaxCreator().getLibSyntaxNodeFor<TokenSyntax>(OpaqueNode);
   }
   return getSyntaxCreator().createToken(TopNode);
-}
-
-template <typename SyntaxNode>
-inline SyntaxNode SyntaxParsingContext::topNodeRef(SyntaxDataRef *DataMem) {
-  assert(isTopNode<SyntaxNode>());
-  ParsedRawSyntaxNode &TopNode = getStorage().back();
-  if (TopNode.isRecorded()) {
-    OpaqueSyntaxNode OpaqueNode(TopNode.getData());
-    return getSyntaxCreator().getLibSyntaxNodeRefFor<SyntaxNode>(OpaqueNode, DataMem);
-  }
-  return getSyntaxCreator().createNodeRef<SyntaxNode>(TopNode, DataMem);
-}
-
-template <>
-inline TokenSyntaxRef SyntaxParsingContext::topNodeRef<TokenSyntaxRef>(SyntaxDataRef *DataMem) {
-  assert(isTopNode<TokenSyntaxRef>());
-  ParsedRawSyntaxNode &TopNode = getStorage().back();
-  if (TopNode.isRecorded()) {
-    OpaqueSyntaxNode OpaqueNode(TopNode.getData());
-    return getSyntaxCreator().getLibSyntaxNodeRefFor<TokenSyntaxRef>(OpaqueNode, DataMem);
-  }
-  return getSyntaxCreator().createTokenRef(TopNode, DataMem);
 }
 
 template <typename SyntaxNode>

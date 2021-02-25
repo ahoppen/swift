@@ -29,9 +29,7 @@ struct SyntaxCollectionRefIterator {
   size_t Index;
 
   OwnedSyntaxRef<Element> operator*() {
-    OwnedSyntaxRef<Element> Result;
-    Collection.getChild(Index, Result.getDataPtr());
-    return Result;
+    return Collection.getChild(Index);
   }
 
   SyntaxCollectionRefIterator<CollectionKind, Element> &operator++() {
@@ -83,18 +81,10 @@ public:
   ///
   /// Precondition: Index < size()
   /// Precondition: !empty()
-  Element getChild(const size_t Index, SyntaxDataRef *DataMem) const {
-    assert(Index < size());
-    return Element(getDataRef().getChildRef(Index, DataMem));
-  }
-  
-  /// Return the element at the given Index.
-  ///
-  /// Precondition: Index < size()
-  /// Precondition: !empty()
   OwnedSyntaxRef<Element> getChild(const size_t Index) const {
+    assert(Index < size());
     OwnedSyntaxRef<Element> Result;
-    getChild(Index, Result.getDataPtr());
+    getDataRef().getChildRef(Index, Result.getDataPtr());
     return Result;
   }
 
