@@ -236,7 +236,7 @@ SyntaxTreeCreator::recordDeferredLayout(OpaqueSyntaxNode deferred) {
 }
 
 DeferredNodeInfo SyntaxTreeCreator::getDeferredChild(OpaqueSyntaxNode node,
-                                                     size_t ChildIndex) const {
+                                                     size_t ChildIndex) {
   const RawSyntax *raw = static_cast<const RawSyntax *>(node);
 
   const RawSyntax *Child = raw->getChild(ChildIndex);

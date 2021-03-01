@@ -28,9 +28,11 @@ namespace swift {
 class ParsedTriviaPiece;
 class SourceFile;
 class SourceLoc;
+class SyntaxTreeCreator;
 enum class tok : uint8_t;
 
 namespace syntax {
+class RawSyntax;
 class SourceFileSyntax;
 enum class SyntaxKind : uint16_t;
 }
@@ -71,6 +73,8 @@ struct DeferredNodeInfo {
   syntax::SyntaxKind SyntaxKind;
   tok TokenKind;
   bool IsMissing;
+
+  DeferredNodeInfo() : Data(nullptr, RecordedOrDeferredNode::Kind::Null) {}
 
   DeferredNodeInfo(RecordedOrDeferredNode Data, syntax::SyntaxKind SyntaxKind,
                    tok TokenKind, bool IsMissing)
@@ -138,7 +142,7 @@ public:
   /// \p node is the parent node for which the child at position \p ChildIndex
   /// should be retrieved. Furthmore, \p node starts at \p StartLoc.
   virtual DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node,
-                                            size_t childIndex) const = 0;
+                                            size_t childIndex) = 0;
 
   /// To verify \c ParsedRawSyntaxNode element ranges, the range of child nodes
   /// returend by \c getDeferredChild needs to be determined. That's what this
@@ -166,6 +170,24 @@ public:
   lookupNode(size_t lexerOffset, syntax::SyntaxKind kind) {
     return std::make_pair(0, nullptr);
   }
+
+  /// Assuming that this action generates \c RawSyntax nodes, return it.
+  /// If this action does not generate \c RawSyntax nodes, calling this results
+  /// in undefined behaviour.
+  virtual const syntax::RawSyntax *
+  getLibSyntaxNodeFor(OpaqueSyntaxNode node) const = 0;
+
+  /// Get the \c OpaqueSyntaxNode that was originally requested to be created.
+  /// This is only relevant in the context of \c HiddenLibSyntaxAction, which
+  /// also creates an implicit libSyntax node.
+  virtual OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) const = 0;
+
+  /// If this action generates libSyntax nodes, return the \c SyntaxTreeCreator
+  /// that generates the \c RawSyntax nodes. \p sharedThis is a \c
+  /// std::shared_ptr pointing to \c this. If this action does not generate \c
+  /// RawSyntax nodes, calling this results in undefined behaviour.
+  virtual std::shared_ptr<SyntaxTreeCreator>
+  getLibSyntaxAction(std::shared_ptr<SyntaxParseActions> sharedThis) const = 0;
 };
 
 } // end namespace swift

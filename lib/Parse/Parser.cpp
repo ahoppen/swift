@@ -513,19 +513,21 @@ public:
 Parser::Parser(std::unique_ptr<Lexer> Lex, SourceFile &SF,
                SILParserStateBase *SIL, PersistentParserState *PersistentState,
                std::shared_ptr<SyntaxParseActions> SPActions)
-  : SourceMgr(SF.getASTContext().SourceMgr),
-    Diags(SF.getASTContext().Diags),
-    SF(SF),
-    L(Lex.release()),
-    SIL(SIL),
-    CurDeclContext(&SF),
-    Context(SF.getASTContext()),
-    TokReceiver(SF.shouldCollectTokens() ?
-                new TokenRecorder(SF.getASTContext(), L->getBufferID()) :
-                new ConsumeTokenReceiver()),
-    SyntaxContext(new SyntaxParsingContext(SyntaxContext, SF,
-                                           L->getBufferID(),
-                                           std::move(SPActions))) {
+    : SourceMgr(SF.getASTContext().SourceMgr), Diags(SF.getASTContext().Diags),
+      SF(SF), L(Lex.release()), SIL(SIL), CurDeclContext(&SF),
+      Context(SF.getASTContext()),
+      TokReceiver(SF.shouldCollectTokens()
+                      ? new TokenRecorder(SF.getASTContext(), L->getBufferID())
+                      : new ConsumeTokenReceiver()) {
+  // If no syntax parsing actions were provided, use a SyntaxTree creator. This
+  // makes sure that the libSyntax tree is always generated.
+  if (SPActions == nullptr) {
+    SPActions = std::make_shared<SyntaxTreeCreator>(SourceMgr, L->getBufferID(),
+                                                    SF.SyntaxParsingCache,
+                                                    Context.getSyntaxArena());
+  }
+  SyntaxContext =
+      new SyntaxParsingContext(SyntaxContext, SF, L->getBufferID(), SPActions);
   State = PersistentState;
   if (!State) {
     OwnedState.reset(new PersistentParserState());
@@ -1288,7 +1290,7 @@ OpaqueSyntaxNode ParserUnit::parse() {
 
   auto rawNode = P.finalizeSyntaxTree();
   Optional<SourceFileSyntax> syntaxRoot;
-  if (Impl.SPActions) {
+  if (rawNode) {
     if (auto root = Impl.SPActions->realizeSyntaxRoot(rawNode, *Impl.SF))
       syntaxRoot.emplace(*root);
   }
@@ -1296,7 +1298,11 @@ OpaqueSyntaxNode ParserUnit::parse() {
   auto result = SourceFileParsingResult{ctx.AllocateCopy(decls), tokensRef,
                                         P.CurrentTokenHash, syntaxRoot};
   ctx.evaluator.cacheOutput(ParseSourceFileRequest{&P.SF}, std::move(result));
-  return rawNode;
+  if (rawNode) {
+    return Impl.SPActions->getExplicitNodeFor(rawNode);
+  } else {
+    return nullptr;
+  }
 }
 
 Parser &ParserUnit::getParser() {

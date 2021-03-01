@@ -57,7 +57,6 @@ public:
   Optional<syntax::SourceFileSyntax>
   realizeSyntaxRoot(OpaqueSyntaxNode root, const SourceFile &SF) override;
 
-private:
   OpaqueSyntaxNode recordToken(tok tokenKind, StringRef leadingTrivia,
                                StringRef trailingTrivia,
                                CharSourceRange range) override;
@@ -84,13 +83,27 @@ private:
   OpaqueSyntaxNode recordDeferredLayout(OpaqueSyntaxNode deferred) override;
 
   DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node,
-                                    size_t ChildIndex) const override;
+                                    size_t ChildIndex) override;
 
   CharSourceRange getDeferredChildRange(OpaqueSyntaxNode node,
                                         size_t ChildIndex,
                                         SourceLoc StartLoc) const override;
 
   size_t getDeferredNumChildren(OpaqueSyntaxNode node) override;
+
+  const syntax::RawSyntax *
+  getLibSyntaxNodeFor(OpaqueSyntaxNode node) const override {
+    return static_cast<const syntax::RawSyntax *>(node);
+  }
+
+  OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) const override {
+    return node;
+  }
+
+  std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction(
+      std::shared_ptr<SyntaxParseActions> sharedThis) const override {
+    return std::static_pointer_cast<SyntaxTreeCreator>(sharedThis);
+  }
 };
 
 } // end namespace swift

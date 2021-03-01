@@ -146,11 +146,10 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
   if (!bufferID)
     return {};
 
-  std::shared_ptr<SyntaxTreeCreator> sTreeCreator;
-  if (SF->shouldBuildSyntaxTree()) {
-    sTreeCreator = std::make_shared<SyntaxTreeCreator>(
-        ctx.SourceMgr, *bufferID, SF->SyntaxParsingCache, ctx.getSyntaxArena());
-  }
+  std::shared_ptr<SyntaxTreeCreator> sTreeCreator =
+      std::make_shared<SyntaxTreeCreator>(ctx.SourceMgr, *bufferID,
+                                          SF->SyntaxParsingCache,
+                                          ctx.getSyntaxArena());
 
   // If we've been asked to silence warnings, do so now. This is needed for
   // secondary files, which can be parsed multiple times.
@@ -176,7 +175,7 @@ SourceFileParsingResult ParseSourceFileRequest::evaluate(Evaluator &evaluator,
   parser.parseTopLevel(decls);
 
   Optional<SourceFileSyntax> syntaxRoot;
-  if (sTreeCreator) {
+  if (SF->shouldBuildSyntaxTree()) {
     auto rawNode = parser.finalizeSyntaxTree();
     syntaxRoot.emplace(*sTreeCreator->realizeSyntaxRoot(rawNode, *SF));
   }

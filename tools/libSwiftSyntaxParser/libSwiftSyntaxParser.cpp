@@ -19,11 +19,12 @@
 #include "swift/AST/Module.h"
 #include "swift/Basic/LangOptions.h"
 #include "swift/Basic/SourceManager.h"
+#include "swift/Parse/HiddenLibSyntaxAction.h"
 #include "swift/Parse/Parser.h"
 #include "swift/Parse/SyntaxParseActions.h"
+#include "swift/Subsystems.h"
 #include "swift/Syntax/Serialization/SyntaxSerialization.h"
 #include "swift/Syntax/SyntaxNodes.h"
-#include "swift/Subsystems.h"
 #include <Block.h>
 
 using namespace swift;
@@ -317,7 +318,7 @@ private:
   }
 
   DeferredNodeInfo getDeferredChild(OpaqueSyntaxNode node,
-                                    size_t ChildIndex) const override {
+                                    size_t ChildIndex) override {
     auto Data = static_cast<const DeferredLayoutNode *>(node);
     auto Child = Data->Children[ChildIndex];
     switch (Child.getKind()) {
@@ -400,6 +401,22 @@ private:
     auto Data = static_cast<const DeferredLayoutNode *>(node);
     return Data->Children.size();
   }
+
+  syntax::RawSyntax *getLibSyntaxNodeFor(OpaqueSyntaxNode node) const override {
+    llvm_unreachable("does not produce libSyntax nodes");
+  }
+
+  /// Returns the node created by explicit syntax action from the specified
+  /// node that has been created by this action.
+  OpaqueSyntaxNode getExplicitNodeFor(OpaqueSyntaxNode node) const override {
+    return node;
+  }
+
+  /// Returns the underlying libSyntax \c SyntaxTreeCreator.
+  std::shared_ptr<SyntaxTreeCreator> getLibSyntaxAction(
+      std::shared_ptr<SyntaxParseActions> sharedThis) const override {
+    llvm_unreachable("does not have a libsyntaxaction");
+  }
 };
 
 static swiftparser_diagnostic_severity_t getSeverity(DiagnosticKind Kind) {
@@ -480,10 +497,17 @@ swiftparse_client_node_t SynParser::parse(const char *source, size_t len) {
 
   auto parseActions =
     std::make_shared<CLibParseActions>(*this, SM, bufID);
+
+  RC<SyntaxArena> syntaxArena{new syntax::SyntaxArena()};
+  auto libSyntaxTreeCreator = std::make_shared<SyntaxTreeCreator>(
+      SM, bufID, /*syntaxCache=*/nullptr, syntaxArena);
+  auto hiddenAction = std::make_shared<HiddenLibSyntaxAction>(
+      std::move(parseActions), std::move(libSyntaxTreeCreator));
+
   // We have to use SourceFileKind::Main to avoid diagnostics like
   // illegal_top_level_expr
   ParserUnit PU(SM, SourceFileKind::Main, bufID, langOpts, tyckOpts,
-                "syntax_parse_module", std::move(parseActions),
+                "syntax_parse_module", std::move(hiddenAction),
                 /*SyntaxCache=*/nullptr);
   std::unique_ptr<SynParserDiagConsumer> pConsumer;
   if (DiagHandler) {

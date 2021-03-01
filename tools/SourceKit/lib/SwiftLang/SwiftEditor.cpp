@@ -693,11 +693,9 @@ public:
     BufferID = SM.addNewSourceBuffer(std::move(BufCopy));
     DiagConsumer.setInputBufferIDs(BufferID);
 
-    if (CompInv.getLangOptions().BuildSyntaxTree) {
-      RC<SyntaxArena> syntaxArena{new syntax::SyntaxArena()};
-      SynTreeCreator = std::make_shared<SyntaxTreeCreator>(
-          SM, BufferID, CompInv.getMainFileSyntaxParsingCache(), syntaxArena);
-    }
+    RC<SyntaxArena> syntaxArena{new syntax::SyntaxArena()};
+    SynTreeCreator = std::make_shared<SyntaxTreeCreator>(
+        SM, BufferID, CompInv.getMainFileSyntaxParsingCache(), syntaxArena);
 
     Parser.reset(
                  new ParserUnit(SM, SourceFileKind::Main, BufferID,
