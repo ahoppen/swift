@@ -15,7 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "swift/Parse/Parser.h"
-#include "swift/Subsystems.h"
 #include "swift/AST/ASTWalker.h"
 #include "swift/AST/DiagnosticsParse.h"
 #include "swift/AST/Module.h"
@@ -24,20 +23,23 @@
 #include "swift/AST/SourceFile.h"
 #include "swift/Basic/Defer.h"
 #include "swift/Basic/SourceManager.h"
-#include "swift/Parse/Lexer.h"
 #include "swift/Parse/CodeCompletionCallbacks.h"
+#include "swift/Parse/Lexer.h"
 #include "swift/Parse/ParseSILSupport.h"
+#include "swift/Parse/ParsedSyntaxBuilders.h"
+#include "swift/Parse/ParsedSyntaxRecorder.h"
 #include "swift/Parse/SyntaxParseActions.h"
 #include "swift/Parse/SyntaxParsingContext.h"
+#include "swift/Subsystems.h"
 #include "swift/Syntax/RawSyntax.h"
 #include "swift/Syntax/TokenSyntax.h"
 #include "swift/SyntaxParse/SyntaxTreeCreator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/SaveAndRestore.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SaveAndRestore.h"
+#include "llvm/Support/raw_ostream.h"
 
 static void getStringPartTokens(const swift::Token &Tok,
                                 const swift::LangOptions &LangOpts,
@@ -518,7 +520,9 @@ Parser::Parser(std::unique_ptr<Lexer> Lex, SourceFile &SF,
       Context(SF.getASTContext()),
       TokReceiver(SF.shouldCollectTokens()
                       ? new TokenRecorder(SF.getASTContext(), L->getBufferID())
-                      : new ConsumeTokenReceiver()) {
+                      : new ConsumeTokenReceiver()),
+      ASTGenerator(SF.getASTContext(), SourceMgr, CodeCompletion, Diags,
+                   L->getMode()) {
   // If no syntax parsing actions were provided, use a SyntaxTree creator. This
   // makes sure that the libSyntax tree is always generated.
   if (SPActions == nullptr) {
@@ -1493,4 +1497,11 @@ void PrettyStackTraceParser::print(llvm::raw_ostream &out) const {
   out << "With parser at source location: ";
   P.Tok.getLoc().print(out, P.Context.SourceMgr);
   out << '\n';
+}
+ParsedTokenSyntax Parser::consumeTokenSyntax() {
+  TokReceiver->receive(Tok);
+  ParsedTokenSyntax ParsedToken = ParsedSyntaxRecorder::makeToken(
+      Tok, LeadingTrivia, TrailingTrivia, *SyntaxContext);
+  consumeTokenWithoutFeedingReceiver();
+  return ParsedToken;
 }

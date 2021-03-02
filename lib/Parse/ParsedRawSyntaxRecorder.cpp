@@ -76,13 +76,12 @@ ParsedRawSyntaxNode
 ParsedRawSyntaxRecorder::getDeferredChild(const ParsedRawSyntaxNode &parent,
                                           size_t childIndex) const {
   assert(parent.isDeferredLayout());
-  auto childInfo = SPActions->getDeferredChild(
-      parent.getUnsafeDeferredOpaqueData(), childIndex);
+  auto childInfo =
+      SPActions->getDeferredChild(parent.getUnsafeOpaqueData(), childIndex);
 
 #ifdef PARSEDRAWSYNTAXNODE_VERIFY_RANGES
   auto range = SPActions->getDeferredChildRange(
-      parent.getUnsafeDeferredOpaqueData(), childIndex,
-      parent.getRange().getStart());
+      parent.getUnsafeOpaqueData(), childIndex, parent.getRange().getStart());
   return ParsedRawSyntaxNode(childInfo.Data, childInfo.SyntaxKind,
                              childInfo.TokenKind, childInfo.IsMissing, range);
 #else
@@ -94,7 +93,7 @@ ParsedRawSyntaxRecorder::getDeferredChild(const ParsedRawSyntaxNode &parent,
 size_t ParsedRawSyntaxRecorder::getDeferredNumChildren(
     const ParsedRawSyntaxNode &node) const {
   assert(node.isDeferredLayout());
-  return SPActions->getDeferredNumChildren(node.getUnsafeDeferredOpaqueData());
+  return SPActions->getDeferredNumChildren(node.getUnsafeOpaqueData());
 }
 
 #ifdef PARSEDRAWSYNTAXNODE_VERIFY_RANGES

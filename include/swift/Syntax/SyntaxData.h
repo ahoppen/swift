@@ -114,6 +114,12 @@ public:
   virtual ~SyntaxDataRef() {}
 #endif
 
+  /// Make a new \c SyntaxData node for the tree's root and write it into \p
+  /// DataMem.
+  static void makeRoot(AbsoluteRawSyntax AbsoluteRaw, SyntaxDataRef *DataMem) {
+    new (DataMem) SyntaxDataRef(AbsoluteRaw, /*Parent=*/nullptr);
+  }
+
   // MARK: - Retrieving underlying data
 
   const AbsoluteRawSyntax &getAbsoluteRaw() const {
@@ -184,6 +190,48 @@ public:
     auto AbsoluteRaw = getAbsoluteRaw().getPresentChild(Index);
     new (DataMem) SyntaxDataRef(AbsoluteRaw,
                                 /*Parent=*/const_cast<SyntaxDataRef *>(this));
+  }
+
+  /// Get the node immediately before this current node that does contain a
+  /// non-missing token, write it into \p DataMem and return \c true. If no
+  /// such node is found, return \c false and leave \p DataMem in an undefined
+  /// state.
+  bool getPreviousNodeRef(SyntaxDataRef *DataMem) const {
+    if (size_t N = getIndexInParent()) {
+      if (hasParent()) {
+        for (size_t I = N - 1;; --I) {
+          if (getParentRef()->getChildRef(I, DataMem)) {
+            if (DataMem->getRaw()->isPresent() &&
+                DataMem->getAbsoluteRaw().getFirstToken()) {
+              return true;
+            }
+          }
+          if (I == 0)
+            break;
+        }
+      }
+    }
+    return hasParent() ? getParentRef()->getPreviousNodeRef(DataMem) : false;
+  }
+
+  /// Get the node immediately after this current node that does contain a
+  /// non-missing token, write it into \p DataMem and return \c true. If no
+  /// such node is found, return \c false and leave \p DataMem in an undefined
+  /// state.
+  bool getNextNodeRef(SyntaxDataRef *DataMem) const {
+    if (hasParent()) {
+      for (size_t I = getIndexInParent() + 1,
+                  N = getParentRef()->getNumChildren();
+           I != N; ++I) {
+        if (getParentRef()->getChildRef(I, DataMem)) {
+          if (DataMem->getRaw()->isPresent() &&
+              DataMem->getAbsoluteRaw().getFirstToken())
+            return true;
+        }
+      }
+      return getParentRef()->getNextNodeRef(DataMem);
+    }
+    return false;
   }
 
   // MARK: - Retrieving source locations

@@ -157,15 +157,11 @@ public:
 
   // MARK: - Retrieving opaque data
 
-  /// Returns the opaque data of this node, assuming that it is deferred. This
-  /// must be interpreted by the \c SyntaxParseAction, which likely also needs
-  /// the node type (layout or token) to interpret the data.
-  /// The data opaque data returned by this function *must not* be used to
-  /// record the node, only to insepect it.
-  OpaqueSyntaxNode getUnsafeDeferredOpaqueData() const {
-    assert(isDeferredLayout() || isDeferredToken());
-    return Data.getOpaque();
-  }
+  /// Returns the opaque data of this node. This must be interpreted by the \c
+  /// SyntaxParseAction, which likely also needs the node type (layout or token)
+  /// to interpret the data. The data opaque data returned by this function
+  /// *must not* be used to record the node, only to insepect it.
+  OpaqueSyntaxNode getUnsafeOpaqueData() const { return Data.getOpaque(); }
 
   /// Return the opaque data of this node and reset it.
   OpaqueSyntaxNode takeData() {

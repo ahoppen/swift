@@ -55,12 +55,6 @@ namespace syntax {
 struct SyntaxVisitor;
 class SourceFileSyntax;
 
-template <typename SyntaxNode>
-SyntaxNode makeRoot(const RawSyntax *Raw) {
-  auto Data = SyntaxData::makeRoot(AbsoluteRawSyntax::forRoot(Raw));
-  return SyntaxNode(Data);
-}
-
 const auto NoParent = llvm::None;
 
 /// Marker type to construct \c SyntaxRef nodes without validation. This is used
@@ -408,6 +402,28 @@ public:
     return Result;
   }
 
+  /// Get the node immediately before this current node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  OptionalOwnedSyntaxRef<SyntaxRef> getPreviousNodeRef() const {
+    OptionalOwnedSyntaxRef<SyntaxRef> Result;
+    if (getDataRef()->getPreviousNodeRef(Result.getDataPtr())) {
+      return Result;
+    } else {
+      return OptionalOwnedSyntaxRef<SyntaxRef>();
+    }
+  }
+
+  /// Get the node immediately after this node that does contain a
+  /// non-missing token. Return \c None if we cannot find such node.
+  OptionalOwnedSyntaxRef<SyntaxRef> getNextNodeRef() const {
+    OptionalOwnedSyntaxRef<SyntaxRef> Result;
+    if (getDataRef()->getNextNodeRef(Result.getDataPtr())) {
+      return Result;
+    } else {
+      return OptionalOwnedSyntaxRef<SyntaxRef>();
+    }
+  }
+
   // MARK: Position
 
   /// Get the offset at which the leading trivia of this node starts.
@@ -519,6 +535,21 @@ public:
            Other.getDataRef()->getAbsoluteRaw().getNodeId();
   }
 };
+
+// MARK: - Make root nodes
+
+template <typename SyntaxNode>
+SyntaxNode makeRoot(const RawSyntax *Raw) {
+  auto Data = SyntaxData::makeRoot(AbsoluteRawSyntax::forRoot(Raw));
+  return SyntaxNode(Data);
+}
+
+template <typename SyntaxNode>
+OwnedSyntaxRef<SyntaxNode> makeRootRef(const RawSyntax *Raw) {
+  OwnedSyntaxRef<SyntaxNode> Node;
+  SyntaxDataRef::makeRoot(AbsoluteRawSyntax::forRoot(Raw), Node.getDataPtr());
+  return Node;
+}
 
 } // end namespace syntax
 } // end namespace swift
