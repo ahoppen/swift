@@ -90,6 +90,15 @@ public:
   }
 #endif
 
+  /// Add an arena that is kept alive while this arena lives. See documentation
+  /// of \c ChildArenas for more detail.
+  bool hasChildArena(SyntaxArena *Arena) {
+    if (Arena == this) {
+      return true;
+    }
+    return ChildArenas.contains(Arena);
+  }
+
   void setHotUseMemoryRegion(const void *Start, const void *End) {
     assert(containsPointer(Start) &&
            "The hot use memory region should be in the Arena's bump allocator");

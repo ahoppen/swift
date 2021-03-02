@@ -141,15 +141,18 @@ SyntaxTreeCreator::recordRawSyntax(syntax::SyntaxKind kind,
   SmallVector<const RawSyntax *, 16> parts;
   parts.reserve(elements.size());
   size_t TextLength = 0;
+  size_t TotalSubNodeCount = 0;
   for (OpaqueSyntaxNode opaqueN : elements) {
     auto Raw = static_cast<const RawSyntax *>(opaqueN);
     parts.push_back(Raw);
     if (Raw) {
       TextLength += Raw->getTextLength();
+      TotalSubNodeCount += Raw->getTotalSubNodeCount() + 1;
+      Arena->addChildArena(Raw->getArenaPointer());
     }
   }
-  auto raw =
-      RawSyntax::make(kind, parts, TextLength, SourcePresence::Present, Arena);
+  auto raw = RawSyntax::make(kind, parts, TextLength, TotalSubNodeCount,
+                             SourcePresence::Present, Arena);
   return static_cast<OpaqueSyntaxNode>(raw);
 }
 
@@ -200,16 +203,19 @@ OpaqueSyntaxNode SyntaxTreeCreator::makeDeferredLayout(
       reinterpret_cast<const RawSyntax **>(children.data()), children.size());
 
   size_t textLength = 0;
+  size_t totalSubNodeCount = 0;
   for (size_t i = 0; i < children.size(); ++i) {
     auto Raw = static_cast<const RawSyntax *>(children[i].getOpaque());
     rawSyntaxChildren[i] = Raw;
     if (Raw) {
       textLength += Raw->getTextLength();
+      totalSubNodeCount += Raw->getTotalSubNodeCount() + 1;
+      Arena->addChildArena(Raw->getArenaPointer());
     }
   }
 
   auto raw = RawSyntax::make(kind, rawSyntaxChildren, textLength,
-                             SourcePresence::Present, Arena);
+                             totalSubNodeCount, SourcePresence::Present, Arena);
   return static_cast<OpaqueSyntaxNode>(raw);
 }
 

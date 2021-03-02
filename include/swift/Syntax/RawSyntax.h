@@ -223,9 +223,12 @@ class RawSyntax final
   /// underlying storage.
   /// If \p NodeId is \c None, the next free NodeId is used, if it is passed,
   /// the caller needs to assure that the node ID has not been used yet.
+  /// All nodes in \p Layout must either live in the arena passed as \p Arena
+  /// or their arena must be a child arena of \p Arena.
   RawSyntax(SyntaxKind Kind, ArrayRef<const RawSyntax *> Layout,
-            size_t TextLength, SourcePresence Presence,
-            const RC<SyntaxArena> &Arena, llvm::Optional<SyntaxNodeId> NodeId)
+            size_t TextLength, size_t TotalSubNodeCount,
+            SourcePresence Presence, const RC<SyntaxArena> &Arena,
+            llvm::Optional<SyntaxNodeId> NodeId)
       : Arena(Arena.get()), TextLength(uint32_t(TextLength)),
         Presence(Presence), IsToken(false),
         Bits(LayoutData{uint32_t(Layout.size()),
@@ -236,14 +239,21 @@ class RawSyntax final
         Kind != SyntaxKind::Token &&
         "'token' syntax node must be constructed with dedicated constructor");
 
+#ifndef NDEBUG
+    size_t VerifiedTextLength = 0;
+    size_t VerifiedTotalSubNodeCount = 0;
     for (auto Child : Layout) {
       if (Child) {
-        Bits.Layout.TotalSubNodeCount += Child->getTotalSubNodeCount() + 1;
         // If the child is stored in a different arena, it needs to stay alive
         // as long as this node's arena is alive.
-        Arena->addChildArena(Child->Arena);
+        assert(Arena->hasChildArena(Child->Arena));
+        VerifiedTextLength += Child->getTextLength();
+        VerifiedTotalSubNodeCount += Child->getTotalSubNodeCount() + 1;
       }
     }
+    assert(TextLength == VerifiedTextLength);
+    assert(TotalSubNodeCount == VerifiedTotalSubNodeCount);
+#endif
 
     if (NodeId.hasValue()) {
       this->NodeId = NodeId.getValue();
@@ -313,13 +323,14 @@ public:
   /// Make a raw "layout" syntax node.
   static const RawSyntax *
   make(SyntaxKind Kind, ArrayRef<const RawSyntax *> Layout, size_t TextLength,
-       SourcePresence Presence, const RC<SyntaxArena> &Arena,
+       size_t TotalSubNodeCount, SourcePresence Presence,
+       const RC<SyntaxArena> &Arena,
        llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
     assert(Arena && "RawSyntax nodes must always be allocated in an arena");
     auto size = totalSizeToAlloc<const RawSyntax *>(Layout.size());
     void *data = Arena->Allocate(size, alignof(RawSyntax));
-    return new (data)
-        RawSyntax(Kind, Layout, TextLength, Presence, Arena, NodeId);
+    return new (data) RawSyntax(Kind, Layout, TextLength, TotalSubNodeCount,
+                                Presence, Arena, NodeId);
   }
 
   static const RawSyntax *
@@ -327,12 +338,16 @@ public:
                     SourcePresence Presence, const RC<SyntaxArena> &Arena,
                     llvm::Optional<SyntaxNodeId> NodeId = llvm::None) {
     size_t TextLength = 0;
+    size_t TotalSubNodeCount = 0;
     for (auto Child : Layout) {
       if (Child) {
         TextLength += Child->getTextLength();
+        TotalSubNodeCount += Child->getTotalSubNodeCount() + 1;
+        Arena->addChildArena(Child->getArenaPointer());
       }
     }
-    return make(Kind, Layout, TextLength, Presence, Arena, NodeId);
+    return make(Kind, Layout, TextLength, TotalSubNodeCount, Presence, Arena,
+                NodeId);
   }
 
   /// Make a raw "token" syntax node.
@@ -367,7 +382,8 @@ public:
   /// Make a missing raw "layout" syntax node.
   static const RawSyntax *missing(SyntaxKind Kind,
                                   const RC<SyntaxArena> &Arena) {
-    return make(Kind, {}, /*TextLength=*/0, SourcePresence::Missing, Arena);
+    return make(Kind, {}, /*TextLength=*/0, /*TotalSubNodeCount=*/0,
+                SourcePresence::Missing, Arena);
   }
 
   /// Make a missing raw "token" syntax node.
@@ -382,6 +398,10 @@ public:
   /// Return the arena in which this \c RawSyntax node has been allocated.
   /// Keep in mind that the \c RawSyntax node *does not* retain the arena.
   RC<SyntaxArena> getArena() const { return RC<SyntaxArena>(Arena); }
+
+  /// Return the arena in which this \c RawSyntax node has been allocated as a
+  /// plain pointer.
+  SyntaxArena *getArenaPointer() const { return Arena; }
 
   SourcePresence getPresence() const {
     return static_cast<SourcePresence>(Presence);

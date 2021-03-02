@@ -206,7 +206,7 @@ SyntaxFactory::make${node.syntax_kind}(
 
 ${node.name}
 SyntaxFactory::makeBlank${node.syntax_kind}() {
-  auto raw = RawSyntax::make(SyntaxKind::${node.syntax_kind}, {
+  auto raw = RawSyntax::makeAndCalcLength(SyntaxKind::${node.syntax_kind}, {
 %   for child in node.children:
 %       if child.is_optional:
     nullptr,
@@ -214,7 +214,7 @@ SyntaxFactory::makeBlank${node.syntax_kind}() {
     ${make_missing_child(child)},
 %       end
 %   end
-  }, /*TextLength=*/0, SourcePresence::Present, Arena);
+  }, SourcePresence::Present, Arena);
   return makeRoot<${node.name}>(raw);
 }
 % end
