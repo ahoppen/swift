@@ -466,7 +466,9 @@ public:
   bool hasValue() const { return !Storage.getAbsoluteRaw().isNull(); }
 
   SyntaxDataRef &getValue() LLVM_LVALUE_FUNCTION {
-    assert(hasValue());
+    // We don't validate that the Optional has a value here because the user
+    // might be about to populate the storage. by setting the reference
+    // returned by this function.
     return Storage;
   }
   SyntaxDataRef const &getValue() const LLVM_LVALUE_FUNCTION {
