@@ -245,7 +245,7 @@ private:
 
   OpaqueSyntaxNode makeDeferredLayout(
       syntax::SyntaxKind k, bool isMissing,
-      const ArrayRef<RecordedOrDeferredNode> &children) override {
+      const MutableArrayRef<RecordedOrDeferredNode> &children) override {
     assert(!isMissing && "Missing layout nodes not implemented yet");
 
     // Compute the length of this node.

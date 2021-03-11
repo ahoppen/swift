@@ -113,9 +113,9 @@ public:
   /// Create a deferred layout node that may or may not be recorded later using
   /// \c recordDeferredLayout. The \c SyntaxParseAction is responsible for
   /// keeping the deferred token alive until it is destructed.
-  virtual OpaqueSyntaxNode
-  makeDeferredLayout(syntax::SyntaxKind k, bool isMissing,
-                     const ArrayRef<RecordedOrDeferredNode> &children) = 0;
+  virtual OpaqueSyntaxNode makeDeferredLayout(
+      syntax::SyntaxKind k, bool isMissing,
+      const MutableArrayRef<RecordedOrDeferredNode> &children) = 0;
 
   /// Record a deferred token node that was previously created using \c
   /// makeDeferredToken. The deferred data will never be used again, so it can

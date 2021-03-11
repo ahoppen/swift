@@ -187,17 +187,30 @@ OpaqueSyntaxNode SyntaxTreeCreator::makeDeferredToken(tok tokenKind,
 }
 
 OpaqueSyntaxNode SyntaxTreeCreator::makeDeferredLayout(
-    syntax::SyntaxKind k, bool IsMissing,
-    const ArrayRef<RecordedOrDeferredNode> &children) {
-  SmallVector<OpaqueSyntaxNode, 16> opaqueChildren;
-  opaqueChildren.reserve(children.size());
+    syntax::SyntaxKind kind, bool IsMissing,
+    const MutableArrayRef<RecordedOrDeferredNode> &children) {
+  assert(!IsMissing && "Missing layout nodes not implemented yet");
 
+  static_assert(
+      sizeof(OpaqueSyntaxNode) <= sizeof(RecordedOrDeferredNode),
+      "OpaqueSyntaxNode must be small than RecordedOrDeferredNode if we "
+      "want to reuse the memory of the RecordedOrDeferredNode ArrayRef");
+
+  MutableArrayRef<const RawSyntax *> rawSyntaxChildren(
+      reinterpret_cast<const RawSyntax **>(children.data()), children.size());
+
+  size_t textLength = 0;
   for (size_t i = 0; i < children.size(); ++i) {
-    opaqueChildren.push_back(children[i].getOpaque());
+    auto Raw = static_cast<const RawSyntax *>(children[i].getOpaque());
+    rawSyntaxChildren[i] = Raw;
+    if (Raw) {
+      textLength += Raw->getTextLength();
+    }
   }
 
-  // Also see comment in makeDeferredToken
-  return recordRawSyntax(k, opaqueChildren);
+  auto raw = RawSyntax::make(kind, rawSyntaxChildren, textLength,
+                             SourcePresence::Present, Arena);
+  return static_cast<OpaqueSyntaxNode>(raw);
 }
 
 OpaqueSyntaxNode
