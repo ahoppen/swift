@@ -44,43 +44,6 @@ ParsedRawSyntaxRecorder::recordEmptyRawSyntaxCollection(SyntaxKind kind,
                                  /*IsMissing=*/false, CharSourceRange(loc, 0));
 }
 
-/// Create a deferred layout node.
-ParsedRawSyntaxNode ParsedRawSyntaxRecorder::makeDeferred(
-    syntax::SyntaxKind k, MutableArrayRef<ParsedRawSyntaxNode> deferredNodes,
-    SyntaxParsingContext &ctx) {
-#ifdef PARSEDRAWSYNTAXNODE_VERIFY_RANGES
-  ParsedRawSyntaxRecorder::verifyElementRanges(deferredNodes);
-  CharSourceRange range;
-#endif
-
-  RecordedOrDeferredNode *newPtr =
-      ctx.getScratchAlloc().Allocate<RecordedOrDeferredNode>(
-          deferredNodes.size());
-  auto children = llvm::makeMutableArrayRef(newPtr, deferredNodes.size());
-  for (size_t i = 0; i < deferredNodes.size(); ++i) {
-    auto &node = deferredNodes[i];
-    assert(!node.isRecorded() &&
-           "Cannot create a deferred layout node that has recorded children");
-#ifdef PARSEDRAWSYNTAXNODE_VERIFY_RANGES
-    if (!node.isNull() && !node.isMissing()) {
-      auto nodeRange = node.getRange();
-      if (nodeRange.isValid()) {
-        if (range.isInvalid())
-          range = nodeRange;
-        else
-          range.widen(nodeRange);
-      }
-    }
-#endif
-
-    children[i] = node.takeRecordedOrDeferredNode();
-  }
-  auto data = SPActions->makeDeferredLayout(k, /*IsMissing=*/false, children);
-  return makeParsedRawSyntaxNode(data, k, tok::NUM_TOKENS,
-                                 ParsedRawSyntaxNode::DataKind::DeferredLayout,
-                                 /*IsMissing=*/false, range);
-}
-
 ParsedRawSyntaxNode
 ParsedRawSyntaxRecorder::makeDeferredMissing(tok tokKind, SourceLoc loc) {
   auto Data = SPActions->makeDeferredToken(
