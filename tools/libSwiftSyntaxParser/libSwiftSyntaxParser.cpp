@@ -268,7 +268,14 @@ private:
       }
     }
 
-    return new (DeferredNodeAllocator) DeferredLayoutNode(k, children, length);
+    auto persistentChildrenStore =
+        DeferredNodeAllocator.Allocate<RecordedOrDeferredNode>(children.size());
+    std::uninitialized_copy(children.begin(), children.end(),
+                            persistentChildrenStore);
+    auto persistentChildren =
+        llvm::makeArrayRef(persistentChildrenStore, children.size());
+
+    return new (DeferredNodeAllocator) DeferredLayoutNode(k, persistentChildren, length);
   }
 
   OpaqueSyntaxNode recordDeferredToken(OpaqueSyntaxNode deferred) override {
