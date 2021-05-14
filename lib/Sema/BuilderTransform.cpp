@@ -24,6 +24,7 @@
 #include "swift/AST/ASTWalker.h"
 #include "swift/AST/NameLookup.h"
 #include "swift/AST/NameLookupRequests.h"
+#include "swift/Sema/CodeCompletionTypeChecking.h"
 #include "swift/AST/ParameterList.h"
 #include "swift/AST/TypeCheckRequests.h"
 #include "swift/Sema/ConstraintSystem.h"
@@ -1548,6 +1549,153 @@ BraceStmt *swift::applyResultBuilderTransform(
         captured.first, captured.second)));
 }
 
+
+namespace {
+
+class CompletionContextFinder : public ASTWalker {
+  enum class ContextKind {
+    FallbackExpression,
+    StringInterpolation,
+    SingleStmtClosure,
+    MultiStmtClosure,
+    ErrorExpression
+  };
+
+  struct Context {
+    ContextKind Kind;
+    Expr * E;
+  };
+
+  /// Stack of all "interesting" contexts up to code completion expression.
+  llvm::SmallVector<Context, 4> Contexts;
+  CodeCompletionExpr *CompletionExpr = nullptr;
+  FuncDecl *InitialExpr = nullptr;
+  DeclContext *InitialDC;
+
+public:
+  /// Finder for completion contexts within the provided initial expression.
+  CompletionContextFinder(FuncDecl *initialExpr, DeclContext *DC)
+      : InitialExpr(initialExpr), InitialDC(DC) {
+    assert(DC);
+    initialExpr->walk(*this);
+  };
+
+  /// Finder for completion contexts within the outermost non-closure context of
+  /// the code completion expression's direct context.
+  CompletionContextFinder(DeclContext *completionDC): InitialDC(completionDC) {
+    while (auto *ACE = dyn_cast<AbstractClosureExpr>(InitialDC))
+      InitialDC = ACE->getParent();
+    InitialDC->walkContext(*this);
+  }
+
+  std::pair<bool, Expr *> walkToExprPre(Expr *E) override {
+    if (auto *closure = dyn_cast<ClosureExpr>(E)) {
+      Contexts.push_back({closure->hasSingleExpressionBody()
+                            ? ContextKind::SingleStmtClosure
+                            : ContextKind::MultiStmtClosure,
+                          closure});
+    }
+
+    if (isa<InterpolatedStringLiteralExpr>(E)) {
+      Contexts.push_back({ContextKind::StringInterpolation, E});
+    }
+
+    if (isa<ApplyExpr>(E) || isa<SequenceExpr>(E)) {
+      Contexts.push_back({ContextKind::FallbackExpression, E});
+    }
+
+    if (auto *Error = dyn_cast<ErrorExpr>(E)) {
+      Contexts.push_back({ContextKind::ErrorExpression, E});
+      if (auto *OrigExpr = Error->getOriginalExpr()) {
+        OrigExpr->walk(*this);
+        if (hasCompletionExpr())
+          return std::make_pair(false, nullptr);
+      }
+    }
+
+    if (auto *CCE = dyn_cast<CodeCompletionExpr>(E)) {
+      CompletionExpr = CCE;
+      return std::make_pair(false, nullptr);
+    }
+
+    return std::make_pair(true, E);
+  }
+
+  Expr *walkToExprPost(Expr *E) override {
+    if (isa<ClosureExpr>(E) || isa<InterpolatedStringLiteralExpr>(E) ||
+        isa<ApplyExpr>(E) || isa<SequenceExpr>(E) || isa<ErrorExpr>(E)) {
+      assert(Contexts.back().E == E);
+      Contexts.pop_back();
+    }
+    return E;
+  }
+
+  /// Check whether code completion expression is located inside of a
+  /// multi-statement closure.
+  bool locatedInMultiStmtClosure() const {
+    return hasContext(ContextKind::MultiStmtClosure);
+  }
+
+  bool locatedInStringIterpolation() const {
+    return hasContext(ContextKind::StringInterpolation);
+  }
+
+  bool hasCompletionExpr() const {
+    return CompletionExpr;
+  }
+
+  CodeCompletionExpr *getCompletionExpr() const {
+    assert(CompletionExpr);
+    return CompletionExpr;
+  }
+
+  struct Fallback {
+    Expr *E; ///< The fallback expression.
+    DeclContext *DC; ///< The fallback expression's decl context.
+    bool SeparatePrecheck; ///< True if the fallback may require prechecking.
+  };
+
+private:
+  bool hasContext(ContextKind kind) const {
+    return llvm::find_if(Contexts, [&kind](const Context &currContext) {
+             return currContext.Kind == kind;
+           }) != Contexts.end();
+  }
+};
+
+} // end namespace
+
+/// Remove any solutions from the provided vector that both require fixes and have a
+/// score worse than the best.
+static void filterSolutionsForCodeCompletion(FuncDecl *Func, SmallVectorImpl<Solution> &solutions) {
+  auto *DC = Func->getDeclContext();
+  CompletionContextFinder contextAnalyzer(Func, DC);
+  auto completionExpr = contextAnalyzer.getCompletionExpr();
+  // FIXME: We should only bedoing this if we are in a pattern matching position
+  solutions.erase(llvm::remove_if(solutions, [&](const Solution &S) {
+    ASTContext &ctx = S.getConstraintSystem().getASTContext();
+    if (!S.hasType(completionExpr))
+      return false;
+    if (auto ty = S.getResolvedType(completionExpr))
+      if (auto *NTD = ty->getAnyNominal())
+        return NTD->getBaseIdentifier() == ctx.Id_OptionalNilComparisonType;
+    return false;
+  }), solutions.end());
+
+  if (solutions.size() <= 1)
+    return;
+
+  Score minScore = std::min_element(solutions.begin(), solutions.end(),
+                                    [](const Solution &a, const Solution &b) {
+    return a.getFixedScore() < b.getFixedScore();
+  })->getFixedScore();
+
+  llvm::erase_if(solutions, [&](const Solution &S) {
+    return S.getFixedScore().Data[SK_Fix] != 0 &&
+        S.getFixedScore() > minScore;
+  });
+}
+
 Optional<BraceStmt *> TypeChecker::applyResultBuilderBodyTransform(
     FuncDecl *func, Type builderType) {
   // Pre-check the body: pre-check any expressions in it and look
@@ -1607,7 +1755,12 @@ Optional<BraceStmt *> TypeChecker::applyResultBuilderBodyTransform(
   }
   }
 
+  auto &Context = func->getASTContext();
   ConstraintSystemOptions options = ConstraintSystemFlags::AllowFixes;
+  if (Context.CompletionCallback) {
+    options |= ConstraintSystemFlags::SuppressDiagnostics;
+    options |= ConstraintSystemFlags::ForCodeCompletion;
+  }
   auto resultInterfaceTy = func->getResultInterfaceType();
   auto resultContextType = func->mapTypeIntoContext(resultInterfaceTy);
 
@@ -1629,6 +1782,18 @@ Optional<BraceStmt *> TypeChecker::applyResultBuilderBodyTransform(
     if (result->isFailure())
       return nullptr;
   }
+
+  if (Context.CompletionCallback) {
+    SmallVector<Solution, 4> solutions;
+    cs.solveForCodeCompletion(solutions);
+    filterSolutionsForCodeCompletion(func, solutions);
+    for (auto &solution : solutions) {
+      llvm::errs() << "sawSolution\n";
+      Context.CompletionCallback->sawSolution(solution);
+    }
+    return None;
+  }
+
 
   // Solve the constraint system.
   SmallVector<Solution, 4> solutions;
@@ -1748,6 +1913,8 @@ ConstraintSystem::matchResultBuilder(
     // If we saw a control-flow statement or declaration that the builder
     // cannot handle, we don't have a well-formed result builder application.
     if (auto unhandledNode = visitor.check(fn.getBody())) {
+      auto stmt = unhandledNode.dyn_cast<Stmt *>();
+      auto expr = unhandledNode.dyn_cast<Decl *>();
       // If we aren't supposed to attempt fixes, fail.
       if (!shouldAttemptFixes()) {
         return getTypeMatchFailure(locator);

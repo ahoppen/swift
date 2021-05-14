@@ -899,7 +899,7 @@ bool TypeChecker::typeCheckForCodeCompletion(
 
     // If solve failed to generate constraints or with some other
     // issue, we need to fallback to type-checking a sub-expression.
-    if (!cs.solveForCodeCompletion(target, solutions))
+    if (!cs.generateConstraintsAndSolveForCodeCompletionExpr(target, solutions))
       return CompletionResult::Fallback;
 
     // FIXME: instead of filtering, expose the score and viability to clients.
@@ -1059,6 +1059,7 @@ swift::lookupSemanticMember(DeclContext *DC, Type ty, DeclName name) {
 }
 
 void DotExprTypeCheckCompletionCallback::fallbackTypeCheck() {
+  llvm::errs() << "DotExprTypeCheckCompletionCallback::fallbackTypeCheck\n";
   assert(!gotCallback());
 
   // Default to checking the completion expression in isolation.
@@ -1084,6 +1085,7 @@ void DotExprTypeCheckCompletionCallback::fallbackTypeCheck() {
 
 void UnresolvedMemberTypeCheckCompletionCallback::
 fallbackTypeCheck(DeclContext *DC) {
+  llvm::errs() << "UnresolvedMemberTypeCheckCompletionCallback::fallbackTypeCheck\n";
   assert(!gotCallback());
 
   CompletionContextFinder finder(DC);
@@ -1105,7 +1107,10 @@ fallbackTypeCheck(DeclContext *DC) {
 
 static Type getTypeForCompletion(const constraints::Solution &S, Expr *E) {
   auto &CS = S.getConstraintSystem();
-
+  if (!S.hasType(E)) {
+    return Type();
+  }
+  
   // To aid code completion, we need to attempt to convert type placeholders
   // back into underlying generic parameters if possible, since type
   // of the code completion expression is used as "expected" (or contextual)

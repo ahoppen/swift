@@ -1919,11 +1919,11 @@ bool TypeCheckASTNodeAtLocRequest::evaluate(Evaluator &evaluator,
     if (Type builderType = getResultBuilderType(func)) {
       auto optBody =
           TypeChecker::applyResultBuilderBodyTransform(func, builderType);
-      if (!optBody || !*optBody)
-        return true;
-      // Wire up the function body now.
-      func->setBody(*optBody, AbstractFunctionDecl::BodyKind::TypeChecked);
-      return false;
+      if (optBody && *optBody) {
+        // Wire up the function body now.
+        func->setBody(*optBody, AbstractFunctionDecl::BodyKind::TypeChecked);
+        return false;
+      }
     } else if (func->hasSingleExpressionBody() &&
                 func->getResultInterfaceType()->isVoid()) {
        // The function returns void.  We don't need an explicit return, no matter
