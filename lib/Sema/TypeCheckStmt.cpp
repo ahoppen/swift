@@ -41,6 +41,7 @@
 #include "swift/Parse/Lexer.h"
 #include "swift/Parse/LocalContext.h"
 #include "swift/Parse/Parser.h"
+#include "swift/Sema/CodeCompletionTypeChecking.h"
 #include "swift/Sema/IDETypeChecking.h"
 #include "swift/Syntax/TokenKinds.h"
 #include "llvm/ADT/DenseMap.h"
@@ -1924,6 +1925,15 @@ bool TypeCheckASTNodeAtLocRequest::evaluate(Evaluator &evaluator,
         // Wire up the function body now.
         func->setBody(*optBody, AbstractFunctionDecl::BodyKind::TypeChecked);
         return false;
+      }
+      if (ctx.CompletionCallback &&
+          ctx.CompletionCallback->gotUsefulCallback()) {
+        // We failed to typecheck the result builder but saw a solution for the
+        // code completion token. This probably happened because there was an
+        // error that didn't affect the code completion position. This is fine
+        // for the purpose of code completion. No need to go to the fallback
+        // case described below.
+        return true;
       }
       // We failed to apply the result builder transform. Fall back to just type
       // checking the node that contains the code completion token. This may be

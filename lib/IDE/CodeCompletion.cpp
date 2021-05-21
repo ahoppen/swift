@@ -6395,7 +6395,7 @@ bool CodeCompletionCallbacksImpl::trySolverCompletion(bool MaybeFuncBody) {
     // switch case where there control expression is invalid). Having normal
     // typechecking still resolve even these cases would be beneficial for
     // tooling in general though.
-    if (!Lookup.gotCallback())
+    if (!Lookup.gotUsefulCallback())
       Lookup.fallbackTypeCheck();
 
     addKeywords(CompletionContext.getResultSink(), MaybeFuncBody);
@@ -6415,7 +6415,7 @@ bool CodeCompletionCallbacksImpl::trySolverCompletion(bool MaybeFuncBody) {
       CompletionCollector(Context.CompletionCallback, &Lookup);
     typeCheckContextAt(CurDeclContext, CompletionLoc);
 
-    if (!Lookup.gotCallback())
+    if (!Lookup.gotUsefulCallback())
       Lookup.fallbackTypeCheck(CurDeclContext);
 
     addKeywords(CompletionContext.getResultSink(), MaybeFuncBody);

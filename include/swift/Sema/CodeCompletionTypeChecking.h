@@ -39,6 +39,9 @@ namespace swift {
     /// Called for each solution produced while  type-checking an expression
     /// that the code completion expression participates in.
     virtual void sawSolution(const constraints::Solution &solution) = 0;
+    /// True if at least one solution containing a type for the code completion
+    /// expression was passed via the \c sawSolution callback.
+    virtual bool gotUsefulCallback() const = 0;
     virtual ~TypeCheckCompletionCallback() {}
   };
 
@@ -62,7 +65,7 @@ namespace swift {
     CodeCompletionExpr *CompletionExpr;
     SmallVector<Result, 4> Results;
     llvm::DenseMap<std::pair<Type, Decl*>, size_t> BaseToSolutionIdx;
-    bool GotCallback = false;
+    bool GotUsefulCallback = false;
 
   public:
     DotExprTypeCheckCompletionCallback(DeclContext *DC,
@@ -73,9 +76,7 @@ namespace swift {
     /// far.
     ArrayRef<Result> getResults() const { return Results; }
 
-    /// True if at least one solution was passed via the \c sawSolution
-    /// callback.
-    bool gotCallback() const { return GotCallback; }
+    bool gotUsefulCallback() const override { return GotUsefulCallback; }
 
     /// Typecheck the code completion expression in isolation, calling
     /// \c sawSolution for each solution formed.
@@ -97,7 +98,7 @@ namespace swift {
   private:
     CodeCompletionExpr *CompletionExpr;
     SmallVector<Result, 4> Results;
-    bool GotCallback = false;
+    bool GotUsefulCallback = false;
 
   public:
     UnresolvedMemberTypeCheckCompletionCallback(CodeCompletionExpr *CompletionExpr)
@@ -105,9 +106,7 @@ namespace swift {
 
     ArrayRef<Result> getResults() const { return Results; }
 
-    /// True if at least one solution was passed via the \c sawSolution
-    /// callback.
-    bool gotCallback() const { return GotCallback; }
+    bool gotUsefulCallback() const override { return GotUsefulCallback; }
 
     /// Typecheck the code completion expression in its outermost expression
     /// context, calling \c sawSolution for each solution formed.

@@ -763,7 +763,10 @@ private:
 
 // Determine if the target expression is the implicit BinaryExpr generated for
 // pattern-matching in a switch/if/guard case (<completion> ~= matchValue).
-static bool isForPatternMatch(SolutionApplicationTarget &target) {
+static bool isForPatternMatch(const SolutionApplicationTarget &target) {
+  if (target.getAsExpr() == nullptr) {
+    return false;
+  }
   if (target.getExprContextualTypePurpose() != CTP_Condition)
     return false;
   Expr *condition = target.getAsExpr();
@@ -785,9 +788,9 @@ static bool isForPatternMatch(SolutionApplicationTarget &target) {
 
 /// Remove any solutions from the provided vector that both require fixes and have a
 /// score worse than the best.
-static void filterSolutions(SolutionApplicationTarget &target,
-                            SmallVectorImpl<Solution> &solutions,
-                            CodeCompletionExpr *completionExpr) {
+void TypeChecker::filterSolutionsForCodeCompletion(
+    const SolutionApplicationTarget &target,
+    SmallVectorImpl<Solution> &solutions, CodeCompletionExpr *completionExpr) {
   // FIXME: this is only needed because in pattern matching position, the
   // code completion expression always becomes an expression pattern, which
   // requires the ~= operator to be defined on the type being matched against.
@@ -899,13 +902,14 @@ bool TypeChecker::typeCheckForCodeCompletion(
 
     // If solve failed to generate constraints or with some other
     // issue, we need to fallback to type-checking a sub-expression.
-    if (!cs.solveForCodeCompletion(target, solutions))
+    if (!cs.generateConstraintsAndSolveForCodeCompletionExpr(target, solutions))
       return CompletionResult::Fallback;
 
     // FIXME: instead of filtering, expose the score and viability to clients.
     // Remove any solutions that both require fixes and have a score that is
     // worse than the best.
-    filterSolutions(target, solutions, contextAnalyzer.getCompletionExpr());
+    filterSolutionsForCodeCompletion(target, solutions,
+                                     contextAnalyzer.getCompletionExpr());
 
     // Similarly, if the type-check didn't produce any solutions, fall back
     // to type-checking a sub-expression in isolation.
@@ -1059,7 +1063,7 @@ swift::lookupSemanticMember(DeclContext *DC, Type ty, DeclName name) {
 }
 
 void DotExprTypeCheckCompletionCallback::fallbackTypeCheck() {
-  assert(!gotCallback());
+  assert(!gotUsefulCallback());
 
   // Default to checking the completion expression in isolation.
   Expr *fallbackExpr = CompletionExpr;
@@ -1084,7 +1088,7 @@ void DotExprTypeCheckCompletionCallback::fallbackTypeCheck() {
 
 void UnresolvedMemberTypeCheckCompletionCallback::
 fallbackTypeCheck(DeclContext *DC) {
-  assert(!gotCallback());
+  assert(!gotUsefulCallback());
 
   CompletionContextFinder finder(DC);
   if (!finder.hasCompletionExpr())
@@ -1183,7 +1187,6 @@ static bool isImplicitSingleExpressionReturn(ConstraintSystem &CS,
 
 void DotExprTypeCheckCompletionCallback::
 sawSolution(const constraints::Solution &S) {
-  GotCallback = true;
   auto &CS = S.getConstraintSystem();
   auto *ParsedExpr = CompletionExpr->getBase();
   auto *SemanticExpr = ParsedExpr->getSemanticsProvidingExpr();
@@ -1194,6 +1197,8 @@ sawSolution(const constraints::Solution &S) {
   // it wouldn't produce any useful results anyway.
   if (!BaseTy || BaseTy->getRValueType()->is<UnresolvedType>())
     return;
+
+  GotUsefulCallback = true;
 
   auto *Locator = CS.getConstraintLocator(SemanticExpr);
   Type ExpectedTy = getTypeForCompletion(S, CompletionExpr);
@@ -1230,8 +1235,6 @@ sawSolution(const constraints::Solution &S) {
 
 void UnresolvedMemberTypeCheckCompletionCallback::
 sawSolution(const constraints::Solution &S) {
-  GotCallback = true;
-
   auto &CS = S.getConstraintSystem();
   Type ExpectedTy = getTypeForCompletion(S, CompletionExpr);
   // If the type couldn't be determined (e.g. because there isn't any context
@@ -1239,6 +1242,8 @@ sawSolution(const constraints::Solution &S) {
   // produce any useful results anyway.
   if (!ExpectedTy || ExpectedTy->is<UnresolvedType>())
     return;
+
+  GotUsefulCallback = true;
 
   // If ExpectedTy is a duplicate of any other result, ignore this solution.
   if (llvm::any_of(Results, [&](const Result &R) {
