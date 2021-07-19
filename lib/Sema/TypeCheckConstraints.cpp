@@ -342,10 +342,11 @@ TypeChecker::typeCheckExpression(
   // Check whether given expression has a code completion token which requires
   // special handling.
   if (Context.CompletionCallback &&
-      typeCheckForCodeCompletion(target, /*needsPrecheck*/false,
-                                 [&](const constraints::Solution &S) {
-        Context.CompletionCallback->sawSolution(S);
-      }))
+      typeCheckForCodeCompletion(
+          target, /*needsPrecheck=*/[](const Expr *) { return false; },
+          [&](const constraints::Solution &S) {
+            Context.CompletionCallback->sawSolution(S);
+          }))
     return None;
 
   // Construct a constraint system from this expression.

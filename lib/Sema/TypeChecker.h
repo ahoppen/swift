@@ -563,10 +563,15 @@ FunctionType *getTypeOfCompletionOperator(DeclContext *DC, Expr *LHS,
 /// solution, and constraint solver is allowed to produce partially correct
 /// solutions. Such solutions can have any number of holes in them.
 ///
+/// The \p needsPrecheck function determines if the expression passed to it
+/// needs to be prechecked or if it has already been prechecked before \c
+/// typeCheckForCodeCompletion was called.
+///
 /// \returns `true` if target was applicable and it was possible to infer
 /// types for code completion, `false` othrewise.
 bool typeCheckForCodeCompletion(
-    constraints::SolutionApplicationTarget &target, bool needsPrecheck,
+    constraints::SolutionApplicationTarget &target,
+    llvm::function_ref<bool(const Expr *)> needsPrecheck,
     llvm::function_ref<void(const constraints::Solution &)> callback);
 
 /// Check the key-path expression.

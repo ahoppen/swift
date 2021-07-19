@@ -39,6 +39,9 @@ namespace swift {
     /// Called for each solution produced while  type-checking an expression
     /// that the code completion expression participates in.
     virtual void sawSolution(const constraints::Solution &solution) = 0;
+
+    /// Called when an expression is pre-checked during solver-based completion.
+    virtual void preCheckedExpression(const Expr *expr) {}
     virtual ~TypeCheckCompletionCallback() {}
   };
 
@@ -63,6 +66,9 @@ namespace swift {
     SmallVector<Result, 4> Results;
     llvm::DenseMap<std::pair<Type, Decl*>, size_t> BaseToSolutionIdx;
     bool GotCallback = false;
+    /// The expressions that were pre-checked during solver-based completion and
+    /// should not be pre-checked again during fallback completion.
+    SmallPtrSet<const Expr *, 1> PreCheckedExpressions;
 
   public:
     DotExprTypeCheckCompletionCallback(DeclContext *DC,
@@ -82,6 +88,10 @@ namespace swift {
     void fallbackTypeCheck();
 
     void sawSolution(const constraints::Solution &solution) override;
+
+    void preCheckedExpression(const Expr *expr) override {
+      PreCheckedExpressions.insert(expr);
+    }
   };
 
   /// Used to collect and store information needed to perform unresolved member
@@ -98,6 +108,9 @@ namespace swift {
     CodeCompletionExpr *CompletionExpr;
     SmallVector<Result, 4> Results;
     bool GotCallback = false;
+    /// The expressions that were pre-checked during solver-based completion and
+    /// should not be pre-checked again during fallback completion.
+    SmallPtrSet<const Expr *, 1> PreCheckedExpressions;
 
   public:
     UnresolvedMemberTypeCheckCompletionCallback(CodeCompletionExpr *CompletionExpr)
@@ -114,6 +127,10 @@ namespace swift {
     void fallbackTypeCheck(DeclContext *DC);
 
     void sawSolution(const constraints::Solution &solution) override;
+
+    void preCheckedExpression(const Expr *expr) override {
+      PreCheckedExpressions.insert(expr);
+    }
   };
 
   class KeyPathTypeCheckCompletionCallback

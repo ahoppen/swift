@@ -879,7 +879,8 @@ static void filterSolutions(SolutionApplicationTarget &target,
 }
 
 bool TypeChecker::typeCheckForCodeCompletion(
-    SolutionApplicationTarget &target, bool needsPrecheck,
+    SolutionApplicationTarget &target,
+    llvm::function_ref<bool(const Expr *)> needsPrecheck,
     llvm::function_ref<void(const Solution &)> callback) {
   auto *DC = target.getDeclContext();
   auto &Context = DC->getASTContext();
@@ -922,7 +923,7 @@ bool TypeChecker::typeCheckForCodeCompletion(
   // (that are type-checked together with enclosing context)
   // and regular closures which are type-checked separately.
 
-  if (needsPrecheck) {
+  if (needsPrecheck(expr)) {
     // First, pre-check the expression, validating any types that occur in the
     // expression and folding sequence expressions.
     auto failedPreCheck = ConstraintSystem::preCheckExpression(
@@ -1019,8 +1020,9 @@ bool TypeChecker::typeCheckForCodeCompletion(
                                                fallback->DC, CTP_Unused,
                                                /*contextualType=*/Type(),
                                                /*isDiscarded=*/true);
-    typeCheckForCodeCompletion(completionTarget, fallback->SeparatePrecheck,
-                               callback);
+    typeCheckForCodeCompletion(
+        completionTarget,
+        [&](const Expr *) { return fallback->SeparatePrecheck; }, callback);
   }
   return true;
 }
@@ -1140,7 +1142,8 @@ void DotExprTypeCheckCompletionCallback::fallbackTypeCheck() {
                                              /*isDiscared=*/true);
 
   TypeChecker::typeCheckForCodeCompletion(
-      completionTarget, /*needsPrecheck*/true,
+      completionTarget,
+      [&](const Expr *expr) { return PreCheckedExpressions.count(expr) == 0; },
       [&](const Solution &S) { sawSolution(S); });
 }
 
@@ -1161,7 +1164,8 @@ fallbackTypeCheck(DeclContext *DC) {
                                              CTP_Unused, Type(),
                                              /*isDiscared=*/true);
   TypeChecker::typeCheckForCodeCompletion(
-      completionTarget, /*needsPrecheck*/true,
+      completionTarget,
+      [&](const Expr *expr) { return PreCheckedExpressions.count(expr) == 0; },
       [&](const Solution &S) { sawSolution(S); });
 }
 

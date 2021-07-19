@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TypeChecker.h"
 #include "TypeCheckType.h"
+#include "TypeChecker.h"
 #include "TypoCorrection.h"
 #include "swift/AST/ASTVisitor.h"
 #include "swift/AST/ASTWalker.h"
@@ -30,6 +30,7 @@
 #include "swift/AST/TypeCheckRequests.h"
 #include "swift/Parse/Confusables.h"
 #include "swift/Parse/Lexer.h"
+#include "swift/Sema/CodeCompletionTypeChecking.h"
 #include "swift/Sema/ConstraintSystem.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -2063,6 +2064,9 @@ bool ConstraintSystem::preCheckExpression(Expr *&expr, DeclContext *dc,
   if (auto result = expr->walk(preCheck)) {
     expr = result;
     return false;
+  }
+  if (ctx.CompletionCallback) {
+    ctx.CompletionCallback->preCheckedExpression(expr);
   }
   return true;
 }
