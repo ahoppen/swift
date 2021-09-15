@@ -153,5 +153,5 @@
         "source=swift-build,target=/home/build-user/build,type=volume",
         "source=sccache,target=/home/build-user/.cache/sccache,type=volume"
     ],
-    "onCreateCommand": "/home/build-user/src/swift/utils/update-checkout --clone --skip-repository swift"
+    "onCreateCommand": ""
 }
