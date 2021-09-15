@@ -145,9 +145,9 @@
     },
     "remoteUser": "build-user",
     "containerUser": "build-user",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/swift,type=bind,consistency=delegated",
+    // "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/swift,type=bind,consistency=delegated",
     // "workspaceMount": "source=/home/ubuntu/swift,target=/workspaces/swift,type=bind,consistency=delegated",
-    "workspaceFolder": "/workspaces/swift",
+    // "workspaceFolder": "/workspaces/swift",
     "mounts": [
         "source=swift-src,target=/workspaces,type=volume",
         "source=swift-build,target=/home/build-user/build,type=volume",
