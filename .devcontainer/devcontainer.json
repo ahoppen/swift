@@ -149,7 +149,7 @@
     // "workspaceMount": "source=/home/ubuntu/swift,target=/workspaces/swift,type=bind,consistency=delegated",
     // "workspaceFolder": "/workspaces/swift",
     "mounts": [
-        "source=swift-src,target=/workspaces,type=volume",
+        // "source=swift-src,target=/workspaces,type=volume",
         "source=swift-build,target=/home/build-user/build,type=volume",
         "source=sccache,target=/home/build-user/.cache/sccache,type=volume"
     ],
