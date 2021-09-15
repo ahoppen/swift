@@ -1,0 +1,157 @@
+{
+    "name": "Swift",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "extensions": [
+        "vadimcn.vscode-lldb",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cmake-tools",
+        "ms-vscode-remote.remote-ssh",
+        "ms-python.python",
+        "twxs.cmake",
+        "rreverser.llvm",
+        "jakob-erzar.llvm-tablegen",
+        "xaver.clang-format",
+        "pkief.material-icon-the",
+    ],
+    "runArgs": [
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined"
+    ],
+    "settings": {
+        "clangd.arguments": [
+            "--compile-commands-dir=/home/build-user/build/releaseassert/"
+        ],
+        "sourcekit-lsp.serverPath": "/usr/bin/sourcekit-lsp",
+        "sourcekit-lsp.trace.server": "verbose",
+        //--------------------------------------------------------------------------
+        //              C++
+        //--------------------------------------------------------------------------
+        "clang-format.fallbackStyle": "LLVM",
+        "clang-format.style": "LLVM",
+        "C_Cpp.clang_format_style": "LLVM",
+        "C_Cpp.default.cppStandard": "c++14",
+        "C_Cpp.default.cStandard": "c11",
+        //--------------------------------------------------------------------------
+        //              CMake
+        //--------------------------------------------------------------------------
+        "cmake.generator": "Ninja",
+        "cmake.sourceDirectory": "/home/build-user/src/llvm-project/llvm",
+        "cmake.buildDirectory": "/home/build-user/build/${variant:buildType}",
+        "cmake.configureSettings": {
+            // "LLVM_ENABLE_LLD": "ON",
+            "LLVM_TARGETS_TO_BUILD": [
+                "X86",
+                "ARM",
+                "AArch64"
+            ],
+            "CMAKE_C_COMPILER_LAUNCHER": "sccache",
+            "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
+            "LLVM_DISABLE_INDEX_STORE": "ON",
+            // "CMAKE_BUILD_TYPE:STRING": "Release",
+            // "LLVM_ENABLE_ASSERTIONS": "ON",
+            "LLVM_EXTERNAL_PROJECTS": [
+                "cmark",
+                "swift"
+            ],
+            "LLVM_EXTERNAL_CMARK_SOURCE_DIR": "/home/build-user/src/cmark",
+            "LLVM_EXTERNAL_SWIFT_SOURCE_DIR": "/home/build-user/src/swift",
+            "SWIFT_ENABLE_EXPERIMENTAL_CONCURRENCY": "TRUE",
+            "SWIFT_HOST_VARIANT": "linux",
+            "SWIFT_HOST_VARIANT_SDK": "LINUX",
+            "SWIFT_HOST_VARIANT_ARCH": "x86_64",
+            "SWIFT_SOURCEKIT_USE_INPROC_LIBRARY": "TRUE",
+            "SWIFT_PATH_TO_LIBDISPATCH_SOURCE:PATH": "/home/build-user/src/swift-corelibs-libdispatch",
+            "LLVM_ENABLE_PROJECTS": [
+                "clang",
+                "compiler-rt" // only for RA
+            ],
+            "LLVM_PACKAGE_VERSION": "4.0.0",
+            "SWIFT_BUILD_PERF_TESTSUITE": "NO",
+            "SWIFT_INCLUDE_DOCS": "NO",
+            "SWIFT_BUILD_RUNTIME_WITH_HOST_COMPILER": "NO",
+            "SWIFT_PATH_TO_EXTERNAL_STDLIB_BUILD": "/home/build-user/build/stdlib",
+            "SWIFT_BUILD_REMOTE_MIRROR": "FALSE",
+            "SWIFT_BUILD_DYNAMIC_STDLIB": "FALSE",
+            "SWIFT_BUILD_STATIC_STDLIB": "FALSE",
+            "SWIFT_BUILD_DYNAMIC_SDK_OVERLAY": "FALSE",
+            "SWIFT_BUILD_STATIC_SDK_OVERLAY": "FALSE",
+            "SWIFT_BUILD_STDLIB_EXTRA_TOOLCHAIN_CONTENT": "FALSE",
+            "CMAKE_EXPORT_COMPILE_COMMANDS": 1
+        },
+        //--------------------------------------------------------------------------
+        //              Editor
+        //--------------------------------------------------------------------------
+        "editor.mouseWheelZoom": true,
+        "editor.renderIndentGuides": false,
+        "editor.rulers": [
+            80
+        ],
+        "editor.formatOnPaste": false,
+        "editor.renderWhitespace": "all",
+        //--------------------------------------------------------------------------
+        //              Misc
+        //--------------------------------------------------------------------------
+        "telemetry.enableTelemetry": false,
+        "telemetry.enableCrashReporter": false,
+        "[cpp]": {
+            "editor.defaultFormatter": "xaver.clang-format"
+        },
+        "workbench.iconTheme": "material-icon-theme",
+        "cmake.defaultVariants": {
+            "buildType": {
+                "default": "debug",
+                "description": "The build type.",
+                "choices": {
+                    "debug": {
+                        "short": "Debug",
+                        "long": "Disable optimizations - include debug information.",
+                        "buildType": "Debug",
+                        "settings": {
+                            "LLVM_ENABLE_ASSERTIONS": "ON",
+                            "LLVM_ENABLE_PROJECTS": [
+                                "clang",
+                            ],
+                        }
+                    },
+                    "release": {
+                        "short": "Release",
+                        "long": "Optimize for speed - exclude debug information.",
+                        "buildType": "Release",
+                        "settings": {
+                            "LLVM_ENABLE_ASSERTIONS": "OFF",
+                            "LLVM_ENABLE_PROJECTS": [
+                                "clang",
+                            ],
+                        }
+                    },
+                    "releaseassert": {
+                        "short": "Release+Asserts",
+                        "long": "Optimize for speed - exclude debug information.",
+                        "buildType": "Release",
+                        "settings": {
+                            "LLVM_ENABLE_ASSERTIONS": "ON",
+                            "LLVM_ENABLE_PROJECTS": [
+                                "clang",
+                                "compiler-rt"
+                            ],
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "remoteUser": "build-user",
+    "containerUser": "build-user",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/home/build-user/src/swift,type=bind,consistency=delegated",
+    // "workspaceMount": "source=/home/ubuntu/swift,target=/home/build-user/src/swift,type=bind,consistency=delegated",
+    "workspaceFolder": "/home/build-user/src/swift",
+    "mounts": [
+        "source=swift-src,target=/home/build-user/src,type=volume",
+        "source=swift-build,target=/home/build-user/build,type=volume",
+        "source=sccache,target=/home/build-user/.cache/sccache,type=volume"
+    ],
+    "onCreateCommand": "/home/build-user/src/swift/utils/update-checkout --clone --skip-repository swift"
+}

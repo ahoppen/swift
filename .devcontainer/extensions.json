@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "vadimcn.vscode-lldb",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "ms-vscode.cmake-tools",
+    "ms-vscode-remote.remote-ssh",
+    "ms-python.python",
+    "twxs.cmake",
+    "rreverser.llvm",
+    "jakob-erzar.llvm-tablegen",
+    "xaver.clang-format",
+    "pkief.material-icon-the",
+  ]
+}

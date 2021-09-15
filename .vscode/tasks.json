@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run lit tests (Release+Assert)",
+            "type": "shell",
+            "command": "python3 /home/build-user/src/llvm-project/llvm/utils/lit/lit.py -sv /home/build-user/build/releaseassert/tools/swift/test-linux-x86_64/",
+            "group": "test"
+        },
+    ]
+}
