@@ -38,7 +38,7 @@
         //              CMake
         //--------------------------------------------------------------------------
         "cmake.generator": "Ninja",
-        "cmake.sourceDirectory": "/home/build-user/src/llvm-project/llvm",
+        "cmake.sourceDirectory": "/workspaces/llvm-project/llvm",
         "cmake.buildDirectory": "/home/build-user/build/${variant:buildType}",
         "cmake.configureSettings": {
             // "LLVM_ENABLE_LLD": "ON",
@@ -56,14 +56,14 @@
                 "cmark",
                 "swift"
             ],
-            "LLVM_EXTERNAL_CMARK_SOURCE_DIR": "/home/build-user/src/cmark",
-            "LLVM_EXTERNAL_SWIFT_SOURCE_DIR": "/home/build-user/src/swift",
+            "LLVM_EXTERNAL_CMARK_SOURCE_DIR": "/workspaces/cmark",
+            "LLVM_EXTERNAL_SWIFT_SOURCE_DIR": "/workspaces/swift",
             "SWIFT_ENABLE_EXPERIMENTAL_CONCURRENCY": "TRUE",
             "SWIFT_HOST_VARIANT": "linux",
             "SWIFT_HOST_VARIANT_SDK": "LINUX",
             "SWIFT_HOST_VARIANT_ARCH": "x86_64",
             "SWIFT_SOURCEKIT_USE_INPROC_LIBRARY": "TRUE",
-            "SWIFT_PATH_TO_LIBDISPATCH_SOURCE:PATH": "/home/build-user/src/swift-corelibs-libdispatch",
+            "SWIFT_PATH_TO_LIBDISPATCH_SOURCE:PATH": "/workspaces/swift-corelibs-libdispatch",
             "LLVM_ENABLE_PROJECTS": [
                 "clang",
                 "compiler-rt" // only for RA
@@ -145,13 +145,13 @@
     },
     "remoteUser": "build-user",
     "containerUser": "build-user",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/home/build-user/src/swift,type=bind,consistency=delegated",
-    // "workspaceMount": "source=/home/ubuntu/swift,target=/home/build-user/src/swift,type=bind,consistency=delegated",
-    "workspaceFolder": "/home/build-user/src/swift",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/swift,type=bind,consistency=delegated",
+    // "workspaceMount": "source=/home/ubuntu/swift,target=/workspaces/swift,type=bind,consistency=delegated",
+    "workspaceFolder": "/workspaces/swift",
     "mounts": [
-        "source=swift-src,target=/home/build-user/src,type=volume",
+        "source=swift-src,target=/workspaces,type=volume",
         "source=swift-build,target=/home/build-user/build,type=volume",
         "source=sccache,target=/home/build-user/.cache/sccache,type=volume"
     ],
-    "onCreateCommand": ""
+    "onCreateCommand": "/workspaces/swift/utils/update-checkout --clone --skip-repository swift"
 }
