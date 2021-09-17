@@ -38,22 +38,15 @@ RUN apt-get -y update && apt-get -y install \
   unzip                 \
   uuid-dev
 
-RUN apt-get -y install clangd clang-format
-RUN ln -s /usr/include /include
-
-COPY ./cmake /home/build-user/cmake
-RUN chmod -R a+xr /home/build-user/cmake
+RUN apt-get -y install clangd clang-format lldb
+RUN mkdir -p /workspaces
+RUN chmod a+w /workspaces
 
 USER build-user
 
 WORKDIR /home/build-user
 
-RUN mkdir -p /home/build-user/build
 RUN mkdir -p /home/build-user/.cache/sccache
-RUN mkdir -p /home/build-user/cmake-build/bin
-
-
-ENV PATH=/home/build-user/.cargo/bin/:/home/build-user/cmake/bin:$PATH
-ENV SCCACHE_CACHE_SIZE="20G"
-
 COPY --from=sccache-builder /root/.cargo/bin/sccache /home/build-user/.cargo/bin/sccache
+ENV PATH=/home/build-user/.cargo/bin/:$PATH
+ENV SCCACHE_CACHE_SIZE="20G"

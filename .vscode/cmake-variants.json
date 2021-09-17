@@ -1,0 +1,17 @@
+{
+    "buildType": {
+        "default": "DebugAssert",
+        "choices": {
+            "DebugAssert": {
+                "short": "DebugAssert",
+                "long": "Debug Compiler",
+                "buildType": "Debug"
+            },
+            "ReleaseAssert+stdlib-DebugAssert": {
+                "short": "ReleaseAssert+stdlib-DebugAssert",
+                "long": "Release Compiler with Debug Stdlib",
+                "buildType": "Release"
+            }
+        }
+    }
+}

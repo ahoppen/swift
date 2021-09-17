@@ -2,10 +2,26 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run lit tests (Release+Assert)",
+            "label": "Configure Release+Assert with Debug standard library",
+            "detail": "Creates Release+Asserts build of the compiler with a debug standard library.",
+            "group": "build",
             "type": "shell",
-            "command": "python3 /home/build-user/src/llvm-project/llvm/utils/lit/lit.py -sv /home/build-user/build/releaseassert/tools/swift/test-linux-x86_64/",
-            "group": "test"
+            "command": "${workspaceFolder}/utils/build-script --sccache --release --lldb --debug-swift-stdlib --export-compile-commands --llvm-cmake-options==-DLLVM_PARALLEL_LINK_JOBS=6 --swift-cmake-options=-DSWIFT_PARALLEL_LINK_JOBS=6 --reconfigure",
         },
+        {
+            "label": "Configure Debug",
+            "detail": "Creates a Debug build of the compiler. Reuses the stdlib from the Release+Assert build",
+            "group": "build",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/make-stdlib-symlinks.sh ${workspaceFolder}/../build/Ninja-DebugAssert/swift-linux-x86_64 && ${workspaceFolder}/utils/build-script --skip-build-benchmark --sccache --debug '--extra-cmake-options=-DSWIFT_PATH_TO_EXTERNAL_STDLIB_BUILD=/workspaces/build/Ninja-RelWithDebInfoAssert/swift-linux-x86_64,-DSWIFT_BUILD_DYNAMIC_STDLIB=FALSE,-DSWIFT_BUILD_STATIC_STDLIB=FALSE,-DSWIFT_BUILD_REMOTE_MIRROR=FALSE,-DSWIFT_BUILD_DYNAMIC_SDK_OVERLAY=FALSE,-DSWIFT_BUILD_STATIC_SDK_OVERLAY=FALSE,-DSWIFT_BUILD_STDLIB_EXTRA_TOOLCHAIN_CONTENT=FALSE' --skip-build-linux  --llvm-cmake-options==-DLLVM_PARALLEL_LINK_JOBS=6 --swift-cmake-options=-DSWIFT_PARALLEL_LINK_JOBS=6",
+        },
+        {
+            "label": "Initial setup",
+            "detail": "Perform all preliminary steps to get the environment to work",
+            "group": "build",
+            "dependsOn": ["Configure Release+Assert with Debug standard library"],
+            "type": "shell",
+            "command": "rm -f ${workspaceFolder}/../build/canonical && ln -sf Ninja-ReleaseAssert+stdlib-DebugAssert ${workspaceFolder}/../build/canonical",
+        }
     ]
 }
