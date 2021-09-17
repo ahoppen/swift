@@ -29,7 +29,7 @@
     // "workspaceFolder": "/workspaces/swift",
     "mounts": [
         "source=sccache,target=/home/build-user/.cache/sccache,type=volume",
-        "source=swift-workspaces,target=/workspaces,type=volume",
+        // "source=swift-workspaces,target=/workspaces,type=volume",
     ],
     "onCreateCommand": "/workspaces/swift/utils/update-checkout --clone $(ls /workspaces | sed -E 's/^/ --skip-repository /g')" // Clone all repositories that don't exist yet
 }
