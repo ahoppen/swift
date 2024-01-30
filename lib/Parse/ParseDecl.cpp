@@ -1093,7 +1093,7 @@ bool Parser::parseSpecializeAttribute(
     llvm::function_ref<bool(Parser &)> parseSILSIPModule) {
   assert(ClosingBrace == tok::r_paren || ClosingBrace == tok::r_square);
 
-  SourceLoc lParenLoc = consumeToken();
+  SourceLoc lParenLoc = consumeAttributeLParen();
   bool DiscardAttribute = false;
   StringRef AttrName = "_specialize";
 
@@ -1157,7 +1157,7 @@ Parser::parseStorageRestrictionsAttribute(SourceLoc AtLoc, SourceLoc Loc) {
   }
 
   // Consume '('
-  SourceLoc lParenLoc = consumeToken();
+  SourceLoc lParenLoc = consumeAttributeLParen();
 
   SmallVector<Identifier> initializesProperties;
   SmallVector<Identifier> accessesProperties;
@@ -1319,7 +1319,7 @@ Parser::parseImplementsAttribute(SourceLoc AtLoc, SourceLoc Loc) {
     return Status;
   }
 
-  SourceLoc lParenLoc = consumeToken();
+  SourceLoc lParenLoc = consumeAttributeLParen();
 
   DeclNameLoc MemberNameLoc;
   DeclNameRef MemberName;
@@ -1379,13 +1379,13 @@ Parser::parseImplementsAttribute(SourceLoc AtLoc, SourceLoc Loc) {
 ParserResult<DifferentiableAttr>
 Parser::parseDifferentiableAttribute(SourceLoc atLoc, SourceLoc loc) {
   StringRef AttrName = "differentiable";
-  SourceLoc lParenLoc = loc, rParenLoc = loc;
+  SourceLoc rParenLoc = loc;
   DifferentiabilityKind diffKind = DifferentiabilityKind::Normal;
   SmallVector<ParsedAutoDiffParameter, 8> parameters;
   TrailingWhereClause *whereClause = nullptr;
 
   // Parse '('.
-  if (consumeIf(tok::l_paren, lParenLoc)) {
+  if (consumeIfAttributeLParen()) {
     // Parse @differentiable attribute arguments.
     if (parseDifferentiableAttributeArguments(
             diffKind, parameters, whereClause))
@@ -1415,7 +1415,7 @@ bool Parser::parseExternAttribute(DeclAttributes &Attributes,
   SourceLoc lParenLoc = Tok.getLoc(), rParenLoc;
 
   // Parse @_extern(<language>, ...)
-  if (!consumeIf(tok::l_paren)) {
+  if (!consumeIfAttributeLParen()) {
     diagnose(Loc, diag::attr_expected_lparen, AttrName,
              DeclAttribute::isDeclModifier(DAK_Extern));
     return false;
@@ -1857,7 +1857,7 @@ static bool parseQualifiedDeclName(Parser &P, Diag<> nameParseError,
 ParserResult<DerivativeAttr> Parser::parseDerivativeAttribute(SourceLoc atLoc,
                                                               SourceLoc loc) {
   StringRef AttrName = "derivative";
-  SourceLoc lParenLoc = loc, rParenLoc = loc;
+  SourceLoc rParenLoc = loc;
   TypeRepr *baseType = nullptr;
   DeclNameRefWithLoc original;
   SmallVector<ParsedAutoDiffParameter, 8> parameters;
@@ -1885,7 +1885,7 @@ ParserResult<DerivativeAttr> Parser::parseDerivativeAttribute(SourceLoc atLoc,
     return errorAndSkipUntilConsumeRightParen(*this, AttrName);
   };
   // Parse '('.
-  if (!consumeIf(tok::l_paren, lParenLoc)) {
+  if (!consumeIfAttributeLParen()) {
     diagnose(getEndOfPreviousLoc(), diag::attr_expected_lparen, AttrName,
              /*DeclModifier*/ false);
     return makeParserError();
@@ -1937,7 +1937,7 @@ ParserResult<DerivativeAttr> Parser::parseDerivativeAttribute(SourceLoc atLoc,
 ParserResult<TransposeAttr> Parser::parseTransposeAttribute(SourceLoc atLoc,
                                                             SourceLoc loc) {
   StringRef AttrName = "transpose";
-  SourceLoc lParenLoc = loc, rParenLoc = loc;
+  SourceLoc rParenLoc = loc;
   TypeRepr *baseType = nullptr;
   DeclNameRefWithLoc original;
   SmallVector<ParsedAutoDiffParameter, 8> parameters;
@@ -1966,7 +1966,7 @@ ParserResult<TransposeAttr> Parser::parseTransposeAttribute(SourceLoc atLoc,
   };
 
   // Parse '('.
-  if (!consumeIf(tok::l_paren, lParenLoc)) {
+  if (!consumeIfAttributeLParen()) {
     diagnose(getEndOfPreviousLoc(), diag::attr_expected_lparen, AttrName,
              /*DeclModifier*/ false);
     return makeParserError();
@@ -2270,7 +2270,7 @@ bool Parser::parseBackDeployedAttribute(DeclAttributes &Attributes,
                                         SourceLoc Loc) {
   std::string AtAttrName = (llvm::Twine("@") + AttrName).str();
   auto LeftLoc = Tok.getLoc();
-  if (!consumeIf(tok::l_paren)) {
+  if (!consumeIfAttributeLParen()) {
     diagnose(Loc, diag::attr_expected_lparen, AtAttrName,
              DeclAttribute::isDeclModifier(DAK_BackDeployed));
     return false;
@@ -2418,7 +2418,7 @@ Parser::parseDocumentationAttribute(SourceLoc AtLoc, SourceLoc Loc) {
   llvm::Optional<AccessLevel> Visibility = llvm::None;
   llvm::Optional<StringRef> Metadata = llvm::None;
 
-  if (!consumeIf(tok::l_paren)) {
+  if (!consumeIfAttributeLParen()) {
     diagnose(Loc, diag::attr_expected_lparen, AttrName,
              declModifier);
     return makeParserError();
@@ -2503,7 +2503,7 @@ Parser::parseMacroRoleAttribute(
   }
 
   // Parse the argments.
-  SourceLoc lParenLoc = consumeToken();
+  SourceLoc lParenLoc = consumeAttributeLParen();
   SourceLoc rParenLoc;
   llvm::Optional<MacroRole> role;
   bool sawRole = false;
@@ -2750,7 +2750,7 @@ static llvm::Optional<Identifier> parseSingleAttrOptionImpl(
     return llvm::None;
   }
 
-  P.consumeToken(tok::l_paren);
+  P.consumeAttributeLParen();
 
   StringRef parsedName = P.Tok.getText();
   if (!P.consumeIf(tok::identifier)) {
@@ -2913,7 +2913,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
     break;
 
   case DAK_Effects: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3093,7 +3093,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
       break;
     }
 
-    consumeToken(tok::l_paren);
+    consumeAttributeLParen();
 
     // Parse the subject.
     if (Tok.isContextualKeyword("set")) {
@@ -3145,7 +3145,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
   }
 
   case DAK_SPIAccessControl: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3186,7 +3186,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
   case DAK_CDecl:
   case DAK_Expose:
   case DAK_SILGenName: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3293,7 +3293,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
   }
 
   case DAK_Section: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3333,12 +3333,12 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
   }
   
   case DAK_Alignment: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
     }
-    
+
     if (Tok.isNot(tok::integer_literal)) {
       diagnose(Loc, diag::alignment_must_be_positive_integer);
       return makeParserSuccess();
@@ -3380,7 +3380,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
   }
   
   case DAK_Semantics: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3415,7 +3415,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
   }
   case DAK_OriginallyDefinedIn: {
     auto LeftLoc = Tok.getLoc();
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3505,7 +3505,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
     break;
   }
   case DAK_Available: {
-    if (!consumeIf(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
@@ -3523,7 +3523,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
                DeclAttribute::isDeclModifier(DK));
       return makeParserSuccess();
     }
-    SourceLoc LParenLoc = consumeToken(tok::l_paren);
+    SourceLoc LParenLoc = consumeAttributeLParen();
     llvm::Optional<StringRef> filename;
     {
       // Parse 'sourceFile'.
@@ -3574,7 +3574,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
     }
 
     // Parse the leading '('.
-    SourceLoc LParenLoc = consumeToken(tok::l_paren);
+    SourceLoc LParenLoc = consumeAttributeLParen();
 
     // Parse the names, with trailing colons (if there are present) and populate
     // the inout parameters
@@ -3640,7 +3640,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
       return makeParserSuccess();
     }
 
-    SourceLoc LParenLoc = consumeToken(tok::l_paren);
+    SourceLoc LParenLoc = consumeAttributeLParen();
     DeclNameRef replacedFunction;
     {
       // Parse 'for'.
@@ -3691,7 +3691,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
       return makeParserSuccess();
     }
 
-    SourceLoc LParenLoc = consumeToken(tok::l_paren);
+    SourceLoc LParenLoc = consumeAttributeLParen();
     ParserResult<TypeRepr> ErasedType;
     bool invalid = false;
     {
@@ -3792,7 +3792,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
 
   case DAK_UnavailableFromAsync: {
     StringRef message;
-    if (consumeIf(tok::l_paren)) {
+    if (consumeIfAttributeLParen()) {
       if (!Tok.is(tok::identifier)) {
         llvm_unreachable("Flag must start with an identifier");
       }
@@ -3882,7 +3882,7 @@ ParserStatus Parser::parseNewDeclAttribute(DeclAttributes &Attributes,
       return makeParserSuccess();
     }
 
-    consumeToken(tok::l_paren);
+    consumeAttributeLParen();
 
     if (!Tok.canBeArgumentLabel()) {
       diagnose(Loc, diag::attr_rawlayout_expected_label, "'size', 'like', or 'likeArrayOf'");
@@ -4160,6 +4160,10 @@ ParserResult<CustomAttr> Parser::parseCustomAttribute(
 
       initParser.emplace(*this, initContext);
     }
+    if (getEndOfPreviousLoc() != Tok.getLoc()) {
+      diagnose(getEndOfPreviousLoc(), diag::attr_extra_whitespace_before_lparen)
+          .warnUntilSwiftVersion(6);
+    }
     auto result = parseArgumentList(tok::l_paren, tok::r_paren,
                                     /*isExprBasic*/ true,
                                     /*allowTrailingClosure*/ false);
@@ -4427,10 +4431,11 @@ static bool parseDifferentiableTypeAttributeArgument(
     SourceLoc &diffKindLocResult, bool emitDiagnostics) {
   Parser::CancellableBacktrackingScope backtrack(P);
 
-  SourceLoc beginLoc, kindLoc, endLoc;
+  SourceLoc beginLoc = P.Tok.getLoc();
+  SourceLoc kindLoc, endLoc;
 
   // Match '( <identifier> )', and store the identifier token to `argument`.
-  if (!P.consumeIf(tok::l_paren, beginLoc))
+  if (!P.consumeIfAttributeLParen())
     return false;
   auto argument = P.Tok;
   if (!P.consumeIf(tok::identifier, kindLoc))
@@ -4498,7 +4503,7 @@ bool Parser::parseConventionAttributeInternal(SourceLoc atLoc, SourceLoc attrLoc
                                               ConventionTypeAttr *&result,
                                               bool justChecking) {
   SourceLoc LPLoc = Tok.getLoc();
-  if (!consumeIfNotAtStartOfLine(tok::l_paren)) {
+  if (!consumeIfAttributeLParen()) {
     if (!justChecking)
       diagnose(Tok, diag::convention_attribute_expected_lparen);
     return true;
@@ -4764,7 +4769,7 @@ ParserStatus Parser::parseTypeAttribute(TypeOrCustomAttr &result,
   case TAK_opened: {
     // Parse the opened existential ID string in parens
     SourceLoc beginLoc = Tok.getLoc(), idLoc, endLoc;
-    if (!consumeIfNotAtStartOfLine(tok::l_paren)) {
+    if (!consumeAttributeLParen()) {
       if (!justChecking)
         diagnose(Tok, diag::opened_attribute_expected_lparen);
       return makeParserError();
@@ -4817,7 +4822,7 @@ ParserStatus Parser::parseTypeAttribute(TypeOrCustomAttr &result,
 
     // Parse the opened ID string in parens
     SourceLoc beginLoc = Tok.getLoc(), idLoc, endLoc;
-    if (!consumeIfNotAtStartOfLine(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       if (!justChecking)
         diagnose(Tok, diag::pack_element_attribute_expected_lparen);
       return makeParserError();
@@ -4892,12 +4897,12 @@ ParserStatus Parser::parseTypeAttribute(TypeOrCustomAttr &result,
   case TAK__opaqueReturnTypeOf: {
     // Parse the mangled decl name and index.
     auto beginLoc = Tok.getLoc();
-    if (!consumeIfNotAtStartOfLine(tok::l_paren)) {
+    if (!consumeIfAttributeLParen()) {
       if (!justChecking)
         diagnose(Tok, diag::attr_expected_lparen, "_opaqueReturnTypeOf", false);
       return makeParserError();
     }
-    
+
     if (!Tok.is(tok::string_literal)) {
       if (!justChecking)
         diagnose(Tok, diag::opened_attribute_id_value);
