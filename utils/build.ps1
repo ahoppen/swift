@@ -1217,13 +1217,22 @@ function Build-CMakeProject {
   }
 }
 
+enum SPMBuildAction {
+  # 'swift build'
+  Build
+  # 'swift test'
+  Test
+  # 'swift test --parallel'
+  TestParallel
+}
+
 function Build-SPMProject {
   [CmdletBinding(PositionalBinding = $false)]
   param(
+    [SPMBuildAction] $Action,
     [string] $Src,
     [string] $Bin,
     [hashtable] $Arch,
-    [string] $Test = "no", # options: no (swift build), yes (swift test), parallel (swift test --parallel)
     [Parameter(ValueFromRemainingArguments)]
     [string[]] $AdditionalArguments
   )
@@ -1263,11 +1272,20 @@ function Build-SPMProject {
       $Arguments += @("-debug-info-format", "none")
     }
 
-    $Action = if ($Test -eq "no") { "build" } else { "test" }
-    if ($Test -eq "parallel") {
-      $Arguments += @("--parallel")
+    switch ($Action) {
+      Build {
+        $ActionName = "build"
+      }
+      Test {
+        $ActionName = "test"
+      }
+      TestParallel {
+        $ActionName = "test"
+        $Arguments += @("--parallel")
+      }
     }
-    Invoke-Program "$($HostArch.ToolchainInstallRoot)\usr\bin\swift.exe" $Action @Arguments @AdditionalArguments
+
+    Invoke-Program "$($HostArch.ToolchainInstallRoot)\usr\bin\swift.exe" $ActionName @Arguments @AdditionalArguments
   }
 
   if (-not $ToBatch) {
@@ -1820,7 +1838,7 @@ function Build-Foundation([Platform]$Platform, $Arch, [switch]$Test = $false) {
     Isolate-EnvVars {
       $env:SWIFTCI_USE_LOCAL_DEPS=1
       Build-SPMProject `
-        -Test "yes" `
+        -Action Test `
         -Src $SourceCache\swift-foundation `
         -Bin $OutDir `
         -Arch $HostArch
@@ -1838,7 +1856,7 @@ function Build-Foundation([Platform]$Platform, $Arch, [switch]$Test = $false) {
       $env:CURL_LIBRARY_PATH="$LibraryRoot/curl-8.9.1/usr/lib/$Platform/$ShortArch"
       $env:CURL_INCLUDE_PATH="$LibraryRoot/curl-8.9.1/usr/include"
       Build-SPMProject `
-        -Test "yes" `
+        -Action Test `
         -Src $SourceCache\swift-corelibs-foundation `
         -Bin $OutDir `
         -Arch $HostArch
@@ -2410,10 +2428,10 @@ function Test-Format {
     # launches a process for every test class and the process launching overhead on Windows is greater than any
     # gains from parallel test execution.
     Build-SPMProject `
+      -Action Test `
       -Src "$SourceCache\swift-format" `
       -Bin (Join-Path -Path $HostArch.BinaryCache -ChildPath swift-format) `
       -Arch $HostArch `
-      -Test "yes" `
       @SwiftPMArguments
   }
 }
@@ -2525,10 +2543,10 @@ function Test-SourceKitLSP {
     $env:SOURCEKIT_LSP_LOG_LEVEL="debug"
 
     Build-SPMProject `
+      -Action TestParallel `
       -Src "$SourceCache\sourcekit-lsp" `
       -Bin (Join-Path -Path $HostArch.BinaryCache -ChildPath sourcekit-lsp) `
       -Arch $HostArch `
-      -Test "parallel" `
       @SwiftPMArguments
   }
 }
@@ -2615,6 +2633,7 @@ function Build-Inspect() {
   Isolate-EnvVars {
     $env:SWIFTCI_USE_LOCAL_DEPS=1
     Build-SPMProject `
+      -Action Build `
       -Src $SourceCache\swift\tools\swift-inspect `
       -Bin $OutDir `
       -Arch $HostArch `
@@ -2628,6 +2647,7 @@ function Build-DocC() {
   Isolate-EnvVars {
     $env:SWIFTCI_USE_LOCAL_DEPS=1
     Build-SPMProject `
+      -Action Build `
       -Src $SourceCache\swift-docc `
       -Bin $OutDir `
       -Arch $HostArch `
@@ -2646,7 +2666,7 @@ function Test-PackageManager() {
   Isolate-EnvVars {
     $env:SWIFTCI_USE_LOCAL_DEPS=1
     Build-SPMProject `
-      -Test "yes" `
+      -Action Test `
       -Src $SrcDir `
       -Bin $OutDir `
       -Arch $HostArch `
